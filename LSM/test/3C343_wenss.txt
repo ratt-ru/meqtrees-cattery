@@ -1,0 +1,54 @@
+#***********************************************************#
+# If you used results from CATS queries in your papers, we'd#
+# be grateful to know where your paper will appear, and for #
+# adding to your paper the following reference:             #
+#---------------------------------------------------------- #
+# The authors made use of the database CATS (Verkhodanov    #
+# et al., 1997) of the Special Astrophysical Observatory.   #
+#                                                           #
+#   Verkhodanov O.V., Trushkin S.A., Andernach H.,          #
+#      Chernenkov V.N. 1997. The CATS database to operate   #
+#      with astrophysical catalogs. In "Astronomical Data   #
+#      Analysis Software and Systems VI".                   #
+#      Editors: Gareth Hunt and H. E. Payne                 #
+#      ASP Conference Series, Vol. 125, P.322-325.          #
+#***********************************************************#
+# TASK: selection
+#    default input  epoch: J2000.0
+#    default output epoch: J2000.0
+#    RA limits:   16:34:00.120 16:43:00.120
+#    Dec limits:  62:00:00.000 63:00:00.000
+#    GLon limits: 0 360
+#    GLat limits: -90 90
+#    Flux limits: 0 1000000Jy
+#-------------------------------------------
+# cat     name            RA          eRA      Dec        eDec     freq   Flux(Jy)   eFl equi.
+#---------------------------------------------------------------------------------------------
+WENSS WNB1634.0+6251   16 34 33.711      n   62 45 36.2      n      325    13.656   0.0052 J     
+WENSS WNB1634.9+6245   16 35 27.879      n   62 39 03        n      325     0.081   0.0051 J     
+WENSS WNB1635.3+6256   16 35 54.93       n   62 50 02.7      n      325     0.023   0.0052 J     
+WENSS WNB1635.3+6211   16 35 56.422      n   62 05 33.7      n      325     0.599   0.0051 J     
+WENSS WNB1636.0+6236   16 36 38.551      n   62 30 40.41     n      325     0.056   0.0051 J     
+WENSS WNB1636.2+6210   16 36 49.469      n   62 04 19.7      n      325     0.029   0.0051 J     
+WENSS WNB1636.5+6236   16 37 08.941      n   62 30 44.2      n      325     0.028   0.0051 J     
+WENSS WNB1637.6+6236   16 38 11.801      n   62 30 48.09     n      325     0.106   0.0051 J     
+WENSS WNB1637.9+6240   16 38 28.09       n   62 34 44.8      n      325    13.533    0.005 J     
+WENSS WNB1638.1+6249   16 38 43.02       n   62 43 18.8      n      325      0.04   0.0051 J     
+WENSS WNB1638.2+6205   16 38 48.809      n   62 00 11.09     n      325     0.041   0.0049 J     
+WENSS WNB1638.4+6205   16 39 03.988      n   62 00 06.09     n      325     0.034   0.0048 J     
+WENSS WNB1638.7+6305   16 39 13.211      n   62 59 58.7      n      325     0.058   0.0049 J     
+WENSS WNB1639.1+6219   16 39 41.91       n   62 13 35.3      n      325     0.184   0.0049 J     
+WENSS WNB1640.2+6231   16 40 48.82       n   62 26 12.09     n      325     0.031   0.0049 J     
+WENSS WNB1640.5+6300   16 41 01.961      n   62 54 31.59     n      325     0.019   0.0048 J     
+WENSS WNB1640.6+6234   16 41 14.461      n   62 28 49.09     n      325     0.257   0.0048 J     
+WENSS WNB1640.9+6252   16 41 25.91       n   62 46 34.59     n      325     0.362   0.0048 J     
+WENSS WNB1641.2+6239   16 41 45.199      n   62 33 57.2      n      325     0.019   0.0047 J     
+WENSS WNB1641.6+6233   16 42 10.852      n   62 28 20.59     n      325      0.16   0.0046 J     
+WENSS WNB1642.2+6249   16 42 45.219      n   62 43 58.09     n      325     0.058   0.0046 J     
+WENSS WNB1642.2+6255   16 42 47.27       n   62 49 37.41     n      325     0.043   0.0046 J     
+WENSS WNB1642.2+6216   16 42 49.141      n   62 10 50.41     n      325     0.039   0.0046 J     
+WENSS WNB1642.3+6244   16 42 53.422      n   62 39 01.2      n      325      0.06   0.0046 J     
+#----------------------------------------------------------------
+#The catalogue identifications listed are related to the following references:
+#----------------------------------------------------------------
+# WENSS  : 1997A&AS..124..259Rengelink+ The Westerbork Northern Sky Survey (WENSS). ...around the North Ecliptic Pole.;

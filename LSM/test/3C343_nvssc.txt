@@ -1,0 +1,34 @@
+#***********************************************************#
+# If you used results from CATS queries in your papers, we'd#
+# be grateful to know where your paper will appear, and for #
+# adding to your paper the following reference:             #
+#---------------------------------------------------------- #
+# The authors made use of the database CATS (Verkhodanov    #
+# et al., 1997) of the Special Astrophysical Observatory.   #
+#                                                           #
+#   Verkhodanov O.V., Trushkin S.A., Andernach H.,          #
+#      Chernenkov V.N. 1997. The CATS database to operate   #
+#      with astrophysical catalogs. In "Astronomical Data   #
+#      Analysis Software and Systems VI".                   #
+#      Editors: Gareth Hunt and H. E. Payne                 #
+#      ASP Conference Series, Vol. 125, P.322-325.          #
+#***********************************************************#
+# TASK: selection
+#    default input  epoch: J2000.0
+#    default output epoch: J2000.0
+#    RA limits:   16:34:00.120 16:43:00.120
+#    Dec limits:  62:00:00.000 63:00:00.000
+#    GLon limits: 0 360
+#    GLat limits: -90 90
+#    Flux limits: 0 1000000Jy
+#-------------------------------------------
+# cat     name            RA          eRA      Dec        eDec     freq   Flux(Jy)   eFl equi.
+#---------------------------------------------------------------------------------------------
+NVSSC J1634+6245       16 34 33.86       n   62 45 35.7      n     1400         5        n J     
+NVSSC J1634+6245       16 34 33.86       n   62 45 35.7      n     5000      1.78        n J     
+NVSSC J1638+6234       16 38 28.22       n   62 34 43.9      n     1400       4.6        n J     
+NVSSC J1638+6234       16 38 28.22       n   62 34 43.9      n     5000      1.22        n J     
+#----------------------------------------------------------------
+#The catalogue identifications listed are related to the following references:
+#----------------------------------------------------------------
+# NVSSC  : 2001PASP..113..362Condon+ 2002: Offset Pointing Calibrators for Large Radio Telescopes;
