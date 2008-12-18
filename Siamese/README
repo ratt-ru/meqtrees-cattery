@@ -1,0 +1,6 @@
+
+Siamese is not a simulator, it's a framework for putting simulators
+together!
+
+With that in mind, you should start by running example-sim.py. This is an
+example simulator assembled using Siamese.
