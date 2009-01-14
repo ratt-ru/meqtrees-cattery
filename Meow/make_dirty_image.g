@@ -26,7 +26,7 @@ fitsname := '';
 filter_bmaj := '';
 filter_bmin := '';
 filter_bpa := '';
-phasecenter := '';
+phasecenter := F;
 
 # parse command line
 for( a in argv )
