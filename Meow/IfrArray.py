@@ -33,11 +33,17 @@ _uvw_from_ms = "from MS";
 _uvw_compute_mirror = "compute (VLA convention)";
 _uvw_compute = "compute (WSRT convention)";
 
-_options = [
-  TDLOption('uvw_source',"UVW coordinates",[_uvw_from_ms,_uvw_compute_mirror,_uvw_compute],
+uvw_source_opt = TDLOption('uvw_source',"UVW coordinates",
+      [_uvw_from_ms,_uvw_compute_mirror,_uvw_compute],
       doc="""UVW coordinates can be read from the MS, or recomputed on the fly.
-      In the latter case, you have a choice of two opposite sign conventions.""")
-];
+      In the latter case, you have a choice of two opposite sign conventions.""");
+uvw_refant_opt = TDLOption('uvw_refant',"Reference antenna #",0,more=int,
+      doc="""This is the reference antenna used to compute antenna-based UVWs.
+      Specify a 0-based antenna index. Note that this antenna must be present in 
+      all timeslots where data is available.""");
+
+_options = [ uvw_source_opt,uvw_refant_opt ];
+uvw_source_opt.when_changed(lambda x:uvw_refant_opt.show(x==_uvw_from_ms));
 
 class IfrArray (object):
   def compile_options ():
@@ -235,11 +241,17 @@ class IfrArray (object):
       if self._ms_uvw:
         # read UVWs from MS
         # first station gets (0,0,0), the rest is via subtraction
-        ip0,p0 = self.station_index()[0];
+        ip0,p0 = self.station_index()[uvw_refant];
         uvw(p0) << Meq.Composer(0,0,0);
         uvw(p0)._multiproc = True; # hint to parallelizer to clone this node on all processors
-        for iq,q in self.station_index()[1:]:
-          spigdef = Meq.Spigot(station_1_index=ip0,station_2_index=iq,input_col='UVW');
+        for iq,q in self.station_index():
+          if iq < ip0:
+            m_uvw(q) << Meq.Spigot(station_1_index=iq,station_2_index=ip0,input_col='UVW');
+            spigdef = -m_uvw(q);
+          elif iq > ip0:
+            spigdef = Meq.Spigot(station_1_index=ip0,station_2_index=iq,input_col='UVW');
+          else:
+            continue;
           if self._resamplers:
             uvw(q) << Meq.Resampler(uvw(q,"res") << spigdef,mode=1);
           else:

@@ -119,6 +119,7 @@ class MeqMaker (object):
         namespace=self,toggle='use_smearing',default=True,
       )
     );
+    other_opt += Meow.IfrArray.compile_options();
     self._compile_options.append(TDLMenu("Measurement Equation options",*other_opt));
 
   def compile_options (self):
