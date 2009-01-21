@@ -1,6 +1,6 @@
 from Timba.TDL import *
 from Timba.Meq import meq
-from Ionosphere.PiercePoints.PiercePoints import *
+from Lions.PiercePoints.PiercePoints import *
 import Meow
 
 
@@ -44,6 +44,6 @@ class MIM(PiercePoints):
         Kol_node=self.ns['Kol_node'](src,station);
         if Kol_node.initialized():
             return Kol_node;
-        kl=self.ns['Kol_node'](src,station)  <<  Meq.PyNode(children=(pp(src,station),),class_name="KolmogorovNode",module_name="Ionosphere.PiercePoints.modules.KolmogorovNode",grid_size=N,beta=beta,scale=scale,speedx=speedx,speedy=speedy,amp_scale=amp_scale,seed_nr=seed_nr);
+        kl=self.ns['Kol_node'](src,station)  <<  Meq.PyNode(children=(pp(src,station),),class_name="KolmogorovNode",module_name="Lions.PiercePoints.modules.KolmogorovNode",grid_size=N,beta=beta,scale=scale,speedx=speedx,speedy=speedy,amp_scale=amp_scale,seed_nr=seed_nr);
         return kl;
                 

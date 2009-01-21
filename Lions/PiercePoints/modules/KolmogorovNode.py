@@ -4,7 +4,7 @@ from Timba import pynode
 from Timba import dmi
 from Timba import utils
 from Timba.Meq import meq
-from Ionosphere.PiercePoints.modules import PhaseScreen
+from Lions.PiercePoints.modules import PhaseScreen
 
 Settings.forest_state.cache_policy = 100;
 

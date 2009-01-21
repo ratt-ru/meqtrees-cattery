@@ -1,6 +1,6 @@
 from Timba.TDL import *
 from Timba.Meq import meq
-from Ionosphere.PiercePoints import PiercePoints
+from Lions.PiercePoints import PiercePoints
 import Meow
 import math
 

@@ -452,3 +452,308 @@ img_sel.imaging_arcmin = 5
 img_sel.imaging_padding = 1.0
 img_sel.imaging_enable_wproj = False
 img_sel.imaging_custom_ms_select = False
+
+###  Tue Jan  6 17:11:10 2009
+### user mevius on host birch
+### script: /home/mevius/Frameworks/Cattery/Lions/SimCa.py
+### cwd: /home/mevius/Frameworks/Cattery/Lions
+### running TDL job 'Simulate'
+[SimCa]
+# compile-time options follow
+ms_sel.msname = /data/mevius/test.MS/
+ms_sel.ms_antenna_sel = None
+ms_sel.ms_corr_sel = 2x2
+run_option = simulate
+do_add = False
+noise_stddev = None
+me.use_decomposition = True
+me.use_jones_inspectors = True
+me.use_smearing = False
+me.sky_module = Lions_gridded_sky
+gridded_sky.model_func = double_grid_model
+gridded_sky.grid_size = 3
+gridded_sky.grid_step = 1
+gridded_sky.source_flux = 1
+gridded_sky.grid_l0 = 0
+gridded_sky.grid_m0 = 0
+gridded_sky.source_spi = None
+gridded_sky.source_freq0 = None
+me.export_kvis = False
+me.G_enable = False
+me.B_enable = False
+me.G_sim_enable = False
+me.Z_enable = True
+make_log = False
+selname = Lions_PiercePoints_modules_TID_MIM
+TID_MIM.TEC0 = 1.0
+TID_MIM.Wavelength_1 = 250.0
+TID_MIM.Wavelength_2 = 250.0
+TID_MIM.Speed_1 = 300.0
+TID_MIM.Speed_2 = 300.0
+TID_MIM.Theta_1 = 15.0
+TID_MIM.Theta_2 = 15.0
+TID_MIM.Amp_1 = 0.0
+TID_MIM.Amp_2 = 0.0
+TID_MIM.use_lonlat = True
+me.GD_enable = False
+# runtime options follow
+ms_sel.input_column = DATA
+ms_sel.output_column = CORRECTED_DATA
+ms_sel.tile_size = 1
+ms_sel.select_channels = False
+ms_sel.ms_taql_str = None
+img_sel.imaging_column = CORRECTED_DATA
+img_sel.imaging_chanmode = all (no averaging)
+img_sel.imaging_weight = default
+img_sel.imaging_taper_gauss = False
+img_sel.imaging_stokes = I
+img_sel.imaging_npix = 512
+img_sel.imaging_arcmin = 3
+img_sel.imaging_padding = 1.0
+img_sel.imaging_enable_wproj = False
+img_sel.imaging_phasecenter = default
+img_sel.imaging_custom_ms_select = False
+
+###  Tue Jan  6 17:12:34 2009
+### user mevius on host birch
+### script: /home/mevius/Frameworks/Cattery/Lions/SimCa.py
+### cwd: /home/mevius/Frameworks/Cattery/Lions
+### running TDL job 'Simulate'
+[SimCa]
+# compile-time options follow
+ms_sel.msname = /data/mevius/test.MS/
+ms_sel.ms_antenna_sel = 0:4
+ms_sel.ms_corr_sel = 2x2
+run_option = simulate
+do_add = False
+noise_stddev = None
+me.use_decomposition = True
+me.use_jones_inspectors = True
+me.use_smearing = False
+me.sky_module = Lions_gridded_sky
+gridded_sky.model_func = single_grid_model
+gridded_sky.grid_size = 3
+gridded_sky.grid_step = 1
+gridded_sky.source_flux = 1
+gridded_sky.grid_l0 = 0
+gridded_sky.grid_m0 = 0
+gridded_sky.source_spi = None
+gridded_sky.source_freq0 = None
+me.export_kvis = False
+me.G_enable = False
+me.B_enable = False
+me.G_sim_enable = False
+me.Z_enable = True
+make_log = False
+selname = Lions_PiercePoints_modules_TID_MIM
+TID_MIM.TEC0 = 1.0
+TID_MIM.Wavelength_1 = 250.0
+TID_MIM.Wavelength_2 = 250.0
+TID_MIM.Speed_1 = 300.0
+TID_MIM.Speed_2 = 300.0
+TID_MIM.Theta_1 = 15.0
+TID_MIM.Theta_2 = 15.0
+TID_MIM.Amp_1 = 0.0
+TID_MIM.Amp_2 = 0.0
+TID_MIM.use_lonlat = True
+me.GD_enable = False
+# runtime options follow
+ms_sel.input_column = DATA
+ms_sel.output_column = CORRECTED_DATA
+ms_sel.tile_size = 50
+ms_sel.select_channels = False
+ms_sel.ms_taql_str = None
+img_sel.imaging_column = CORRECTED_DATA
+img_sel.imaging_chanmode = all (no averaging)
+img_sel.imaging_weight = default
+img_sel.imaging_taper_gauss = False
+img_sel.imaging_stokes = I
+img_sel.imaging_npix = 512
+img_sel.imaging_arcmin = 3
+img_sel.imaging_padding = 1.0
+img_sel.imaging_enable_wproj = False
+img_sel.imaging_phasecenter = default
+img_sel.imaging_custom_ms_select = False
+
+###  Tue Jan  6 17:14:44 2009
+### user mevius on host birch
+### script: /home/mevius/Frameworks/Cattery/Lions/SimCa.py
+### cwd: /home/mevius/Frameworks/Cattery/Lions
+### running TDL job 'Simulate'
+[SimCa]
+# compile-time options follow
+ms_sel.msname = /data/mevius/peeling/LO49_test_30_4MHz_100_10s.MS/
+ms_sel.ms_antenna_sel = 0:4
+ms_sel.ms_corr_sel = 2x2
+run_option = simulate
+do_add = False
+noise_stddev = None
+me.use_decomposition = True
+me.use_jones_inspectors = True
+me.use_smearing = False
+me.sky_module = Lions_gridded_sky
+gridded_sky.model_func = single_grid_model
+gridded_sky.grid_size = 3
+gridded_sky.grid_step = 1
+gridded_sky.source_flux = 1
+gridded_sky.grid_l0 = 0
+gridded_sky.grid_m0 = 0
+gridded_sky.source_spi = None
+gridded_sky.source_freq0 = None
+me.export_kvis = False
+me.G_enable = False
+me.B_enable = False
+me.G_sim_enable = False
+me.Z_enable = True
+make_log = False
+selname = Lions_PiercePoints_modules_TID_MIM
+TID_MIM.TEC0 = 1.0
+TID_MIM.Wavelength_1 = 250.0
+TID_MIM.Wavelength_2 = 250.0
+TID_MIM.Speed_1 = 300.0
+TID_MIM.Speed_2 = 300.0
+TID_MIM.Theta_1 = 15.0
+TID_MIM.Theta_2 = 15.0
+TID_MIM.Amp_1 = 0.0
+TID_MIM.Amp_2 = 0.0
+TID_MIM.use_lonlat = True
+me.GD_enable = False
+# runtime options follow
+ms_sel.input_column = DATA
+ms_sel.output_column = CORRECTED_DATA
+ms_sel.tile_size = 50
+ms_sel.select_channels = False
+ms_sel.ms_taql_str = None
+img_sel.imaging_column = CORRECTED_DATA
+img_sel.imaging_chanmode = all (no averaging)
+img_sel.imaging_weight = default
+img_sel.imaging_taper_gauss = False
+img_sel.imaging_stokes = I
+img_sel.imaging_npix = 512
+img_sel.imaging_arcmin = 3
+img_sel.imaging_padding = 1.0
+img_sel.imaging_enable_wproj = False
+img_sel.imaging_phasecenter = default
+img_sel.imaging_custom_ms_select = False
+
+###  Tue Jan  6 17:15:31 2009
+### user mevius on host birch
+### script: /home/mevius/Frameworks/Cattery/Lions/SimCa.py
+### cwd: /home/mevius/Frameworks/Cattery/Lions
+### running TDL job 'Simulate'
+[SimCa]
+# compile-time options follow
+ms_sel.msname = /data/mevius/peeling/LO49_test_30_4MHz_3600_10s.MS/
+ms_sel.ms_antenna_sel = 0:4
+ms_sel.ms_corr_sel = 2x2
+run_option = simulate
+do_add = False
+noise_stddev = None
+me.use_decomposition = True
+me.use_jones_inspectors = True
+me.use_smearing = False
+me.sky_module = Lions_gridded_sky
+gridded_sky.model_func = single_grid_model
+gridded_sky.grid_size = 3
+gridded_sky.grid_step = 1
+gridded_sky.source_flux = 1
+gridded_sky.grid_l0 = 0
+gridded_sky.grid_m0 = 0
+gridded_sky.source_spi = None
+gridded_sky.source_freq0 = None
+me.export_kvis = False
+me.G_enable = False
+me.B_enable = False
+me.G_sim_enable = False
+me.Z_enable = True
+make_log = False
+selname = Lions_PiercePoints_modules_TID_MIM
+TID_MIM.TEC0 = 1.0
+TID_MIM.Wavelength_1 = 250.0
+TID_MIM.Wavelength_2 = 250.0
+TID_MIM.Speed_1 = 300.0
+TID_MIM.Speed_2 = 300.0
+TID_MIM.Theta_1 = 15.0
+TID_MIM.Theta_2 = 15.0
+TID_MIM.Amp_1 = 0.0
+TID_MIM.Amp_2 = 0.0
+TID_MIM.use_lonlat = True
+me.GD_enable = False
+# runtime options follow
+ms_sel.input_column = DATA
+ms_sel.output_column = CORRECTED_DATA
+ms_sel.tile_size = 50
+ms_sel.select_channels = False
+ms_sel.ms_taql_str = None
+img_sel.imaging_column = CORRECTED_DATA
+img_sel.imaging_chanmode = all (no averaging)
+img_sel.imaging_weight = default
+img_sel.imaging_taper_gauss = False
+img_sel.imaging_stokes = I
+img_sel.imaging_npix = 512
+img_sel.imaging_arcmin = 3
+img_sel.imaging_padding = 1.0
+img_sel.imaging_enable_wproj = False
+img_sel.imaging_phasecenter = default
+img_sel.imaging_custom_ms_select = False
+
+###  Tue Jan  6 17:17:02 2009
+### user mevius on host birch
+### script: /home/mevius/Frameworks/Cattery/Lions/SimCa.py
+### cwd: /home/mevius/Frameworks/Cattery/Lions
+### running TDL job 'Simulate'
+[SimCa]
+# compile-time options follow
+ms_sel.msname = /data/mevius/peeling/LO49_test_30_4MHz_3600_10s.MS/
+ms_sel.ms_antenna_sel = 0:4
+ms_sel.ms_corr_sel = 2x2
+run_option = simulate
+do_add = False
+noise_stddev = None
+me.use_decomposition = True
+me.use_jones_inspectors = True
+me.use_smearing = False
+me.sky_module = Lions_gridded_sky
+gridded_sky.model_func = single_grid_model
+gridded_sky.grid_size = 3
+gridded_sky.grid_step = 1
+gridded_sky.source_flux = 1
+gridded_sky.grid_l0 = 0
+gridded_sky.grid_m0 = 0
+gridded_sky.source_spi = None
+gridded_sky.source_freq0 = None
+me.export_kvis = False
+me.G_enable = False
+me.B_enable = False
+me.G_sim_enable = False
+me.Z_enable = True
+make_log = False
+selname = Lions_PiercePoints_modules_TID_MIM
+TID_MIM.TEC0 = 1.0
+TID_MIM.Wavelength_1 = 250.0
+TID_MIM.Wavelength_2 = 500.0
+TID_MIM.Speed_1 = 300.0
+TID_MIM.Speed_2 = 1200.0
+TID_MIM.Theta_1 = 15.0
+TID_MIM.Theta_2 = 75.0
+TID_MIM.Amp_1 = 0.02
+TID_MIM.Amp_2 = 0.05
+TID_MIM.use_lonlat = True
+me.GD_enable = False
+# runtime options follow
+ms_sel.input_column = DATA
+ms_sel.output_column = CORRECTED_DATA
+ms_sel.tile_size = 50
+ms_sel.select_channels = False
+ms_sel.ms_taql_str = None
+img_sel.imaging_column = CORRECTED_DATA
+img_sel.imaging_chanmode = all (no averaging)
+img_sel.imaging_weight = default
+img_sel.imaging_taper_gauss = False
+img_sel.imaging_stokes = I
+img_sel.imaging_npix = 512
+img_sel.imaging_arcmin = 3
+img_sel.imaging_padding = 1.0
+img_sel.imaging_enable_wproj = False
+img_sel.imaging_phasecenter = default
+img_sel.imaging_custom_ms_select = False

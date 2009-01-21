@@ -1,6 +1,6 @@
 from Timba.TDL import *
 from Timba.Meq import meq
-from Ionosphere.MIM_model import *
+from Lions.MIM_model import *
 
 import Meow
 
@@ -142,10 +142,10 @@ class PiercePoints(MIM_model):
                 if not log.initialized():
                     if xy:
                         log<< Meq.PyNode(children=(pp('x',src,station),pp('y',src,station),phases(src,station)),
-                                         class_name="PrintPyNode",module_name="Ionosphere.PrintPyNode",filename=filename);
+                                         class_name="PrintPyNode",module_name="Lions.PrintPyNode",filename=filename);
                     else:
                         log<< Meq.PyNode(children=(pp('lon',src,station),pp('lat',src,station)),
-                                         class_name="PrintPyNode",module_name="Ionosphere.PrintPyNode",filename=filename);
+                                         class_name="PrintPyNode",module_name="Lions.PrintPyNode",filename=filename);
         return pp('log');
 
     def create_station_log_nodes(self): # create nodes to log phase of all stations per source 
@@ -164,7 +164,7 @@ class PiercePoints(MIM_model):
                 log = ns['station_log'](src,station);
                 if not log.initialized():
                     log<< Meq.PyNode(children=[phases(src,station),],
-                                     class_name="PrintPyNode",module_name="Ionosphere.PrintPyNode",filename=filename);
+                                     class_name="PrintPyNode",module_name="Lions.PrintPyNode",filename=filename);
         return ns['station_log'];
 
     def inspectors(self):

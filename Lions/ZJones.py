@@ -2,10 +2,10 @@ from Timba.TDL import *
 import Meow
 from Meow import Context
 from Meow import Jones,ParmGroup,Bookmarks
-from Ionosphere.PiercePoints.modules.KL import KL_MIM
-from Ionosphere.PiercePoints.modules import TID_MIM
-from Ionosphere.PiercePoints.modules import Poly_MIM
-from Ionosphere.PiercePoints.modules import Kolmogorov_MIM
+from Lions.PiercePoints.modules.KL import KL_MIM
+from Lions.PiercePoints.modules import TID_MIM
+from Lions.PiercePoints.modules import Poly_MIM
+from Lions.PiercePoints.modules import Kolmogorov_MIM
 
 def _modname (obj):
   if hasattr(obj,'name'):

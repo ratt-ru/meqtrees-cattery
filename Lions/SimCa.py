@@ -2,7 +2,7 @@ from Timba.TDL import *
 import Meow
 from Meow import Context
 from Meow import ParmGroup,Bookmarks
-from Ionosphere import ZJones
+from Lions import ZJones
 
 
 Settings.forest_state.cache_policy = 0;
@@ -57,12 +57,12 @@ meqmaker = MeqMaker.MeqMaker(solvable=do_solve and run_option=='calibrate');
 
 # specify available sky models
 # these will show up in the menu automatically
-from Ionosphere import gridded_sky
+from Lions import gridded_sky
 import Meow.LSM
 lsm = Meow.LSM.MeowLSM(include_options=False);
 meqmaker.add_sky_models([lsm,gridded_sky]);
 
-from Calico import solvable_jones;
+from Calico.OMS import solvable_jones;
 meqmaker.add_uv_jones('G','receiver gains/phases',
   [ solvable_jones.DiagAmplPhase(),
     solvable_jones.FullRealImag() ]);
@@ -76,7 +76,7 @@ meqmaker.add_uv_jones('G_sim','simulate receiver gains/phases',
                       [ oms_gain_models]);
 
 meqmaker.add_sky_jones('Z','iono',[ZJones.ZJones()]);
-from Calico import solvable_sky_jones;
+from Calico.OMS import solvable_sky_jones;
 meqmaker.add_sky_jones('GD','directional receiver gains/phases',
   [ solvable_sky_jones.DiagAmplPhase("GD"),
     solvable_sky_jones.FullRealImag("GD") ]);

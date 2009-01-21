@@ -1,7 +1,7 @@
 from Timba.TDL import *
 from Timba.Meq import meq
-from Ionosphere.PiercePoints.PiercePoints import *
-from Ionosphere.PiercePoints.modules.KL import KLNode
+from Lions.PiercePoints.PiercePoints import *
+from Lions.PiercePoints.modules.KL import KLNode
 import Meow
 
 def compile_options():
@@ -85,7 +85,7 @@ class MIM(PiercePoints):
             return KL_node;
         parms = self.combine_parms();
         pps = self.combine_pps();
-        kl=self.ns['KL_node']()  <<  Meq.PyNode(children=(parms,pps),class_name="KLNode",module_name="Ionosphere.PiercePoints.modules.KL.KLNode",
+        kl=self.ns['KL_node']()  <<  Meq.PyNode(children=(parms,pps),class_name="KLNode",module_name="Lions.PiercePoints.modules.KL.KLNode",
                                            rank=rank);
         return kl;
                 

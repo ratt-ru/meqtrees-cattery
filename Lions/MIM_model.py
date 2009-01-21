@@ -4,7 +4,7 @@ from Meow.Parameterization import *
 import Meow
 from Meow import SkyComponent
 from Meow import ParmGroup
-from Ionosphere.xyzComponent import xyzComponent
+from Lions.xyzComponent import xyzComponent
 
 class MIM_model(Parameterization):
     """A MIM_model creates TEC values/phase shifts given a source and a station.
