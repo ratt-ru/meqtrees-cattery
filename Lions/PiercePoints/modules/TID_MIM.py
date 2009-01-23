@@ -53,14 +53,28 @@ class MIM(PiercePoints.PiercePoints):
 
     def __init__(self,ns,name,sources,stations=None,height=300,ref_station=None,tags="iono",make_log=False):
         PiercePoints.PiercePoints.__init__(self,ns,name,sources,stations,height,make_log);
+
+        if use_lonlat:
+            earth_radius = 6365;
+            # convert km to rad and km/h to rad/s
+            W1=Wavelength_1/(earth_radius+height);
+            W2=Wavelength_2/(earth_radius+height);
+            Sp1=(Speed_1/(earth_radius+height))/3600;
+            Sp2=(Speed_2/(earth_radius+height))/3600;
+        else:
+            # convert km to m and km/h to m/s
+            W1=Wavelength_1*1000;
+            W2=Wavelength_2*1000;
+            Sp1=Speed_1/3.6;
+            Sp2=Speed_2/3.6;
         self.ref_station=ref_station;
         self._add_parm(name="TEC0",value=Meow.Parm(TEC0),tags=tags)
         self._add_parm(name="Amp_1",value=Meow.Parm(Amp_1),tags=tags)
         self._add_parm(name="Amp_2",value=Meow.Parm(Amp_2),tags=tags)
-        self._add_parm(name="Wavelength_1",value=Meow.Parm(Wavelength_1),tags=tags)
-        self._add_parm(name="Wavelength_2",value=Meow.Parm(Wavelength_2),tags=tags)
-        self._add_parm(name="Speed_1",value=Meow.Parm(Speed_1),tags=tags)
-        self._add_parm(name="Speed_2",value=Meow.Parm(Speed_2),tags=tags)
+        self._add_parm(name="Wavelength_1",value=Meow.Parm(W1),tags=tags)
+        self._add_parm(name="Wavelength_2",value=Meow.Parm(W2),tags=tags)
+        self._add_parm(name="Speed_1",value=Meow.Parm(Sp1),tags=tags)
+        self._add_parm(name="Speed_2",value=Meow.Parm(Sp2),tags=tags)
         self._add_parm(name="Theta_1",value=Meow.Parm(Theta_1),tags=tags)
         self._add_parm(name="Theta_2",value=Meow.Parm(Theta_2),tags=tags)
 
@@ -111,9 +125,9 @@ class MIM(PiercePoints.PiercePoints):
 ##                        (Ax*T0*Meq.Sin((2*math.pi/(1000*Wx))*(PP_x(src,station)-Vx*time/3.6)) + \
 ##                         Ay*T0*Meq.Sin((2*math.pi/(1000*Wy))*(PP_y(src,station)-Vy*time/3.6)))
                     tec << T0 + sec*( \
-                  A1*T0*Meq.Cos((2*math.pi/(1000*W1))*(Meq.Cos(TH1)*PP_x(src,station)-V1*time/3.6))+\
-                  A1*T0*Meq.Cos((2*math.pi/(1000*W1))*(Meq.Sin(TH1)*PP_y(src,station)-V1*time/3.6))+
-                  A2*T0*Meq.Cos((2*math.pi/(1000*W2))*(Meq.Cos(TH2)*PP_x(src,station)-V2*time/3.6))+\
-                  A2*T0*Meq.Cos((2*math.pi/(1000*W2))*(Meq.Sin(TH2)*PP_y(src,station)-V2*time/3.6)))
+                  A1*T0*Meq.Cos((2*math.pi/(W1))*(Meq.Cos(TH1)*PP_x(src,station)-V1*time))+\
+                  A1*T0*Meq.Cos((2*math.pi/(W1))*(Meq.Sin(TH1)*PP_y(src,station)-V1*time))+
+                  A2*T0*Meq.Cos((2*math.pi/(W2))*(Meq.Cos(TH2)*PP_x(src,station)-V2*time))+\
+                  A2*T0*Meq.Cos((2*math.pi/(W2))*(Meq.Sin(TH2)*PP_y(src,station)-V2*time)))
                         
         return  ns['tec'];

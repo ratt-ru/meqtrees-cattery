@@ -32,7 +32,7 @@ def _modopts (mod,opttype='compile'):
   else:
     return [];
 
-modules=[KL_MIM,TID_MIM,Poly_MIM,Kolmogorov_MIM];
+modules=[TID_MIM,Kolmogorov_MIM,Poly_MIM,KL_MIM];
 submenus = [ TDLMenu("Use '%s' module"%_modname(mod),name=_modname(mod),
                      toggle=_modname(mod).replace('.','_'),namespace={},
                      *_modopts(mod,'compile'))
@@ -56,7 +56,7 @@ class ZJones(object):
       if _modname(mod).replace('.','_') == selname:
         self.mim_model=mod;
         break;
-    mim = self.mim_model.MIM(jones.Subscope(),None,sources,Context.array,tags=tags,make_log=make_log);
+    mim = self.mim_model.MIM(jones.Subscope(),None,sources,Context.array,tags=tags,ref_station=ref_station,make_log=make_log);
     mim.compute_jones(jones,tags=tags);
     inspectors+=mim.inspectors();
     qual_list = [stations];
@@ -67,5 +67,5 @@ class ZJones(object):
     return jones;
 
   def compile_options(self):
-    return [TDLOption("make_log","Create Log Nodes",False),mainmenu,];
+    return [TDLOption("make_log","Create Log Nodes",False),TDLOption("ref_station","Rotate frame to reference station",[None,1],more=int),mainmenu,];
 
