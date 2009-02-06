@@ -723,12 +723,18 @@ class MSSelector (object):
       # antennas
       anttable = TABLE(ms.getkeyword('ANTENNA'),lockoptions='autonoread');
       antnames = anttable.getcol('NAME');
-      prefix = len(longest_prefix(*antnames));
-      self.ms_antenna_names = [ name[prefix:] for name in antnames ];
-      # some broken MSs do not have unique antenna names -- replace them with indices if so
-      if len(sets.Set(self.ms_antenna_names)) < len(self.ms_antenna_names):
-        print "Warning! This MS does not define unique ANTENNA names. Using antenna indices instead.";
-        self.ms_antenna_names = [ str(i) for i in range(len(self.ms_antenna_names)) ];
+      # if NAME column is missing, use indices
+      if not antnames:
+        print "Warning! This MS does not define ANTENNA names. Using antenna indices instead.";
+        self.ms_antenna_names = map(str,range(anttable.nrows()));
+      # else use name, but trim off longest common prefix (so that RT0,RT1,..RTD become 0,1,...,D
+      else:
+        prefix = len(longest_prefix(*antnames));
+        self.ms_antenna_names = [ name[prefix:] for name in antnames ];
+        # some broken MSs do not have unique antenna names -- replace them with indices if so
+        if len(sets.Set(self.ms_antenna_names)) < len(self.ms_antenna_names):
+          print "Warning! This MS does not define unique ANTENNA names. Using antenna indices instead.";
+          self.ms_antenna_names = [ str(i) for i in range(len(self.ms_antenna_names)) ];
       if self.antsel_option:
         self.antsel_option.set_option_list([None,"0:%d"%(len(self.ms_antenna_names)-1)]);
         self.antsel_option.show();
