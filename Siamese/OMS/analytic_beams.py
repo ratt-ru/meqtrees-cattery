@@ -139,6 +139,7 @@ def compute_jones (Jones,sources,stations=None,
       break;
   else:
     raise RuntimeError,"no beam model selected";
+  beam_model.prepare();
   
   # this dict will hold LM tuples (or nodes) for each source.
   lmsrc = {};
