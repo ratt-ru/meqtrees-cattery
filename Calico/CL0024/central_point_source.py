@@ -1,1 +1,0 @@
-../central_point_source.py

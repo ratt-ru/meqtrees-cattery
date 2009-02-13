@@ -220,10 +220,14 @@ class MeowLSM (object):
       beam_func = None;
     
     # make list of direction,punit,I,I_apparent tuples
+    parm = Meow.Parm(tags="source solvable");
     srclist = [];
     for pu in plist:
       ra,dec,I,Q,U,V,spi,freq0,RM = pu.getEssentialParms(ns);
-      direction = Meow.Direction(ns,pu.name,ra,dec,static=True);
+      if self.solve_pos:
+        ra = parm.new(ra);
+        dec = parm.new(dec);
+      direction = Meow.Direction(ns,pu.name,ra,dec,static=not self.solve_pos);
       Iapp = I;
       if beam_func is not None:
       # if phase centre is already set (i.e. static), then lmn will be computed here, and we
@@ -255,7 +259,6 @@ class MeowLSM (object):
     else:
       solvable_source_set = None;
       
-    parm = Meow.Parm(tags="source solvable");
     # make copy of kw dict to be used for sources not in solvable set
     kw_nonsolve = dict(kw);
     # and update kw dict to be used for sources in solvable set

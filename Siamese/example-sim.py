@@ -75,10 +75,10 @@ from Siamese.OMS import oms_ionosphere
 meqmaker.add_sky_jones('Z','ionosphere',oms_ionosphere);
 
 # E - beam
-from Siamese.OMS import wsrt_beams
+from Siamese.OMS import analytic_beams
 from Siamese import sarod_cs1_beams
 from Siamese.OMS import oms_pointing_errors
-meqmaker.add_sky_jones('E','beam',[wsrt_beams,sarod_cs1_beams],
+meqmaker.add_sky_jones('E','beam',[analytic_beams,sarod_cs1_beams],
                                   pointing=oms_pointing_errors);
 
 # G - gains
