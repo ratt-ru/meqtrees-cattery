@@ -78,10 +78,13 @@ if not _lwimager and not _glish:
   print "Meow.MSUtils: no imager found";
   
 # figure out if we have a visualizer
-#_VISUALIZER = None;
-#if os.system('which kvis >/dev/null') == 0:
-#  _VISUALIZER = 'kvis';
-#  print "Meow.MSUtils: found kvis";
+_image_viewers = [];
+for viewer in [ "kvis","ds9" ]:
+  vpath = find_exec(viewer);
+  if find_exec(viewer):
+    print "Meow.MSUtils: found image viewer %s"%vpath;
+    _image_viewers.append(viewer);
+_image_viewers.append("none");
 
 
 # queue size parameter for MS i/o record
@@ -989,6 +992,12 @@ class ImagingSelector (object):
       self._opts.append(custom_sel_menu);
     else:
       self.subset_selector = mssel.subset_selector;
+    # add viewer selector
+    global _image_viewers;
+    self._opts.append(TDLOption('image_viewer',"Autostart image viewer",
+        _image_viewers,more=str,namespace=self,
+        doc="""If you want an image viewer to be automatically started when the image is complete, select
+        the viewer here, or enter your own executable name."""));
     # add TDL job to make an image
     def job_make_image (mqs,parent,**kw):
       self.make_dirty_image();
@@ -1062,6 +1071,7 @@ class ImagingSelector (object):
         'spwid=%d'%(selector.get_spectral_window()+offset),
         'field=%d'%(selector.get_field()+offset),
         'padding=%f'%self.imaging_padding,
+        'image_viewer=%s'%self.image_viewer,
       ];
     # add taper arguments
     if self.imaging_taper_gauss:

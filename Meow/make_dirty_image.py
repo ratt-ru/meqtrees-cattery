@@ -11,15 +11,33 @@ for arg in args:
     break;
 else:
   args.append("cachesize=512");
-
+  
+viewer = 'kvis';
+# get image_viewer option
+for i,arg in enumerate(args):
+  if arg.startswith("image_viewer="):
+    viewer = arg.split('=')[1];
+    del args[i];
+    break;
 retcode = os.spawnvp(os.P_WAIT,args[0],args);
 
 if not retcode:
-  # find FITS file and run visualizer
+  # find FITS file 
   filename = None;
   for arg in args:
     if arg.startswith("fits="):
       filename = arg.split('=')[1];
       break;
-  if filename and os.path.exists(filename):
-    os.execvp("kvis",["kvis",filename]);
+  # run visualizer
+  if filename:
+    if viewer == "none":
+      print "Image %s ready. No image viewer selected (see TDL Exec menu)."%filename;
+    else:
+      if filename and os.path.exists(filename):
+        try:
+          os.execvp(viewer,[viewer,filename]);
+        except OSError:
+          print "WARNING: failed to start image viewer '%s'. Perhaps it is not installed?"%viewer;
+  else:
+    print "ERROR: no image filename supplied to the make_dirty_image.py script. Please report this as a bug.";
+    

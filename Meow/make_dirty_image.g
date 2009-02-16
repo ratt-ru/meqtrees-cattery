@@ -146,7 +146,7 @@ shell(spaste('rm -fr ',imgfile));
 print "\n\n--------- wrote FITS image: ",fitsname," ---------\n";
 
 # run Karma
-if( image_viewer != '')
+if( image_viewer != '' && image_viewer != 'none' )
 {
   cmd := paste(image_viewer,fitsname);
   shell(cmd);
