@@ -27,7 +27,7 @@ import math
 from Timba.TDL import *
 from Timba.Meq import meq
 from PointSource import *
-import Context
+import Context,Parm
   
 STOKES = ("I","Q","U","V");
 
@@ -36,7 +36,7 @@ class Shapelet(PointSource):
                I=0.0,Q=None,U=None,V=None,
                spi=None,freq0=None,
                RM=None,
-               size=None,phi=0,symmetric=False,
+               size=None,phi=0,symmetric=False,solvable=False,
                modefile=None):
     PointSource.__init__(self,ns,name,direction,I,Q,U,V,
                         spi,freq0,RM);
@@ -48,13 +48,17 @@ class Shapelet(PointSource):
     n0=int(thisline[0]);
     beta=float(thisline[1]);
     self._children=[]
+    self._phi=phi
     #self._children+=[Meq.ToComplex(self._parm('beta_'+str(n0),beta,tags='beta'),0)];
     self._children+=[self._parm('beta_'+str(n0),beta,tags='beta')];
     for ci in range(1,n0*n0+1):
       thisline=all[ci].split()
       modeval=float(thisline[1])
       #self._children+=[Meq.ToComplex(self._parm('mode_'+str(ci),modeval,tags='modes'),0)];
-      self._children+=[self._parm('mode_'+str(ci),modeval,tags='modes')];
+      if not solvable:
+       self._children+=[self._parm('mode_'+str(ci),modeval,tags='modes')];
+      else:
+       self._children+=[self._parm('mode_'+str(ci),Meow.Parm(modeval),tags='modes')];
 
     clist=self.ns.clist;
     if not clist.initialized():
@@ -152,7 +156,7 @@ class Shapelet(PointSource):
       #uvs1 = uv1(*ifr) << Meq.Composer(u1s,v1s)*iwl;
 
       #shptf= shp(*ifr)<<Meq.PrivateFunction(children=self._children, lib_name="/home/sarod/shapelet/src/lib/shapeletpriv.so",function_name="test", dep_mask=0xff);
-      shptf= shp(*ifr)<<Meq.ShapeletVisTf(modes=self._children,dep_mask=0xff);
+      shptf= shp(*ifr)<<Meq.ShapeletVisTf(modes=self._children,phi=self._phi,dep_mask=0xff);
       gcoh(*ifr) << coherency * fscale * Meq.Compounder(children=[uv,shptf],common_axes=[hiid('L'),hiid('M')]);
 
     # phase shift to source position
