@@ -79,7 +79,7 @@ if not _lwimager and not _glish:
   
 # figure out if we have a visualizer
 _image_viewers = [];
-for viewer in [ "kvis","ds9" ]:
+for viewer in [ "kvis" ]:  # ds9 is flaky, skip for now
   vpath = find_exec(viewer);
   if find_exec(viewer):
     print "Meow.MSUtils: found image viewer %s"%vpath;
