@@ -146,9 +146,9 @@ class MeowLSM (object):
           save_opt.set_value(False,save=False);
       format_opt.when_changed(_select_format);
 
-      self._compile_opts += [
-        TDLOption("show_gui","Show LSM GUI",False,namespace=self)
-      ];
+ #     self._compile_opts += [
+ #       TDLOption("show_gui","Show LSM GUI",False,namespace=self)
+ #     ];
       
     return self._compile_opts;
 
@@ -184,7 +184,11 @@ class MeowLSM (object):
     if reader is None:
       raise TypeError,"Unknown LSM format '%s'"%format;
 
-    reader(self.lsm,filename,ns);
+    try:
+      reader(self.lsm,filename,ns);
+    except:
+      traceback.print_exc();
+      raise RuntimeError,"""There was an error reading the LSM file %s. Either the file format is set incorrectly, or the LSM file is corrupt."""%filename;
 
     # save if needed
     if self.save_native and self.save_native_filename:
@@ -193,8 +197,8 @@ class MeowLSM (object):
     if self.save_text and self.save_text_filename:
       self.lsm.save_as_extlist(self.save_text_filename,ns,prefix='');
       
-    if self.show_gui:
-      self.lsm.display()
+#    if self.show_gui:
+#      self.lsm.display()
 
   def source_list (self,ns,max_sources=None,**kw):
     """Reads LSM and returns a list of Meow objects.
