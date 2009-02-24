@@ -296,7 +296,7 @@ class MeowLSM (object):
     for direction,pu,I,Iapp in srclist:
       if source_set is not None and pu.name not in source_set:
         continue;
-      print "%-20s %12f %12f"%(pu.name,I,Iapp);
+#      print "%-20s %12f %12f"%(pu.name,I,Iapp);
       src = {};
       ( src['ra'],src['dec'],
         src['I'],src['Q'],src['U'],src['V'],

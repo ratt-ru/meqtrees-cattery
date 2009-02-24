@@ -73,6 +73,14 @@ class FullRealImag (object):
 
   def compute_jones (self,jones,stations=None,tags=None,label='',**kw):
     stations = stations or Context.array.stations();
+    # set up qualifier labels depending on polarization definition
+    if Context.observation.circular():
+      x,y,X,Y = 'R','L','R','L';
+    else:
+      x,y,X,Y = 'x','y','X','Y';
+    xx,xy,yx,yy = x+x,x+y,y+x,y+y;
+    rxx,rxy,ryx,ryy = [ "r"+q for q in xx,xy,yx,yy ];
+    ixx,ixy,iyx,iyy = [ "i"+q for q in xx,xy,yx,yy ];
     # create parm definitions for each jones element
     tags = NodeTags(tags) + "solvable";
     diag_real = Meq.Parm(1,tags=tags+"diag real");
@@ -82,59 +90,59 @@ class FullRealImag (object):
     # now loop to create nodes
     for p in stations:
       jones(p) << Meq.Matrix22(
-        jones(p,"xx") << Meq.ToComplex(
-            jones(p,"rxx") << diag_real,
-            jones(p,"ixx") << diag_imag
+        jones(p,xx) << Meq.ToComplex(
+            jones(p,rxx) << diag_real,
+            jones(p,ixx) << diag_imag
         ),
-        jones(p,"xy") << Meq.ToComplex(
-            jones(p,"rxy") << offdiag_real,
-            jones(p,"ixy") << offdiag_imag
+        jones(p,xy) << Meq.ToComplex(
+            jones(p,rxy) << offdiag_real,
+            jones(p,ixy) << offdiag_imag
         ),
-        jones(p,"yx") << Meq.ToComplex(
-            jones(p,"ryx") << offdiag_real,
-            jones(p,"iyx") << offdiag_imag
+        jones(p,yx) << Meq.ToComplex(
+            jones(p,ryx) << offdiag_real,
+            jones(p,iyx) << offdiag_imag
         ),
-        jones(p,"yy") << Meq.ToComplex(
-            jones(p,"ryy") << diag_real,
-            jones(p,"iyy") << diag_imag
+        jones(p,yy) << Meq.ToComplex(
+            jones(p,ryy) << diag_real,
+            jones(p,iyy) << diag_imag
         )
       );
     # make parmgroups for diagonal and off-diagonal terms
     subgroups = [
-      ParmGroup.Subgroup("XX",[jones(p,zz) for zz in "rxx","ixx" for p in stations]),
-      ParmGroup.Subgroup("YY",[jones(p,zz) for zz in "ryy","iyy" for p in stations]),
-      ParmGroup.Subgroup("real part",[jones(p,zz) for zz in "rxx","ryy" for p in stations]),
-      ParmGroup.Subgroup("imaginary part",[jones(p,zz) for zz in "ixx","iyy" for p in stations])
+      ParmGroup.Subgroup(X+X,[jones(p,zz) for zz in rxx,ixx for p in stations]),
+      ParmGroup.Subgroup(Y+Y,[jones(p,zz) for zz in ryy,iyy for p in stations]),
+      ParmGroup.Subgroup("real part",[jones(p,zz) for zz in rxx,ryy for p in stations]),
+      ParmGroup.Subgroup("imaginary part",[jones(p,zz) for zz in ixx,iyy for p in stations])
     ];
     subgroups += [
-      ParmGroup.Subgroup("station %s"%p,[jones(p,zz) for zz in "rxx","ixx","ryy","iyy" ])
+      ParmGroup.Subgroup("station %s"%p,[jones(p,zz) for zz in rxx,ixx,ryy,iyy ])
       for p in stations
     ];
     self.pg_diag  = ParmGroup.ParmGroup(label+"_diag",
-            [ jones(p,zz) for zz in "rxx","ixx","ryy","iyy" for p in stations ],
+            [ jones(p,zz) for zz in rxx,ixx,ryy,iyy for p in stations ],
             subgroups = subgroups,
             table_name="%s_diag.fmep"%label,bookmark=False);
             
     subgroups = [
-      ParmGroup.Subgroup("XY",[jones(p,zz) for zz in "rxy","ixy" for p in stations]),
-      ParmGroup.Subgroup("YX",[jones(p,zz) for zz in "ryx","iyx" for p in stations]),
-      ParmGroup.Subgroup("real part",[jones(p,zz) for zz in "rxy","ryx" for p in stations]),
-      ParmGroup.Subgroup("imaginary part",[jones(p,zz) for zz in "ixy","iyx" for p in stations])
+      ParmGroup.Subgroup(X+Y,[jones(p,zz) for zz in rxy,ixy for p in stations]),
+      ParmGroup.Subgroup(Y+X,[jones(p,zz) for zz in ryx,iyx for p in stations]),
+      ParmGroup.Subgroup("real part",[jones(p,zz) for zz in rxy,ryx for p in stations]),
+      ParmGroup.Subgroup("imaginary part",[jones(p,zz) for zz in ixy,iyx for p in stations])
     ];
     subgroups += [
-      ParmGroup.Subgroup("station %s"%p,[jones(p,zz) for zz in "rxy","ixy","ryx","iyx" ])
+      ParmGroup.Subgroup("station %s"%p,[jones(p,zz) for zz in rxy,ixy,ryx,iyx ])
       for p in stations
     ];
     self.pg_offdiag  = ParmGroup.ParmGroup(label+"_offdiag",
-            [ jones(p,zz) for zz in "rxy","ixy","ryx","iyx" for p in stations ],
+            [ jones(p,zz) for zz in rxy,ixy,ryx,iyx for p in stations ],
             subgroups = subgroups,
             table_name="%s_offdiag.fmep"%label,bookmark=False);
 
     # make bookmarks
     Bookmarks.make_node_folder("%s diagonal terms"%label,
-      [ jones(p,zz) for p in stations for zz in "xx","yy" ],sorted=True);
+      [ jones(p,zz) for p in stations for zz in xx,yy ],sorted=True);
     Bookmarks.make_node_folder("%s off-diagonal terms"%label,
-      [ jones(p,zz) for p in stations for zz in "xy","yx" ],sorted=True);
+      [ jones(p,zz) for p in stations for zz in xy,yx ],sorted=True);
 
     # make solvejobs
     ParmGroup.SolveJob("cal_"+label+"_diag","Calibrate %s diagonal terms"%label,self.pg_diag);

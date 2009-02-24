@@ -1594,7 +1594,7 @@ class LSM:
 
     ### the remaining info is not needed
 
-    print "%s: read header type=%s, length=%d, version=%d, created=%s@%s, updated=%s@%s x %d, node name=%s"%(infile_name,ftype,fhlen,fver,crdate,crtime,rrdate,rrtime,rcount,nname)
+#    print "%s: read header type=%s, length=%d, version=%d, created=%s@%s, updated=%s@%s x %d, node  name=%s"%(infile_name,ftype,fhlen,fver,crdate,crtime,rrdate,rrtime,rcount,nname)
 
     ####### Model Header -- 64 bytes 
     mdh=Timba.array.fromfile(ff,dtype=Timba.array.uint8,count=64)
@@ -1634,11 +1634,11 @@ class LSM:
     ###### the remaining is not needed
 
 
-    print "%s: read model header lines=%d, pointer=%d, sources=%d, type=%d, epoch=%f RA=%f, DEC=%f (rad) Freq=%f Hz"%(infile_name,maxlin,modptr,nsources,mtype,mepoch,ra0,dec0,freq0)
+#    print "%s: read model header lines=%d, pointer=%d, sources=%d, type=%d, epoch=%f RA=%f, DEC=%f (rad) Freq=%f Hz"%(infile_name,maxlin,modptr,nsources,mtype,mepoch,ra0,dec0,freq0)
 
-    log = file('lsm.log','wt');
-    print 'ra0=%.14f dec0=%.14f'%(ra0,dec0);
-    log.write('ra0=%.14f dec0=%.14f\n'%(ra0,dec0));
+#    log = file('lsm.log','wt');
+#    print 'ra0=%.14f dec0=%.14f'%(ra0,dec0);
+#    log.write('ra0=%.14f dec0=%.14f\n'%(ra0,dec0));
     
 
     # temp dict to hold unique nodenames
@@ -1665,7 +1665,7 @@ class LSM:
        id=struct.unpack('i',mdl[12:16])
        id=id[0]
        
-       log.write('%d: l=%.14f m=%.14f r=%.14f\n'%(id,ll,mm,math.sqrt(ll*ll+mm*mm)));
+       # log.write('%d: l=%.14f m=%.14f r=%.14f\n'%(id,ll,mm,math.sqrt(ll*ll+mm*mm)));
 
        ### Q fraction
        sQ=struct.unpack('f',mdl[16:20])

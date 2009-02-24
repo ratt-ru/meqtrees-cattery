@@ -79,13 +79,24 @@ if not _lwimager and not _glish:
   
 # figure out if we have a visualizer
 _image_viewers = [];
-for viewer in [ "kvis" ]:  # ds9 is flaky, skip for now
+for viewer in [ "kvis","ds9" ]:  
   vpath = find_exec(viewer);
   if find_exec(viewer):
     print "Meow.MSUtils: found image viewer %s"%vpath;
     _image_viewers.append(viewer);
 _image_viewers.append("none");
 
+
+# This a list of the Stokes enums (as defined in casacore header measures/Stokes.h)
+# These are referenced by the CORR_TYPE column of the MS POLARIZATION subtable.
+# E.g. 5,6,7,8 corresponds to RR,RL,LR,LL
+MS_STOKES_ENUMS = [
+    "Undefined", "I", "Q", "U", "V", "RR", "RL", "LR", "LL", "XX", "XY", "YX", "YY", "RX", "RY", "LX", "LY", "XR", "XL", "YR", "YL", "PP", "PQ", "QP", "QQ", "RCircular", "LCircular", "Linear", "Ptotal", "Plinear", "PFtotal", "PFlinear", "Pangle"
+  ];
+# set of circular correlations
+CIRCULAR_CORRS = sets.Set(["RR", "RL", "LR", "LL"]);
+# set of linear correlations
+LINEAR_CORRS = sets.Set(["XX", "XY", "YX", "YY"]);
 
 # queue size parameter for MS i/o record
 ms_queue_size = 500;
@@ -229,9 +240,11 @@ class MSContentSelector (object):
     object. Fills ddid/field/channel selectors from the MS.
     """;
     # DDIDs
-    self.ms_spws = list(TABLE(ms.getkeyword('DATA_DESCRIPTION'),
-                                            lockoptions='autonoread') \
-                                          .getcol('SPECTRAL_WINDOW_ID'));
+    ddid_tab = TABLE(ms.getkeyword('DATA_DESCRIPTION'),lockoptions='autonoread');
+    self.ms_spws = list(ddid_tab.getcol('SPECTRAL_WINDOW_ID'));
+    self.ms_polarization_ids = list(ddid_tab.getcol('POLARIZATION_ID'));
+    ddid_tab = None;
+    # channels per spectral window    
     numchans = TABLE(ms.getkeyword('SPECTRAL_WINDOW'),
                                   lockoptions='autonoread').getcol('NUM_CHAN');
     self.ms_ddid_numchannels = [ numchans[spw] for spw in self.ms_spws ];
@@ -428,8 +441,6 @@ class MSSelector (object):
     _corr_2x2_diag:[0,-1,-1,3],
     _corr_2x2_offdiag:[-1,1,2,-1],
   };
-  ms_corr_names = [ "XX","XY","YX","YY" ];
-  
   """An MSSelector implements TDL options for selecting an MS and a subset therein""";
   def __init__ (self,
                 pattern="*.ms *.MS",
@@ -494,11 +505,17 @@ class MSSelector (object):
         self.antsel_option.hide();
       self._compile_opts.append(self.antsel_option);
     # correlation options
+    self.ms_corr_names = [ "XX","XY","YX","YY" ];
     self.corrsel_option = TDLOption("ms_corr_sel","Correlations",
                                     [self._corr_2x2,self._corr_2x2_diag,
                                     self._corr_2,self._corr_1],
                                     namespace=self);
     self._compile_opts.append(self.corrsel_option);
+    # correlation options
+    self.polarization_option = TDLOption("ms_polarization","Polarization representation",
+                                         ["linear","circular"],
+                                         namespace=self);
+    self._compile_opts.append(self.polarization_option);
     self.ms_data_columns = ["DATA","MODEL_DATA","CORRECTED_DATA"];
     if isinstance(forbid_output,str):
       self._forbid_output = sets.Set([forbid_output]);
@@ -664,6 +681,12 @@ class MSSelector (object):
   
   def get_correlations (self):
     return [ self.ms_corr_names[icorr] for icorr in self.get_corr_index() if icorr >= 0 ];
+  
+  def is_circular_pol (self):
+    return self.ms_polarization == "circular";
+  
+  def is_linear_pol (self):
+    return self.ms_polarization == "linear";
 
   def make_subset_selector (self,namespace,**kw):
     """Makes an MSContentSelector object connected to this MS selector."""
@@ -743,9 +766,18 @@ class MSSelector (object):
         self.antsel_option.show();
       self.ms_antenna_positions = anttable.getcol('POSITION');
       # correlations
-      corrs = TABLE(ms.getkeyword('POLARIZATION'),
-                    lockoptions='autonoread').getcol('CORR_TYPE');
-      ncorr = len(corrs[0]);
+      corrtypes = TABLE(ms.getkeyword('POLARIZATION'),
+                       lockoptions='autonoread').getcol('CORR_TYPE');
+      # take the first row (corrtypes[0]), and assume this holds for the whole MS
+      corrtypes = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
+                    None for ctype in corrtypes[0] ];
+      self.ms_corr_names = corrtypes;
+      if corrtypes[0] in LINEAR_CORRS:
+        self.polarization_option.set_value("linear");
+      elif corrtypes[0] in CIRCULAR_CORRS:
+        self.polarization_option.set_value("circular");
+      # set options for how to form up Jones matrices
+      ncorr = len(corrtypes);
       if ncorr < 2:
         corrlist = [self._corr_1];
       elif ncorr < 4:

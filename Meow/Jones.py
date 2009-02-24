@@ -40,28 +40,32 @@ def gain_ap_matrix (jones,ampl=1.,phase=0.,tags=[],series=None,solvable=True):
   'xa','xp','ya','yp'. These Parm nodes will be tagged with the given set
   of 'tags', plus 'ampl' and 'phase'.
   """
+  if Context.observation.circular():
+    X,Y,XA,XP,YA,YP = 'r','l','ra','rp','la','lp';
+  else:
+    X,Y,XA,XP,YA,YP = 'x','y','xa','xp','ya','yp';
   # create matrix per-station, or just a single matrix
   if series:
     for p in series:
-      xa = Parameterization.resolve_parameter("ampl",jones(p,'xa'),ampl,tags=tags,solvable=solvable);
+      xa = Parameterization.resolve_parameter("ampl",jones(p,XA),ampl,tags=tags,solvable=solvable);
       #print "tags here",tags;
-      xp = Parameterization.resolve_parameter("phase",jones(p,'xp'),phase,tags=tags,solvable=solvable);
-      ya = Parameterization.resolve_parameter("ampl",jones(p,'ya'),ampl,tags=tags,solvable=solvable);
-      yp = Parameterization.resolve_parameter("phase",jones(p,'yp'),phase,tags=tags,solvable=solvable);
+      xp = Parameterization.resolve_parameter("phase",jones(p,XP),phase,tags=tags,solvable=solvable);
+      ya = Parameterization.resolve_parameter("ampl",jones(p,YA),ampl,tags=tags,solvable=solvable);
+      yp = Parameterization.resolve_parameter("phase",jones(p,YP),phase,tags=tags,solvable=solvable);
       jones(p) << Meq.Matrix22(
-        jones(p,"x") << Meq.Polar(xa,xp),
+        jones(p,X) << Meq.Polar(xa,xp),
         0,0,
-        jones(p,"y") << Meq.Polar(ya,yp)
+        jones(p,Y) << Meq.Polar(ya,yp)
       );
   else:
-    xa = Parameterization.resolve_parameter("ampl",jones('xa'),ampl,tags=tags,solvable=solvable);
-    xp = Parameterization.resolve_parameter("phase",jones('xp'),phase,tags=tags,solvable=solvable);
-    ya = Parameterization.resolve_parameter("ampl",jones('ya'),ampl,tags=tags,solvable=solvable);
-    yp = Parameterization.resolve_parameter("phase",jones('yp'),phase,tags=tags,solvable=solvable);
+    xa = Parameterization.resolve_parameter("ampl",jones(XA),ampl,tags=tags,solvable=solvable);
+    xp = Parameterization.resolve_parameter("phase",jones(XP),phase,tags=tags,solvable=solvable);
+    ya = Parameterization.resolve_parameter("ampl",jones(YA),ampl,tags=tags,solvable=solvable);
+    yp = Parameterization.resolve_parameter("phase",jones(YP),phase,tags=tags,solvable=solvable);
     jones << Meq.Matrix22(
-      jones("x") << Meq.Polar(xa,xp),
+      jones(X) << Meq.Polar(xa,xp),
       0,0,
-      jones("y") << Meq.Polar(ya,yp)
+      jones(Y) << Meq.Polar(ya,yp)
     );
   return jones;
 

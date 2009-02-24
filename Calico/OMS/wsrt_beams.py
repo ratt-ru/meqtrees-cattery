@@ -112,13 +112,13 @@ def compute_jones (Jones,sources,stations=None,label="beam",pointing_offsets=Non
   # this dict will hold LM tuples (or nodes) for each source.
   lmsrc = {};
   # see if sources have a "beam_lm" attribute, use that for beam offsets
-  log = file("e.log","wt");
+#  log = file("e.log","wt");
   for src in sources:
     lm = src.get_attr("beam_lm",None);
     if lm:
       l,m = lmsrc[src.name] = lm;
-      log.write("%s l=%.14g m=%.14g r=%.14g (from model)\n"
-                  %(src.name,l,m,sqrt(l*l+m*m)));
+#      log.write("%s l=%.14g m=%.14g r=%.14g (from model)\n"
+#                  %(src.name,l,m,sqrt(l*l+m*m)));
       src.set_attr(label+'r',math.sqrt(l**2+m**2)/math.pi*(180*60));
     # else try to use static lm coordinates
     else:

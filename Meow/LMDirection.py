@@ -47,6 +47,7 @@ class LMDirection (Direction):
       n = math.sqrt(1-l*l-m*m);
       self._add_parm('n',n,tags="direction");
       self.static = l,m,n;
+      self.static_lmn = {};
     else:
       self.static = None;
       
@@ -66,8 +67,9 @@ class LMDirection (Direction):
 
   def lmn (self,dir0=None):
     """Returns LMN three-pack for this component.
-    dir0 is a direction relative to which lm is computed, at the
-    moment it is not used.""";
+    dir0 is a direction relative to which lm is computed.
+    BUG here: reference direction is ignored
+    """;
     lmn = self.ns.lmn;
     if not lmn.initialized():
       if self.static:
@@ -77,4 +79,12 @@ class LMDirection (Direction):
         n = self.ns.n << Meq.Sqrt(1-Meq.Sqr(l)-Meq.Sqr(m));
         lmn << Meq.Composer(l,m,n);
     return lmn;
+    
+  def lmn_static (self,dir0=None):
+    """Returns static LMN tuple, given a reference direction dir0, or using the global phase 
+    center if not supplied. 
+    Both this direction and the reference direction must be static, otherwise None is returned.
+    BUG here: reference direction is ignored
+    """;
+    return self.static;
     
