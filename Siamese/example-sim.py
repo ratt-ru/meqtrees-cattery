@@ -87,6 +87,7 @@ meqmaker.add_uv_jones('G','gains/phases',oms_gain_models);
 
 # very important -- insert meqmaker's options properly
 TDLCompileOptions(*meqmaker.compile_options());
+TDLRuntimeOptions(*meqmaker.runtime_options());
 
 # noise option
 TDLCompileOption("noise_stddev","Add noise, Jy",[None,1e-6,1e-3],more=float);

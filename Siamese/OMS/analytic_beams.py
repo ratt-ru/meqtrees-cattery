@@ -129,7 +129,6 @@ def compute_jones (Jones,sources,stations=None,
   """Computes beam gain for a list of sources.
   The output node, will be qualified with either a source only, or a source/station pair
   """;
-  print 'model_type',model_type;
   stations = stations or Context.array.stations();
   ns = Jones.Subscope();
   
