@@ -88,7 +88,7 @@ class SolveTree (ResidualTree):
     
   def solver (self,inputs=None):
     """Makes solver tree given the inputs and the predicts, returns
-    solver node.
+    solver node. 
     """;
     self.set_inputs(inputs);
     solver = self.ns.solver;
@@ -114,7 +114,7 @@ class SolveTree (ResidualTree):
             break;
       # add condeqs to solver
       solver << Meq.Solver(children=[self.ns.ce(p,q) for p,q in self._solve_ifrs],
-                           child_poll_order=poll_order);
+                           child_poll_order=poll_order,flush_tables=True);
       # add solver bookmark
       if self.bookmarks:
         Bookmarks.Page("Solver").add(solver,viewer="Result Plotter");
