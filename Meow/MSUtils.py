@@ -961,17 +961,22 @@ class ImagingSelector (object):
     def show_chansel_menu (value):
       chan_menu.show(value == CHANMODE_MANUAL);
     chan_opt.when_changed(show_chansel_menu);
-    # 
+    # weight options
+    weight_opt = TDLOption('imaging_weight',"Imaging weights",
+                  ["default","natural","uniform","briggs","radial"],namespace=self);
+    taper_opt = TDLMenu("Apply Gaussian taper to visibilities",toggle='imaging_taper_gauss',namespace=self,
+          *( TDLOption('imaging_taper_bmaj',"Major axis (arcsec)",[12],more=float,namespace=self),
+              TDLOption('imaging_taper_bmin',"Minor axis (arcsec)",[12],more=float,namespace=self),
+              TDLOption('imaging_taper_bpa',"Position angle (deg)",[0],more=float,namespace=self),
+          ));
+    def show_taper_menu (value):
+      taper_opt.show(value != "default");
+    weight_opt.when_changed(show_taper_menu);
+    # insert intooption list
     self._opts += [
       chan_opt,
       chan_menu,
-      TDLOption('imaging_weight',"Imaging weights",
-                ["default","natural","uniform","briggs","radial"],namespace=self),
-      TDLMenu("Apply Gaussian taper to visibilities",toggle='imaging_taper_gauss',namespace=self,
-            *( TDLOption('imaging_taper_bmaj',"Major axis (arcsec)",[12],more=float,namespace=self),
-               TDLOption('imaging_taper_bmin',"Minor axis (arcsec)",[12],more=float,namespace=self),
-               TDLOption('imaging_taper_bpa',"Position angle (deg)",[0],more=float,namespace=self),
-            )),
+      weight_opt,taper_opt,
       TDLOption('imaging_stokes',"Stokes parameters to image",
                 ["I","IQUV"],namespace=self)
     ];
@@ -1106,7 +1111,7 @@ class ImagingSelector (object):
         'image_viewer=%s'%self.image_viewer,
       ];
     # add taper arguments
-    if self.imaging_taper_gauss:
+    if self.imaging_weight != "default" and self.imaging_taper_gauss:
       if _IMAGER == "glish":
         args += [ 
           'filter_bmaj=%farcsec'%self.imaging_taper_bmaj,
