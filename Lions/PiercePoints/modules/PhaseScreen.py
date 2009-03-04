@@ -16,7 +16,7 @@ def init_phasescreen(N=10,beta=5.,seed_nr=None):
 
     # start from the same random seed to get identical screen
     if seed_nr is not None:
-        print "seeding with",seed_nr;
+        # print "seeding with",seed_nr;
         seed(seed_nr);
     
     # W is complex white noise
@@ -30,13 +30,15 @@ def init_phasescreen(N=10,beta=5.,seed_nr=None):
     # Compute the inverse real ffts in both directions
     screen = numpy.real(ifft2(fftshift(S)));
 
-    # Normalize phasescreen to have all values between -1 and 1
-    print "in PhaseScreen",len(screen);
+    # Normalize phasescreen to have all values between 0 and 1
+    # print "in PhaseScreen",len(screen);
     minscreen = numpy.min(screen)
-    print "Min screen", minscreen
-    maxscreen = numpy.max(numpy.abs(screen));
-    print "Max screen", maxscreen;
+    # print "Min screen", minscreen
+    screen = screen - minscreen;
+    maxscreen = numpy.max(screen);
+    
+    # print "Max screen", maxscreen;
     phasescreen = screen / maxscreen;
-    print "****************************************************************************************"
-    print phasescreen
-    print "****************************************************************************************"
+    #    print "****************************************************************************************"
+    #    print phasescreen
+    #    print "****************************************************************************************"
