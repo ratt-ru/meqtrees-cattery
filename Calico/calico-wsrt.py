@@ -147,6 +147,7 @@ def _define_forest(ns,parent=None,**kw):
   Bookmarks.make_node_folder("Input visibilities by baseline",
     [ spigots(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
 
+  inspect_ifrs = array.ifrs();
   if do_solve:
     # filter solvable baselines by baseline length
     solve_ifrs = [];
@@ -159,6 +160,7 @@ def _define_forest(ns,parent=None,**kw):
           solve_ifrs.append((p,q));
     else:
       solve_ifrs = array.ifrs();
+    inspect_ifrs = solve_ifrs;
 
   # make a predict tree using the MeqMaker
   if do_solve or do_subtract:
@@ -189,7 +191,7 @@ def _define_forest(ns,parent=None,**kw):
       sky_correct = srcs and srcs[0];
     else:
       sky_correct = None;
-    outputs = meqmaker.correct_uv_data(ns,outputs,sky_correct=sky_correct);
+    outputs = meqmaker.correct_uv_data(ns,outputs,sky_correct=sky_correct,inspect_ifrs=inspect_ifrs);
 
   # make solve trees
   if do_solve:

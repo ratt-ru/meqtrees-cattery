@@ -598,7 +598,7 @@ class MeqMaker (object):
 
   make_tree = make_predict_tree; # alias for compatibility with older code
 
-  def correct_uv_data (self,ns,inputs,outputs=None,sky_correct=None):
+  def correct_uv_data (self,ns,inputs,outputs=None,sky_correct=None,inspect_ifrs=None):
     """makes subtrees for correcting the uv data given by 'inputs'.
     If 'outputs' is given, then it will be qualified by a jones label and by stations pairs
     to derive the output nodes. If it is None, then ns.correct(jones_label) is used as a base name.
@@ -611,6 +611,7 @@ class MeqMaker (object):
     """;
     stations = Meow.Context.array.stations();
     ifrs = Meow.Context.array.ifrs();
+    inspect_ifrs = inspect_ifrs or ifrs;
     
     # apply vpm corrections, if any
     for vpm in self._uv_vpm_list:
@@ -684,17 +685,17 @@ class MeqMaker (object):
       for p,q in ifrs:
         outputs(p,q) << Meq.Identity(inputs(p,q));
       # make an inspector for the results
-      StdTrees.vis_inspector(ns.inspector('output'),outputs,ifrs=ifrs,bookmark=False);
+      StdTrees.vis_inspector(ns.inspector('output'),outputs,ifrs=inspect_ifrs,bookmark=False);
       self._add_inspector(ns.inspector('output'),name='Inspect corrected data or residuals');
       return outputs;
     # now apply the correction matrices
-    StdTrees.vis_inspector(ns.inspector('uncorr'),inputs,ifrs=ifrs,bookmark=False);
+    StdTrees.vis_inspector(ns.inspector('uncorr'),inputs,ifrs=inspect_ifrs,bookmark=False);
     self._add_inspector(ns.inspector('uncorr'),name='Inspect uncorrected data/residuals');
     for p,q in ifrs:
       outputs(p,q) << Meq.MatrixMultiply(Jinv(p),inputs(p,q),Jtinv(q));
 
     # make an inspector for the results
-    StdTrees.vis_inspector(ns.inspector('output'),outputs,ifrs=ifrs,bookmark=False);
+    StdTrees.vis_inspector(ns.inspector('output'),outputs,ifrs=inspect_ifrs,bookmark=False);
     self._add_inspector(ns.inspector('output'),name='Inspect corrected data/residuals');
 
     return outputs;
