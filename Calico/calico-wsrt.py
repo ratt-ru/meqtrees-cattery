@@ -29,13 +29,10 @@ from Timba.Meq import meq
 import math
 
 import Meow
-import Meow.StdTrees
-from Meow import Context,ParmGroup,Bookmarks
-from Meow.Parameterization import resolve_parameter
-import Meow.LSM
+from Meow import ParmGroup,Bookmarks,StdTrees
 
 # MS options first
-mssel = Context.mssel = Meow.MSUtils.MSSelector(has_input=True,tile_sizes=None,read_flags=True,
+mssel = Meow.Context.mssel = Meow.MSUtils.MSSelector(has_input=True,tile_sizes=None,read_flags=True,
                   hanning=True,invert_phases=True);
 # MS compile-time options
 TDLCompileOptions(*mssel.compile_options());
@@ -141,7 +138,7 @@ def _define_forest(ns,parent=None,**kw):
   spigots = spigots0 = outputs = array.spigots(corr=mssel.get_corr_index());
 
   # ...and an inspector for them
-  Meow.StdTrees.vis_inspector(ns.inspector('input'),spigots,
+  StdTrees.vis_inspector(ns.inspector('input'),spigots,
                               bookmark="Inspect input visibilities");
   inspectors = [ ns.inspector('input') ];
   Bookmarks.make_node_folder("Input visibilities by baseline",
@@ -219,7 +216,7 @@ def _define_forest(ns,parent=None,**kw):
       else:
         raise ValueError,"unknown cal_type setting: "+str(cal_type);
     # make a solve tree
-    solve_tree = Meow.StdTrees.SolveTree(ns,model,solve_ifrs=solve_ifrs);
+    solve_tree = StdTrees.SolveTree(ns,model,solve_ifrs=solve_ifrs);
     # the output of the sequencer is either the residuals or the spigots,
     # according to what has been set above
     outputs = solve_tree.sequencers(inputs=observed,outputs=outputs);
@@ -227,7 +224,7 @@ def _define_forest(ns,parent=None,**kw):
   # make sinks and vdm.
   # The list of inspectors must be supplied here
   inspectors += meqmaker.get_inspectors() or [];
-  Meow.StdTrees.make_sinks(ns,outputs,spigots=spigots0,post=inspectors);
+  StdTrees.make_sinks(ns,outputs,spigots=spigots0,post=inspectors);
   Bookmarks.make_node_folder("Corrected/residual visibilities by baseline",
     [ outputs(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
 
@@ -245,7 +242,7 @@ def _define_forest(ns,parent=None,**kw):
       def run_tree (mqs,parent,**kw):
         global tile_size;
         purrpipe.title("Calibrating").comment(comment);
-        mqs.execute(Context.vdm.name,mssel.create_io_request(tile_size),wait=False);
+        mqs.execute(Meow.Context.vdm.name,mssel.create_io_request(tile_size),wait=False);
       TDLRuntimeMenu(name,
         TDLOption('tile_size',"Tile size, in timeslots",[10,60,120,240],more=int,
                   doc="""Input data is sliced by time, and processed in chunks (tiles) of
