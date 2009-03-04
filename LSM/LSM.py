@@ -1965,7 +1965,7 @@ class LSM:
 
  ## build from a text file with extended sources
  ## format:
- ## NAME RA(hours, min, sec) DEC(degrees, min, sec) sI sQ sU sV SI RM eX eY eP
+ ## NAME RA(hours, min, sec) DEC(degrees, min, sec) sI sQ sU sV SI RM eX eY eP f0(optional)
  def build_from_extlist(self,infile_name,ns,ignore_pol=False,f0=None):
   infile=open(infile_name,'r')
   all=infile.readlines()
@@ -2044,7 +2044,7 @@ class LSM:
     freq0 = v.group('col17');
     freq0 = (freq0 and eval(freq0)) or f0 or 1e6; 
     if (ignore_pol==True or (sQ==0 and sU==0 and sV==0 and RM==0)):
-     my_sixpack=LSM_Sixpack.newstar_source(ns,punit=s.name,I0=sI, SI=SI, f0=1e6, RA=source_RA, Dec=source_Dec,trace=0)
+     my_sixpack=LSM_Sixpack.newstar_source(ns,punit=s.name,I0=sI, SI=SI, f0=freq0, RA=source_RA, Dec=source_Dec,trace=0)
     elif (SI==0 and RM==0):
      my_sixpack=LSM_Sixpack.newstar_source(ns,punit=s.name,I0=sI, f0=freq0,RA=source_RA, Dec=source_Dec,stokesQ=sQ, stokesU=sU, stokesV=sV,trace=0)
     elif (SI==0):
