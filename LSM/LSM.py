@@ -1898,49 +1898,19 @@ class LSM:
   all=infile.readlines()
   infile.close()
 
-  # regexp pattern
-  pp=re.compile(r"""
-   ^(?P<col1>[A-Za-z0-9_.]+)  # column 1 name: must start with a character
-   \s*             # skip white space
-   (?P<col2>(-)?\d+(\.\d*)?)   # RA angle - rad
-   \s*             # skip white space
-   (?P<col3>(-)?\d+(\.\d*)?)   # Dec angle - rad
-   \s*             # skip white space
-   (?P<col4>(-)?\d+(\.\d*)?)   # Stokes I - Flux
-   \s*             # skip white space
-   (?P<col5>(-)?\d+(\.\d*)?)   # Stokes Q - Flux
-   \s*             # skip white space
-   (?P<col6>(-)?\d+(\.\d*)?)   # Stokes U - Flux
-   \s*             # skip white space
-   (?P<col7>(-)?\d+(\.\d*)?)   # Stokes V - Flux
-   \s*             # skip white space
-   (?P<col8>(-)?\d+(\.\d*)?)   # Spectral index 
-   \s*             # skip white space
-   (?P<col9>[-+]?(\d+(\.\d*)?|\d*\.\d+)([eE][-+]?\d+)?)   # ext source major axis: rad
-   \s*             # skip white space
-   (?P<col10>[-+]?(\d+(\.\d*)?|\d*\.\d+)([eE][-+]?\d+)?)   # ext source minor axis: rad
-   \s*             # skip white space
-   (?P<col11>[-+]?(\d+(\.\d*)?|\d*\.\d+)([eE][-+]?\d+)?)   # ext source position angle : rad
-   [\S\s]+""",re.VERBOSE)
-
-
   kk=0
   for eachline in all:
-   v=pp.search(eachline)
-   if v!=None:
-    source_RA=float(v.group('col2'))
-    source_Dec=float(v.group('col3'))
-    sI=eval(v.group('col4'))
-    sQ=eval(v.group('col5'))
-    sU=eval(v.group('col6'))
-    sV=eval(v.group('col7'))
-    SI=eval(v.group('col8'))
+   ff = re.split('\s+',eachline);
+   if len(ff) >= 11:
+    name = ff[0];
+    try:
+      cols = map(float,ff[1:11]);
+    except:
+      continue;	
+    
+    source_RA,source_Dec,sI,sQ,sU,sV,SI,eX,eY,eP = cols;
 
-    eX=eval(v.group('col9'))
-    eY=eval(v.group('col10'))
-    eP=eval(v.group('col11'))
-
-    s=Source(v.group('col1'), major=eX, minor=eY, pangle=eP)
+    s=Source(name, major=eX, minor=eY, pangle=eP)
 
     kk=kk+1
 
@@ -1955,13 +1925,14 @@ class LSM:
  
    # first compose the sixpack before giving it to the LSM
     SourceRoot=my_sixpack.sixpack(ns)
-    self.add_source(s,brightness=eval(v.group('col4')),
+    self.add_source(s,brightness=sI,
      sixpack=my_sixpack,
      ra=source_RA, dec=source_Dec)
  
   self.setNodeScope(ns)
   self.setFileName(infile_name)
-
+  
+  
 
  ## build from a text file with extended sources
  ## format:
