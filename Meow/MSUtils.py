@@ -920,8 +920,10 @@ class ImagingSelector (object):
     self.tdloption_namespace = namespace;
     self.mssel = mssel;
     # add imager
+    self.imager_type_opt = None;
     if _lwimager and _glish:
-      self._opts.append(TDLOption('imager_type',"Imager to use",["lwimager","AIPS++ imager"],namespace=self));
+      self.imager_type_opt = TDLOption('imager_type',"Imager to use",["lwimager","AIPS++ imager"],namespace=self);
+      self._opts.append(self.imager_type_opt);
     elif _lwimager:
       self.imager_type = "lwimager";
     elif _glish:
@@ -963,8 +965,15 @@ class ImagingSelector (object):
     chan_opt.when_changed(show_chansel_menu);
     # weight options
     weight_opt = TDLOption('imaging_weight',"Imaging weights",
-                  ["default","natural","uniform","briggs","radial"],namespace=self);
+                  ["default","natural","uniform","briggs","radial"],namespace=self,
+                 doc="""Select the weighting scheme to use. Note that imaging weights are persistent
+                 in the sense that they're stored in the MS, so you can select the 'default' option
+                 to just use the weights already there. This will save some time when running the
+                 imager on the same MS repeatedly."""
+    );
     taper_opt = TDLMenu("Apply Gaussian taper to visibilities",toggle='imaging_taper_gauss',namespace=self,
+          doc="""Applies an additional Gaussian taper to the imaging weights. The size of the taper
+          is specified in image-plane terms.""",
           *( TDLOption('imaging_taper_bmaj',"Major axis (arcsec)",[12],more=float,namespace=self),
               TDLOption('imaging_taper_bmin',"Minor axis (arcsec)",[12],more=float,namespace=self),
               TDLOption('imaging_taper_bpa',"Position angle (deg)",[0],more=float,namespace=self),
@@ -1036,16 +1045,37 @@ class ImagingSelector (object):
         doc="""If you want an image viewer to be automatically started when the image is complete, select
         the viewer here, or enter your own executable name."""));
     # add TDL job to make an image
-    def job_make_image (mqs,parent,**kw):
-      self.make_dirty_image();
-    self._opts.append(TDLJob(job_make_image,"Make a dirty image"));
+    def job_make_dirty_image (mqs,parent,**kw):
+      self.make_image();
+    self._opts.append(TDLJob(job_make_dirty_image,"Make a dirty image"));
+    # add options to make a clean image, but only if lwimager is available
+    if self.imager_type_opt or self.imager_type ==  'lwimager':
+      def job_make_clean_image (mqs,parent,**kw):
+        self.make_image(clean=True);
+      self.clean_opt = TDLMenu("Make a clean image",
+        TDLOption("image_clean_method","CLEAN algorithm",["clark","hogbom","csclean"],namespace=self),
+        TDLOption("image_clean_niter","Number of iterations",1000,more=int,namespace=self),
+        TDLOption("image_clean_gain","Loop gain",.1,more=float,namespace=self),
+        TDLOption("image_clean_threshold","Flux threshold",["0Jy"],more=str,namespace=self,
+          doc="""Stop cleaning when a certain threshold is reached. Specify as a quantity string, such as 
+          ".1mJy" """),
+        TDLOption("image_clean_resetmodel","Reset model before starting CLEAN",True,namespace=self,
+          doc="""If checked, then any models from a previous deconvolution are discarded. You should only ever
+          uncheck this option if you want to resume deconvolving, otherwise it may produce confusing results."""),
+        TDLJob(job_make_clean_image,"Make a clean image")
+      );
+      self._opts.append(self.clean_opt);
+      if self.imager_type_opt:
+        self.imager_type_opt.when_changed(lambda img:self.clean_opt.show(img=='lwimager'));
+    
 
   def option_list (self):
     """Returns list of all TDL options"""
     return self._opts;
 
-  def make_dirty_image (self,npix=None,cellsize=None,arcmin=None):
-    """Runs glish script to make an image.
+  def make_image (self,npix=None,cellsize=None,arcmin=None,clean=False):
+    """Runs external imaging script to make an image.
+    If clean=True, then clean image is made, otherwise dirty image.
     The following parameters, if supplied, will override the option settings:
       npix:       image size in pixels
       arcmin:     image size in arc minutes
@@ -1143,8 +1173,11 @@ class ImagingSelector (object):
                 'chanstart='+str(chanstart),
                 'chanstep='+str(chanstep) ];
     else:
-      args.append("chanmode=none");
-      chanstart,nchan,chanstep = offset,totchan,1;
+      chanstart,nchan,chanstep = 0,totchan,1;
+      args += [ 'chanmode=channel',
+                'nchan='+str(totchan),
+                'chanstart=0',
+                'chanstep=1' ];
     # add channel arguments for setimage
     if self.imaging_chanmode == CHANMODE_MANUAL:
       img_nchan     = self.imaging_nchan;
@@ -1174,19 +1207,36 @@ class ImagingSelector (object):
     if taql:
       args.append("select=%s"%taql);
     # figure out an output FITS filename
-    fitsname = self.mssel.msname;
-    if fitsname.endswith('/'):
-      fitsname = fitsname[:-1];
-    fitsname = os.path.basename(fitsname);
-    fitsname = "%s.%s.%s.%dch.fits"%(fitsname,col,imgmode,img_nchan);
-    args += [ 'fits='+fitsname ];
+    basename = self.mssel.msname;
+    if basename.endswith('/'):
+      basename = basename[:-1];
+    basename = os.path.basename(basename);
+    basename = "%s.%s.%s.%dch"%(basename,col,imgmode,img_nchan);
+    fitsname = basename + ".fits";
+    args += [ 'fits='+fitsname,'image=%s.img'%basename ];
     # if the fits file exists, clobber it
     if os.path.exists(fitsname):
       try:
         os.unlink(fitsname);
       except:
         pass; 
-    print "MSUtils: imager args are",args;
+    # add clean arguments
+    if clean:
+      modelname = basename + ".model.img";
+      args += [ 'operation='+str(self.image_clean_method),
+                'model='+modelname,
+                'residual=%s.residual.img'%basename,
+                'restored=%s.restored.img'%basename,
+                'niter='+str(self.image_clean_niter),
+                'gain='+str(self.image_clean_gain),
+                'threshold='+str(self.image_clean_threshold) ];
+      # remove model if reset is requested
+      if self.image_clean_resetmodel:
+        try:
+          os.system("/bin/rm -fr "+modelname);
+        except:
+          pass; 
+    print "MSUtils: imager args are"," ".join(args);
     # run script
     os.spawnvp(os.P_NOWAIT,_IMAGER,args);
 
