@@ -1986,17 +1986,17 @@ class LSM:
    if v!=None:
     #### if we have negative RA, we have to subtract min,sec!!
     source_RA=float(v.group('col2'))
-    if source_RA>0:
-      source_RA=float(v.group('col2'))+(float(v.group('col4'))/60.0+float(v.group('col3')))/60.0
-    else:
+    if source_RA<0:
       source_RA=float(v.group('col2'))-(float(v.group('col4'))/60.0+float(v.group('col3')))/60.0
+    else:
+      source_RA=float(v.group('col2'))+(float(v.group('col4'))/60.0+float(v.group('col3')))/60.0
     source_RA*=math.pi/12.0
     #### if we have negative dec, we have to subtract min,sec!!
     source_Dec=float(v.group('col5'))
-    if source_Dec>0:
-      source_Dec=float(v.group('col5'))+(float(v.group('col7'))/60.0+float(v.group('col6')))/60.0
-    else:
+    if source_Dec<0:
       source_Dec=float(v.group('col5'))-(float(v.group('col7'))/60.0+float(v.group('col6')))/60.0
+    else:
+      source_Dec=float(v.group('col5'))+(float(v.group('col7'))/60.0+float(v.group('col6')))/60.0
     source_Dec*=math.pi/180.0
 
     sI=float(v.group('col8'))
