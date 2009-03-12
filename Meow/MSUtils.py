@@ -1212,7 +1212,10 @@ class ImagingSelector (object):
       basename = basename[:-1];
     basename = os.path.basename(basename);
     basename = "%s.%s.%s.%dch"%(basename,col,imgmode,img_nchan);
-    fitsname = basename + ".fits";
+    if clean:
+      fitsname = basename + ".restored.fits";
+    else:
+      fitsname = basename + ".fits";
     args += [ 'fits='+fitsname,'image=%s.img'%basename ];
     # if the fits file exists, clobber it
     if os.path.exists(fitsname):

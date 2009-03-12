@@ -145,6 +145,9 @@ def _define_forest (ns):
   # make sinks and vdm.
   # The list of inspectors comes in handy here
   Meow.StdTrees.make_sinks(ns,output,spigots=spigots,post=meqmaker.get_inspectors());
+  
+  # close the meqmaker. This produces annotations, etc.
+  meqmaker.close();
 
 
 def _tdl_job_1_simulate_MS (mqs,parent,wait=False):

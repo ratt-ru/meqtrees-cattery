@@ -90,9 +90,9 @@ class MeqMaker (object):
     
     other_opt = [];
     if use_decomposition is None:
-      self.use_decomposition = True;
+      self.use_decomposition = False;
       self.use_decomposition_opt = \
-        TDLOption('use_decomposition',"Use source coherency decomposition, if available",True,namespace=self,
+        TDLOption('use_decomposition',"Use source coherency decomposition, if available",False,namespace=self,
           doc="""If your source models are heavy on point sources, then an alternative form of the M.E. --
           where the source coherency is decomposed into per-station contributions -- may produce 
           faster and/or more compact trees. Check this option to enable. Your mileage may vary."""
@@ -785,7 +785,7 @@ def export_karma_annotations (sources,filename,
         sx = src.get_value("sigma1") or 0;
         sy = src.get_value("sigma2") or 0;
       pa = src.get_value("phi") or 0;
-      f.write('ELLIPSE %.12f %.12f %f %f %f\n'%(ra_d,dec_d,sx/math.pi*180.0,sy/math.pi*180.0,pa/math.pi*180.0));
+      f.write('ELLIPSE %.12f %.12f %f %f %f\n'%(ra_d,dec_d,sx/math.pi*180.0,sy/math.pi*180.0,-pa/math.pi*180.0));
     # else assume point source and do a cross
     else:
       f.write('CROSS %.12f %.12f %f %f\n'%(ra_d,dec_d,xcross,xcross));
