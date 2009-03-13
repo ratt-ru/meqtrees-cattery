@@ -137,7 +137,7 @@ def _define_forest (ns):
   elif sim_mode == SUB_MS:
     spigots = array.spigots();
     for p,q in array.ifrs():
-      ns.diff(p,q) << output(p,q) - spigots(p,q);
+      ns.diff(p,q) << spigots(p,q) - output(p,q);
     output = ns.diff;
   else:
     spigots = False;
