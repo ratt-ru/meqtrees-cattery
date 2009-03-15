@@ -127,6 +127,7 @@ class Direction (Parameterization):
   def lm (self,dir0=None):
     """Returns an LM 2-vector node for this direction. All args are as
     per lmn().""";
+    dir0 = Context.get_dir0(dir0);
     lmnst = self.lmn_static(dir0);
     if lmnst:
       lm = self.ns.lm(*dir0._quals,**dir0._kwquals);
