@@ -10,7 +10,7 @@ for arg in args:
   if arg.startswith("cachesize="):
     break;
 else:
-  args.append("cachesize=512");
+  args.append("cachesize=4096");
   
 viewer = 'kvis';
 # get image_viewer option
