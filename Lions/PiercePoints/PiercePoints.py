@@ -103,6 +103,16 @@ class PiercePoints(MIM_model):
                 pp('lat',src,station) << Meq.Asin(z/Meq.Sqrt(x*x+y*y+z*z));
         return pp;
 
+    def make_longlat_vector_pp(self,ref_station=None):
+        '''combine the long lat of the piercepoint in a vector, to use them in the same way as the xy(z) vector that is pp(src,station)'''
+        pp = self.make_longlat_pp(ref_station=ref_station);
+        for station in self.stations:
+            for src in self.src:
+                longlatvector = pp('longlat',src,station);
+                if not longlatvector.initialized():
+                    longlatvector << Meq.Composer(pp('lon',src,station),pp('lat',src,station));
+        return pp;
+        
     def make_xy_pp(self,ref_station=None):
         '''make xy of piercepoints'''
         pp = self.make_pp(ref_station=ref_station);
