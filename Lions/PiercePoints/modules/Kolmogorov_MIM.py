@@ -11,7 +11,8 @@ def compile_options():
             TDLCompileOption("speedy","Speed Y (/s)",[100.],more=float,doc="""Speed in y direction"""),
             TDLCompileOption("scale","Scale",[100.],more=float,doc="""Scale size of the grid"""),
             TDLCompileOption("amp_scale","Amplitude Scale",[1.e-5],more=float,doc="""Scale of the TEC values"""),
-            TDLCompileOption("seed_nr","Seed",[None],more=int,doc="""Seeding of the random generator""")]
+            TDLCompileOption("seed_nr","Seed",[None],more=int,doc="""Seeding of the random generator"""),
+            TDLCompileOption("use_lonlat","Use Longitude/Lattitude of PP instead of projected (x,y)",False)]
 ##    return [TDLCompileOption("scale","Scale",[100.],more=float,doc="""Scale size of the grid"""),];
 
 
@@ -25,7 +26,11 @@ class MIM(PiercePoints):
         
     def make_tec(self):
         # fit a virtual TEC value, this makes life easier (eg. include freq. and sec dependence)
-        pp=self.make_pp(ref_station=self.ref_station);
+        if use_lonlat:
+            pp=self.make_longlat_vector_pp(ref_station=self.ref_station);
+            pp=pp('longlat');
+        else:
+            pp=self.make_pp(ref_station=self.ref_station);
         n=0;
         for src in self.src:
             for station in self.stations:
