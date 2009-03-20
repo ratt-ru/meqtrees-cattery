@@ -22,8 +22,6 @@ class KolmogorovNode (pynode.PyNode):
     def __init__ (self,*args):
         pynode.PyNode.__init__(self,*args);
         self.set_symdeps('domain');
- 
-        
 
     def update_state (self,mystate):
         global initialized;
@@ -40,13 +38,15 @@ class KolmogorovNode (pynode.PyNode):
         mystate('speedx',0.); #speed in m/s.
         mystate('speedy',0.); #speed in m/s.
         mystate('grid_size',10); #scale in km.
+        mystate('tec0',5.0); #beta.
         mystate('beta',5./3.); #beta.
         mystate('amp_scale',1e-5); #scale of amplitude.
         mystate('seed_nr',None); #scale of amplitude.
-
+        mystate('starttime',0.0); #scale of amplitude.
  
         if not initialized:
-            PhaseScreen.init_phasescreen(self.grid_size,self.beta,self.seed_nr);
+            # divide gridsize by 2 here, phasescreen produces twice the number of pixels
+            PhaseScreen.init_phasescreen(self.grid_size/2,self.beta,self.seed_nr);
             initialized=True;
         
     def get_result (self,request,*children):
@@ -60,6 +60,7 @@ class KolmogorovNode (pynode.PyNode):
             raise TypeError,"vector size of child 1 too small, at leat x/y expected";
         xv=vs1[0].value[0];
         yv=vs1[1].value[0];
+
         if vs1[0].has_field('shape'):
             shapex=vs1[0].shape;
         else:
@@ -68,13 +69,14 @@ class KolmogorovNode (pynode.PyNode):
             shapey=vs1[1].shape;
         else:
             shapey=(1,);
-            
         
         cells=request.cells;
         seg=cells.segments.time;
         startt=seg.start_index;
         endt=seg.end_index;
-        time=cells.grid.time;
+        # make time a lot smaller to prevent precision errors for int
+        # the actual value of the constant
+        time=cells.grid.time - self.starttime;
         if startt>=endt:
             time=[time,];
         val=[];
@@ -84,16 +86,14 @@ class KolmogorovNode (pynode.PyNode):
             if shapey[0]>1:   
                 yv=vs1[1].value[it];
 
-
-
             xshift=(time[it])*self.speedx;
             yshift=(time[it])*self.speedy;
-            xn=((xv+xshift)/self.scale)*self.grid_size+self.grid_size;
-            yn=((yv+yshift)/self.scale)*self.grid_size+self.grid_size;
-            xn=int(xn)%(self.grid_size*2)  # zorg dat xn een integer tussen 0 en 2*grid_size is
-            yn=int(yn)%(self.grid_size*2)  # zorg dat xn een integer tussen 0 en 2*grid_size is
+            xn=(xv+xshift)/self.scale;
+            yn=(yv+yshift)/self.scale;
+            xn=int(xn)%(self.grid_size)  # zorg dat xn een integer tussen 0 en grid_size is
+            yn=int(yn)%(self.grid_size)  # zorg dat xn een integer tussen 0 en grid_size is
 
-            val.append(PhaseScreen.phasescreen[xn][yn]*self.amp_scale);
+            val.append(PhaseScreen.phasescreen[xn][yn]*self.amp_scale + self.tec0);
         #fill result
         res = meq.result(0,cells);
         # print startt,endt,seg,val;
