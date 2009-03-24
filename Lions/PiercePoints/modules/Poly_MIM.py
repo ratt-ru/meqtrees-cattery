@@ -14,11 +14,8 @@ def compile_options():
                          doc="""TIC"""),
         TDLCompileOption("N_lat","Rank of Polynomial in Y/Lattitude direction",[1,2,3],more=int,
                          doc="""TEC"""),
+        TDLCompileOption("height","Altitude",[300.],more=float),
         TDLCompileOption("use_lonlat","Use Longitude/Lattitude of PP instead of projected (x,y)",False)];
-
-
-
-
 
 
 
@@ -26,7 +23,7 @@ def compile_options():
 class MIM(PiercePoints.PiercePoints):
     """A Poly_MIM is a PiercePoints that creates a polynomial as functrion of the pierc points"""
 
-    def __init__(self,ns,name,sources,stations=None,height=300,ref_station=None,tags="iono",make_log=False):
+    def __init__(self,ns,name,sources,stations=None,ref_station=None,tags="iono",make_log=False):
         PiercePoints.PiercePoints.__init__(self,ns,name,sources,stations,height,make_log);
         self.ref_station=ref_station;
 

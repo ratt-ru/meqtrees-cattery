@@ -10,6 +10,7 @@ import math
 
 def compile_options():
     return [TDLCompileOption("TEC0","Zero offset TEC value",[1.,5.,10.],more=float,),
+            TDLCompileOption("height","Altitude",[200.,300.,400.],more=float),
             TDLCompileOption("Wavelength_1","Wavelength first wave (km)",[250.,500.,1000.],more=float),
             TDLCompileOption("Wavelength_2","Wavelength second wave (km)",[250.,500.,1000.],more=float),
             TDLCompileOption("Speed_1","Speed first wave (km/h)",[300.,600.,1200.],more=float),
@@ -51,7 +52,7 @@ class MIM(PiercePoints.PiercePoints):
 ##        self._add_parm(name="Speed_x",value=Meow.Parm(Speed_x),tags=tags)
 ##        self._add_parm(name="Speed_y",value=Meow.Parm(Speed_y),tags=tags)
 
-    def __init__(self,ns,name,sources,stations=None,height=300,ref_station=None,tags="iono",make_log=False):
+    def __init__(self,ns,name,sources,stations=None,ref_station=None,tags="iono",make_log=False):        
         PiercePoints.PiercePoints.__init__(self,ns,name,sources,stations,height,make_log);
 
         if use_lonlat:
@@ -69,6 +70,7 @@ class MIM(PiercePoints.PiercePoints):
             Sp2=Speed_2/3.6;
         self.ref_station=ref_station;
         self._add_parm(name="TEC0",value=Meow.Parm(TEC0),tags=tags)
+        self._add_parm(name="height",value=Meow.Parm(height),tags=tags)
         self._add_parm(name="Amp_1",value=Meow.Parm(Amp_1),tags=tags)
         self._add_parm(name="Amp_2",value=Meow.Parm(Amp_2),tags=tags)
         self._add_parm(name="Wavelength_1",value=Meow.Parm(W1),tags=tags)

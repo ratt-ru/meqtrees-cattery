@@ -8,10 +8,11 @@ def compile_options():
     return [TDLCompileOption("beta","Beta",[5./3.],more=float,doc="""Beta"""),
             TDLCompileOption("N","Number of pixels in screen",[1024],more=int,doc="""Total gridsize of screen in x and y"""),
             TDLCompileOption("speedx","V_lon (km/h)",[600.],more=float,doc="""Velocity in E-W direction"""),
-            TDLCompileOption("speedy","V_lat (km/h)",[0.],more=float,doc="""Velocity in N-S direction"""),
+            TDLCompileOption("speedy","V_lat (km/h)",[50.],more=float,doc="""Velocity in N-S direction"""),
             TDLCompileOption("scale","Pixelsize (km)",[1.],more=float,doc="""Size of a pixel at ionospheric height"""),
-            TDLCompileOption("amp_scale","TEC amplitude",[1.e-2],more=float,doc="""TEC amplitude of the fluctuations"""),
-            TDLCompileOption("TEC0","TEC_0",[1.],more=float,doc="""Underlying value of constant TEC"""),
+            TDLCompileOption("amp_scale","TEC amplitude",[0.01,0.1, 0.5],more=float,doc="""TEC amplitude of the fluctuations"""),
+            TDLCompileOption("TEC0","TEC_0",[1.,5.,10.],more=float,doc="""Underlying value of constant TEC"""),
+            TDLCompileOption("height","Altitude",[200.,300.,400.],more=float,doc="""Altitude of the ionospheric layer"""),
             TDLCompileOption("seed_nr","Seed",[None],more=int,doc="""Seeding of the random generator"""),
             TDLCompileOption("use_lonlat","Use Longitude/Lattitude of PP instead of projected (x,y)",True)]
 
@@ -29,7 +30,7 @@ def compile_options():
 
 class MIM(PiercePoints):
     """Create MIM_model with Kolmogorov phase screen"""
-    def __init__(self,ns,name,sources,stations=None,height=300,ref_station=None,tags="iono",make_log=False):
+    def __init__(self,ns,name,sources,stations=None,ref_station=None,tags="iono",make_log=False):        
         PiercePoints.__init__(self,ns,name,sources,stations,height,make_log);
         self.ref_station=ref_station;
         global starttime

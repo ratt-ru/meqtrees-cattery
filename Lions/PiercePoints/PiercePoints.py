@@ -7,7 +7,7 @@ import Meow
 class PiercePoints(MIM_model):
     """A PiercePoints is a MIM_model that uses pierce points at a given height (default=300km) which can be a (solvable) parameter. get_tec is a function of the calculated piercepoints"""
 
-    def __init__(self,ns,name,sources,stations=None,height=300,make_log=False):
+    def __init__(self,ns,name,sources,stations=None,height=None,make_log=False):
         MIM_model.__init__(self,ns,name,sources,stations);
         if isinstance(height,Meow.Parm): 
             self._height = height;

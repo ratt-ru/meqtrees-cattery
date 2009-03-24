@@ -5,8 +5,10 @@ from Lions.PiercePoints.modules.KL import KLNode
 import Meow
 
 def compile_options():
-    return [TDLCompileOption("rank","Rank",[1,5,10],more=int,doc="""Cut off"""),];
-# create rank nr of parms    
+    return [TDLCompileOption("rank","Rank",[1,5,10],more=int,doc="""Cut off"""),
+            TDLCompileOption("height","Altitude",[200.,300.,400.],more=float,doc="""Altitude of the ionospheric layer""")]
+
+
 
 
 
@@ -14,7 +16,7 @@ class MIM(PiercePoints):
     """Create MIM_model with KL transform"""
 
 
-    def __init__(self,ns,name,sources,stations=None,height=300,ref_station=None,tags="iono",make_log=False):
+    def __init__(self,ns,name,sources,stations=None,ref_station=None,tags="iono",make_log=False):
         PiercePoints.__init__(self,ns,name,sources,stations,height,make_log);
         self.ref_station=ref_station;
         for i in range(rank):
