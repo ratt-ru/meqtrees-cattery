@@ -6,6 +6,7 @@ from Lions.PiercePoints.modules.KL import KL_MIM
 from Lions.PiercePoints.modules import TID_MIM
 from Lions.PiercePoints.modules import Poly_MIM
 from Lions.PiercePoints.modules import Kolmogorov_MIM
+from Lions.PiercePoints.modules import VLSS_MIM
 
 def _modname (obj):
   if hasattr(obj,'name'):
@@ -32,7 +33,7 @@ def _modopts (mod,opttype='compile'):
   else:
     return [];
 
-modules=[TID_MIM,Kolmogorov_MIM,Poly_MIM,KL_MIM];
+modules=[TID_MIM,Kolmogorov_MIM,VLSS_MIM,Poly_MIM,KL_MIM];
 submenus = [ TDLMenu("Use '%s' module"%_modname(mod),name=_modname(mod),
                      toggle=_modname(mod).replace('.','_'),namespace={},
                      *_modopts(mod,'compile'))
