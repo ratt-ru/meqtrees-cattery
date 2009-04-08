@@ -77,15 +77,18 @@ class GaussianSource(PointSource):
     # else build up full rotation-scaling matrix
     xfm = self.ns.xfmatrix;
     if not xfm.initialized():
-      phi = self.phi();
-      # get direction sin/cos
-      cos_phi = self.ns.cos_phi << Meq.Cos(phi);
-      sin_phi = self.ns.sin_phi << Meq.Sin(phi);
-      # get sigma parameters
-      (a,b) = (self._parm("sigma1"),self._parm("sigma2"));
-      xfm << Meq.Matrix22(
-          a*cos_phi,Meq.Negate(a*sin_phi),
-          b*sin_phi,b*cos_phi);
+      phi,a,b = [ self._get_constant(name) for name in "phi","sigma1","sigma2" ]; 
+      # if phi,a and b are all constants, make constant matrix, else make matrix nodes
+      if phi is not None and a is not None and b is not None:
+        xfm << Meq.Matrix22(a*math.cos(phi),-a*math.sin(phi),b*math.sin(phi),b*math.cos(phi));
+      else:
+        phi,a,b = [ self._parm(name) for name in "phi","sigma1","sigma2" ]; 
+        # get direction sin/cos
+        cos_phi = self.ns.cos_phi << Meq.Cos(phi);
+        sin_phi = self.ns.sin_phi << Meq.Sin(phi);
+        xfm << Meq.Matrix22(
+            a*cos_phi,Meq.Negate(a*sin_phi),
+            b*sin_phi,b*cos_phi);
     return xfm;
 
   def make_visibilities (self,nodes,array,observation,**kw):
@@ -95,10 +98,11 @@ class GaussianSource(PointSource):
     radec0 = dir0.radec();
     # 1/wl = freq/c
     iwl = self.ns0.inv_wavelength << ((self.ns0.freq<<Meq.Freq) / 2.99792458e+8);
-    # -1/(wl^2): scaling factor applied to exp() argument below
-    m_iwlsq = self.ns0.m_inv_wavelength_sq << Meq.Negate(Meq.Sqr(iwl));
+    # -1/2*(wl^2): scaling factor applied to exp() argument below, since we want coordinates in wavelengths
+    m_iwlsq = self.ns0.m_inv_wavelength_sq << -2*Meq.Sqr(iwl);
     # scaling factor of gaussian for unit flux
-    gscale = self.ns0.gaussiancomponent_scale << Meq.Constant(0.5*math.pi);
+    # gscale = self.ns0.gaussiancomponent_scale << Meq.Constant(0.5*math.pi);
+    gscale = self.ns0.gaussiancomponent_scale << Meq.Constant(1);
     # baseline UVs
     uv_ifr = array.uv_ifr(dir0);
     # rotation matrix
