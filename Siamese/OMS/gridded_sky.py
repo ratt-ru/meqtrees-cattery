@@ -29,13 +29,15 @@ import math
 
 DEG = math.pi/180.;
 ARCMIN = DEG/60;
+ARCSEC = ARCMIN/60;
 
 def estimate_image_size (**kw):
   """Returns current image size, based on grid size and step""";
   return grid_size*grid_step;
 
-def point_source (ns,name,l,m,I=1):
-  """shortcut for making a pointsource with a direction. Returns None for sources out of the "sky"
+def make_source (ns,name,l,m,I=1):
+  """Makes a source with a directio, using the current option set. 
+  Returns None for sources out of the "sky". 
   (l^2+m^2>1)""";
   l = math.sin(l);
   m = math.sin(m);
@@ -51,64 +53,71 @@ def point_source (ns,name,l,m,I=1):
       V = I*source_vi;
     else:
       Q = U = V = None;
-    return Meow.PointSource(ns,name,srcdir,I=I,Q=Q,U=U,V=V,spi=source_spi,freq0=freq0);
-  else:
-    return None;
+    if source_type == "point":
+      return Meow.PointSource(ns,name,srcdir,I=I,Q=Q,U=U,V=V,spi=source_spi,freq0=freq0);
+    elif source_type == "gaussian":
+      if gauss_smaj == gauss_smin:
+        size = gauss_smaj*ARCSEC;
+      else:
+        size = (gauss_smaj*ARCSEC,gauss_smin*ARCSEC);
+      return Meow.GaussianSource(ns,name,srcdir,I=I,Q=Q,U=U,V=V,spi=source_spi,freq0=freq0,size=size,phi=gauss_pa*DEG);
+  # else fall through and return none
+  return None;
 
 def cross_model (ns,basename,l0,m0,dl,dm,nsrc,I):
   """Returns sources arranged in a cross""";
-  model = [point_source(ns,basename+"+0+0",l0,m0,I)];
+  model = [make_source(ns,basename+"+0+0",l0,m0,I)];
   dy = 0;
   for dx in range(-nsrc,nsrc+1):
     if dx:
       name = "%s%+d%+d" % (basename,dx,dy);
-      model.append(point_source(ns,name,l0+dl*dx,m0+dm*dy,I));
+      model.append(make_source(ns,name,l0+dl*dx,m0+dm*dy,I));
   dx = 0;
   for dy in range(-nsrc,nsrc+1):
     if dy:
       name = "%s%+d%+d" % (basename,dx,dy);
-      model.append(point_source(ns,name,l0+dl*dx,m0+dm*dy,I));
+      model.append(make_source(ns,name,l0+dl*dx,m0+dm*dy,I));
   return model;
 
 def mbar_model (ns,basename,l0,m0,dl,dm,nsrc,I):
   """Returns sources arranged in a line along the m axis""";
   model = [];
-  model.append(point_source(ns,basename+"+0",l0,m0,I));
+  model.append(make_source(ns,basename+"+0",l0,m0,I));
   for dy in range(-nsrc,nsrc+1):
     if dy:
       name = "%s%+d" % (basename,dy);
-      model.append(point_source(ns,name,l0,m0+dm*dy,I));
+      model.append(make_source(ns,name,l0,m0+dm*dy,I));
   return model;
 
 def lbar_model (ns,basename,l0,m0,dl,dm,nsrc,I):
   """Returns sources arranged in a line along the m axis""";
   model = [];
-  model.append(point_source(ns,basename+"+0",l0,m0,I));
+  model.append(make_source(ns,basename+"+0",l0,m0,I));
   for dx in range(-nsrc,nsrc+1):
     if dx:
       name = "%s%+d" % (basename,dx);
-      model.append(point_source(ns,name,l0+dl*dx,m0,I));
+      model.append(make_source(ns,name,l0+dl*dx,m0,I));
   return model;
   
 def star8_model (ns,basename,l0,m0,dl,dm,nsrc,I):
   """Returns sources arranged in an 8-armed star""";
-  model = [ point_source(ns,basename+"+0+0",l0,m0,I) ];
+  model = [ make_source(ns,basename+"+0+0",l0,m0,I) ];
   for n in range(1,nsrc+1):
     for dx in (-n,0,n):
       for dy in (-n,0,n):
         if dx or dy:
           name = "%s%+d%+d" % (basename,dx,dy);
-          model.append(point_source(ns,name,l0+dl*dx,m0+dm*dy,I));
+          model.append(make_source(ns,name,l0+dl*dx,m0+dm*dy,I));
   return model;
 
 def grid_model (ns,basename,l0,m0,dl,dm,nsrc,I):
   """Returns sources arranged in a grid""";
-  model = [ point_source(ns,basename+"+0+0",l0,m0,I) ];
+  model = [ make_source(ns,basename+"+0+0",l0,m0,I) ];
   for dx in range(-nsrc,nsrc+1):
     for dy in range(-nsrc,nsrc+1):
       if dx or dy:
         name = "%s%+d%+d" % (basename,dx,dy);
-        model.append(point_source(ns,name,l0+dl*dx,m0+dm*dy,I));
+        model.append(make_source(ns,name,l0+dl*dx,m0+dm*dy,I));
   return model;
 
 def circ_grid_model (ns,basename,l0,m0,dl,dm,nsrc,I):
@@ -123,7 +132,7 @@ def circ_grid_model (ns,basename,l0,m0,dl,dm,nsrc,I):
       for dy in (-n,0,n):
         if dx and dy:
           name = "%s%+d%+d" % (basename,dx,dy);
-          model.append(point_source(ns,name,l0+dl*dx,m0+dm*dy,I));
+          model.append(make_source(ns,name,l0+dl*dx,m0+dm*dy,I));
   return model;
 
 # NB: use lm0=1e-20 to avoid our nasty bug when there's only a single source
@@ -149,6 +158,14 @@ TDLCompileOption("grid_step","Grid step, in arcmin",
       [.1,.5,1,2,5,10,15,20,30],more=float);
 TDLCompileOption("source_flux","Source I flux, Jy",
       [1e-6,1e-3,1],more=float);
+
+srctype_opt = TDLCompileOption("source_type","Source type",["point","gaussian"]);
+gauss_menu = TDLCompileMenu("Gaussian shape",
+    TDLCompileOption("gauss_smaj","Major axis extent, arcsec",10,more=float),
+    TDLCompileOption("gauss_smin","Minor axis extent, arcsec",10,more=float),
+    TDLCompileOption("gauss_pa","Position angle, deg",0,more=float));
+srctype_opt.when_changed(lambda stype:gauss_menu.show(stype=="gaussian"));
+
 TDLCompileMenu("Polarization",
   TDLOption("source_qi","Q/I ratio",
         [0,.1],more=float),
@@ -162,4 +179,5 @@ TDLCompileOption("grid_m0","Offset w.r.t. phase center (m), in arcmin",
       [0],more=float);
 TDLCompileOption("source_spi","Spectral index",[None],more=float);
 TDLCompileOption("source_freq0","Reference frequency, MHz",[None],more=float);
+
 
