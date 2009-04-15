@@ -70,6 +70,17 @@ class Shapelet(PointSource):
      self.ns.clist<<Meq.Composer(children=self._children)
     self._children=clist
 
+  def transformation_matrix (self):
+    # else build up full rotation-scaling matrix
+    xfm = self.ns.xfmatrix;
+    if not xfm.initialized():
+      phi=self._phi
+      a=1
+      b=self._scale
+      xfm << Meq.Matrix22(a*math.cos(phi),-a*math.sin(phi),b*math.sin(phi),b*math.cos(phi));
+    return xfm;
+
+
   def make_visibilities (self,nodes,array,observation):
     array = Context.get_array(array);
     observation = Context.get_observation(observation);
@@ -77,25 +88,23 @@ class Shapelet(PointSource):
     radec0 = dir0.radec();
     # baseline UVs
     uv1 = self.ns.uv1.qadd(radec0);
-    u1=self.ns.u1.qadd(radec0);
-    v1=self.ns.v1.qadd(radec0);
 
     shp=self.ns.shp.qadd(radec0)
-    #if not self.shp.initialized():
 
+    # rotation matrix
+    xfm = self.transformation_matrix();
 
     uv_ifr = array.uv_ifr(dir0);
     # inverse wavelength 1/wl = freq/c
     iwl = self.ns0.inv_wavelength << ((self.ns0.freq<<Meq.Freq) / 2.99792458e+8);
 
     coherency = self.coherency(observation);
-    # flux scale 
-    fscale=832
-    fscale=1.0
+    # flux scale, conserved peak value, times the sqrt(1/scale)
+    fscale=2*math.pi/(self._scale)
     gcoh = self.ns.shapelet_coh.qadd(radec0);
     for ifr in array.ifrs():
-      uv=uv_ifr(*ifr)*iwl 
-      shptf= shp(*ifr)<<Meq.ShapeletVisTf(modes=self._children,phi=self._phi,scale=self._scale,dep_mask=0xff);
+      uv=uv1(*ifr)<<Meq.MatrixMultiply(xfm,uv_ifr(*ifr)*iwl) 
+      shptf= shp(*ifr)<<Meq.ShapeletVisTf(modes=self._children,dep_mask=0xff);
       gcoh(*ifr) << coherency * fscale * Meq.Compounder(children=[uv,shptf],common_axes=[hiid('L'),hiid('M')]);
 
     # phase shift to source position
