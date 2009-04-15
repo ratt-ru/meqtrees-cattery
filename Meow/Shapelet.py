@@ -36,7 +36,7 @@ class Shapelet(PointSource):
                I=0.0,Q=None,U=None,V=None,
                spi=None,freq0=None,
                RM=None,
-               size=None,phi=0,symmetric=False,solvable=False,
+               scale=1,phi=0,solvable=False,
                modefile=None):
     PointSource.__init__(self,ns,name,direction,I,Q,U,V,
                         spi,freq0,RM);
@@ -44,17 +44,22 @@ class Shapelet(PointSource):
     infile=open(modefile,'r');
     all=infile.readlines()
     infile.close()
+    ### remove first line because it only has RA,Dec
+    all.pop(0)
     thisline=all[0].split()
     n0=int(thisline[0]);
     beta=float(thisline[1]);
     self._children=[]
     self._phi=phi
-    #self._children+=[Meq.ToComplex(self._parm('beta_'+str(n0),beta,tags='beta'),0)];
-    self._children+=[self._parm('beta_'+str(n0),beta,tags='beta')];
+    self._scale=scale
+
+    if not solvable:
+      self._children+=[self._parm('beta_'+str(n0),beta,tags='beta')];
+    else:
+      self._children+=[self._parm('beta_'+str(n0),Meow.Parm(beta),tags='beta')];
     for ci in range(1,n0*n0+1):
       thisline=all[ci].split()
       modeval=float(thisline[1])
-      #self._children+=[Meq.ToComplex(self._parm('mode_'+str(ci),modeval,tags='modes'),0)];
       if not solvable:
        self._children+=[self._parm('mode_'+str(ci),modeval,tags='modes')];
       else:
@@ -64,67 +69,6 @@ class Shapelet(PointSource):
     if not clist.initialized():
      self.ns.clist<<Meq.Composer(children=self._children)
     self._children=clist
-    # create private function
-    #self.shp=self.ns.shp
-    #if not self.shp.initialized():
-    #  self.shp<<Meq.PrivateFunction(children=self._children, lib_name="/home/sarod/shapelet/src/lib/shapeletpriv.so",function_name="test", dep_mask=0xff);
-
-
-    # create polc(s) for size
-    self._symmetric = symmetric;
-    if symmetric:
-      self._add_parm('sigma',size,tags='shape');
-    else:
-      # setup orientation
-      # note: the orientation angle, phi, of the major axis
-      # is defined in the direction East through South; i.e.
-      # an angle of zero defines a Gaussian oriented east-west
-      self._add_parm('phi',phi,tags='shape');
-      if isinstance(size,(int,float)):
-        s1 = s2 = size;
-      elif isinstance(size,(tuple,list)):
-        if len(size) != 2:
-          raise TypeError,"size: one or two numeric values expected";
-        s1,s2 = size;
-      else:
-        raise TypeError,"size: one or two numeric values expected";
-      self._add_parm('sigma1',s1,tags="shape");
-      self._add_parm('sigma2',s2,tags="shape");
-    
-  def is_symmetric (self):
-    return self._symmetric;
-    
-  def sigma (self):
-    """Returns the size for this source (single node for symmetric,
-    two-pack for elliptic).""";
-    if self._symmetric:
-      return self._parm('sigma');
-    else:
-      return self.ns.sigma ** Meq.Composer(self._parm("sigma1"),self._parm("sigma2"));
-    return size;
-      
-  def phi (self):
-    """Returns the orientation node for this source""";
-    return self._parm("phi");
-    
-  def transformation_matrix (self):
-    # for a symmetric case, the transformation matrix is just multiplication 
-    # by sigma
-    if self.is_symmetric():
-      return self._parm("sigma");
-    # else build up full rotation-scaling matrix
-    xfm = self.ns.xfmatrix;
-    if not xfm.initialized():
-      phi = self.phi();
-      # get direction sin/cos
-      cos_phi = self.ns.cos_phi << Meq.Cos(phi);
-      sin_phi = self.ns.sin_phi << Meq.Sin(phi);
-      # get sigma parameters
-      (a,b) = (self._parm("sigma1"),self._parm("sigma2"));
-      xfm << Meq.Matrix22(
-          a*cos_phi,Meq.Negate(a*sin_phi),
-          b*sin_phi,b*cos_phi);
-    return xfm;
 
   def make_visibilities (self,nodes,array,observation):
     array = Context.get_array(array);
@@ -145,18 +89,13 @@ class Shapelet(PointSource):
     iwl = self.ns0.inv_wavelength << ((self.ns0.freq<<Meq.Freq) / 2.99792458e+8);
 
     coherency = self.coherency(observation);
-    # gaussian coherencies go here
-    # scale 
+    # flux scale 
     fscale=832
+    fscale=1.0
     gcoh = self.ns.shapelet_coh.qadd(radec0);
     for ifr in array.ifrs():
       uv=uv_ifr(*ifr)*iwl 
-      #u1s = u1(*ifr) << Meq.Selector(uv_ifr(*ifr),index=0);
-      #v1s = v1(*ifr) << Meq.Selector(uv_ifr(*ifr),index=1);
-      #uvs1 = uv1(*ifr) << Meq.Composer(u1s,v1s)*iwl;
-
-      #shptf= shp(*ifr)<<Meq.PrivateFunction(children=self._children, lib_name="/home/sarod/shapelet/src/lib/shapeletpriv.so",function_name="test", dep_mask=0xff);
-      shptf= shp(*ifr)<<Meq.ShapeletVisTf(modes=self._children,phi=self._phi,dep_mask=0xff);
+      shptf= shp(*ifr)<<Meq.ShapeletVisTf(modes=self._children,phi=self._phi,scale=self._scale,dep_mask=0xff);
       gcoh(*ifr) << coherency * fscale * Meq.Compounder(children=[uv,shptf],common_axes=[hiid('L'),hiid('M')]);
 
     # phase shift to source position
