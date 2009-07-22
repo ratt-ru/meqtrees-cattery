@@ -34,6 +34,7 @@ import Meow.StdTrees
 mssel = Meow.MSUtils.MSSelector(has_input=False,tile_sizes=[8,16,32],flags=False);
 # MS compile-time options
 TDLCompileOptions(*mssel.compile_options());
+TDLCompileOption("run_purr","Start Purr on this MS",True);
 # MS run-time options
 TDLRuntimeOptions(*mssel.runtime_options());
 ## also possible:
@@ -97,6 +98,9 @@ from Meow import Parallelization
 TDLCompileOptions(*Parallelization.compile_options());
 
 def _define_forest (ns):
+  if run_purr:
+    Timba.TDL.GUI.purr(mssel.msname,[mssel.msname,'.']);
+    
   ANTENNAS = mssel.get_antenna_set(range(1,28));
   array = Meow.IfrArray(ns,ANTENNAS);
   observation = Meow.Observation(ns);
