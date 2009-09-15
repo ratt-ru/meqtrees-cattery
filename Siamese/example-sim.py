@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #% $Id$ 
 #
 #
@@ -71,9 +72,17 @@ meqmaker.add_sky_models([gridded_sky,transient_sky,fitsimage_sky,lsm]);
 from Siamese.OMS import oms_n_inverse
 meqmaker.add_sky_jones('Ncorr','n-term correction',oms_n_inverse);
 
+# P - Parallactic angle
+from Siamese.OMS import par_angle
+meqmaker.add_sky_jones('P','parallactic angle',par_angle);
+
 # Z - ionosphere
 from Siamese.OMS import oms_ionosphere
 meqmaker.add_sky_jones('Z','ionosphere',oms_ionosphere);
+
+# L - dipole projection
+from Siamese.OMS import oms_dipole_projection
+meqmaker.add_sky_jones('L','dipole projection',oms_dipole_projection);
 
 # E - beam
 from Siamese.OMS import analytic_beams

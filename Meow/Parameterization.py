@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -87,6 +88,9 @@ class Parameterization (object):
   """;
   
   def __init__(self,ns,name,quals=[],kwquals={}):
+    if not isinstance(ns,NodeScope):
+      raise TypeError,"expected NodeScope, got "+ \
+	getattr(ns,'__class__',type(ns)).__name__;
     self.ns0    = ns;
     self.name   = name;
     self._parmnodes = {};

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -36,7 +37,6 @@ from Meow import ParmGroup
 
 import math
 from math import sqrt,atan2
-import sets
 
 
 
@@ -93,7 +93,7 @@ class SourceBeam (object):
     return self.beams.search(*args,**kw);
 
 def compute_jones (Jones,sources,stations=None,label="beam",pointing_offsets=None,inspectors=[],
-                   solvable_sources=sets.Set(),**kw):
+                   solvable_sources=set(),**kw):
   """Computes beam gain for a list of sources.
   The output node, will be qualified with either a source only, or a source/station pair
   """;
@@ -135,13 +135,13 @@ def compute_jones (Jones,sources,stations=None,label="beam",pointing_offsets=Non
     
   # set of all sources, will later become set of sources for which
   # a beam hasn't been computed
-  all_sources = sets.Set([src.name for src in sources]);
+  all_sources = set([src.name for src in sources]);
   
   # if pointing errors are enabled, compute beams for sources with a PE
   if pointing_offsets:
     # is a subset specified?
     if pe_subset != "all":
-      pe_sources = sets.Set(pe_subset.split(" "));
+      pe_sources = set(pe_subset.split(" "));
       # make sure pe_sources does not contain unknown sources
       pe_sources &= all_sources;
       # remove PE_enabled sources from global list

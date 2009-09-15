@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # Meow.LSM
 # Meow interface to LSM files
 
@@ -30,7 +31,6 @@ from Timba.TDL import *
 from LSM0.LSM import LSM
 from Timba.utils import curry
 import traceback
-import sets
 import Meow
 import Meow.OptionTools
 import Meow.Context
@@ -249,7 +249,7 @@ class MeowLSM (object):
     if self.lsm_subset != "all":
       self._subset_parser.set_max(len(srclist)-1);
       indices,names = self._subset_parser.parse_list(self.lsm_subset);
-      source_set = sets.Set(names);
+      source_set = set(names);
       source_set.update([srclist[i][1].name for i in indices]);
     else:
       source_set = None;
@@ -258,7 +258,7 @@ class MeowLSM (object):
     if self.solve_subset != "all":
       self._solve_subset_parser.set_max(len(srclist)-1);
       indices,names = self._solve_subset_parser.parse_list(self.solve_subset);
-      solvable_source_set = sets.Set(names);
+      solvable_source_set = set(names);
       solvable_source_set.update([srclist[i][1].name for i in indices]);
     else:
       solvable_source_set = None;

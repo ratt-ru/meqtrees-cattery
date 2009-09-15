@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$
 #
@@ -26,13 +27,13 @@
 from Timba.TDL import *
 from Timba.Meq import meq
 
+import Meow
+
 import re
 import traceback
 import sys
 import os
 import os.path
-import Meow
-import sets
 import math
 
 # figure out which table implementation to use -- try pyrap/casacore first
@@ -75,7 +76,7 @@ if _glish:
   print "Meow.MSUtils: found %s, can use AIPS++ imager"%_glish;
 
 if not _lwimager and not _glish:
-  print "Meow.MSUtils: no imager found";
+  print "Meow.MSUtils: no imager found. Please install the casarest package.";
   
 # figure out if we have a visualizer
 _image_viewers = [];
@@ -94,9 +95,9 @@ MS_STOKES_ENUMS = [
     "Undefined", "I", "Q", "U", "V", "RR", "RL", "LR", "LL", "XX", "XY", "YX", "YY", "RX", "RY", "LX", "LY", "XR", "XL", "YR", "YL", "PP", "PQ", "QP", "QQ", "RCircular", "LCircular", "Linear", "Ptotal", "Plinear", "PFtotal", "PFlinear", "Pangle"
   ];
 # set of circular correlations
-CIRCULAR_CORRS = sets.Set(["RR", "RL", "LR", "LL"]);
+CIRCULAR_CORRS = set(["RR", "RL", "LR", "LL"]);
 # set of linear correlations
-LINEAR_CORRS = sets.Set(["XX", "XY", "YX", "YY"]);
+LINEAR_CORRS = set(["XX", "XY", "YX", "YY"]);
 
 # queue size parameter for MS i/o record
 ms_queue_size = 500;
@@ -518,9 +519,9 @@ class MSSelector (object):
     self._compile_opts.append(self.polarization_option);
     self.ms_data_columns = ["DATA","MODEL_DATA","CORRECTED_DATA"];
     if isinstance(forbid_output,str):
-      self._forbid_output = sets.Set([forbid_output]);
+      self._forbid_output = set([forbid_output]);
     elif forbid_output:
-      self._forbid_output = sets.Set(forbid_output);
+      self._forbid_output = set(forbid_output);
     else:
       self._forbid_output = [];
     self.input_column = self.output_column = None;
@@ -758,7 +759,7 @@ class MSSelector (object):
         prefix = len(longest_prefix(*antnames));
         self.ms_antenna_names = [ name[prefix:] for name in antnames ];
         # some broken MSs do not have unique antenna names -- replace them with indices if so
-        if len(sets.Set(self.ms_antenna_names)) < len(self.ms_antenna_names):
+        if len(set(self.ms_antenna_names)) < len(self.ms_antenna_names):
           print "Warning! This MS does not define unique ANTENNA names. Using antenna indices instead.";
           self.ms_antenna_names = [ str(i) for i in range(len(self.ms_antenna_names)) ];
       if self.antsel_option:
@@ -948,7 +949,7 @@ class ImagingSelector (object):
     self.imaging_totchan = 1;
     if TABLE:
       chan_opt = TDLOption('imaging_chanmode',"Frequency channels in image",
-                    [CHANMODE_NOAVG,CHANMODE_ALL,CHANMODE_MFS,CHANMODE_MANUAL],
+                    [CHANMODE_ALL,CHANMODE_MFS,CHANMODE_NOAVG,CHANMODE_MANUAL],
                     more=int,namespace=self,doc=docstr);
     else:
       self._opts += [ TDLOption('imaging_totchan',"Frequency channels in input data",

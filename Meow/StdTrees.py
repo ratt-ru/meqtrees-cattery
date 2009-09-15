@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -28,7 +29,6 @@ import Context
 import Jones
 import Bookmarks
 import Utils
-import sets
 
 class _BaseTree (object):
   def __init__ (self,ns,array=None,observation=None):
@@ -103,7 +103,7 @@ class SolveTree (ResidualTree):
       # create optimal poll order for condeqs, for efficient parallelization
       # (i.e. poll child 1:2, 3:4, 5:6, ..., 13:14 then the rest)
       # however, since _solve_ifrs may be a subset, we'll have to be a bit more clever
-      polled = sets.Set();
+      polled = set();
       poll_order = [];
       for p,q in self._solve_ifrs:
         if p not in polled and q not in polled:
@@ -230,7 +230,7 @@ def inspector (outnode,nodes,bookmark=True):
     raise ValueError,"too few nodes specified in list";
   outnode << \
     Meq.Composer(
-      plot_label=[ node.name for node in nodes ],
+      plot_label=[ node.name for node in nodes ],dims=[0],
       mt_polling=True,
       *[ Meq.Mean(node,reduction_axes="freq") for node in nodes ]
     );

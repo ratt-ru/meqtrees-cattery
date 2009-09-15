@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -73,11 +74,38 @@ class Direction (Parameterization):
       dec = self._parm('dec');
       radec << Meq.Composer(ra,dec);
     return radec;
+
+  def ra (self):
+    """Returns R.A. node for this direction.""";
+    return self.ns.ra ** Meq.Selector(self.radec(),index=0);
+
+  def dec (self):
+    """Returns dec node for this direction.""";
+    return self.ns.dec ** Meq.Selector(self.radec(),index=1);
     
   def radec_static (self):
     """Returns ra-dec tuple for this direction if static, None if not.
     """;
     return self.static;
+
+  def azel (self,xyz=None):
+    """Returns az-el 2-vector node for this direction.
+    """;
+    xyz = xyz or Context.array.xyz0();
+    azel = self.ns.azel(*xyz.quals,**xyz.kwquals);
+    if not azel.initialized():
+      azel << Meq.AzEl(self.radec(),xyz);
+    return azel;
+
+  def az (self,xyz=None):
+    """Returns az node for this direction.""";
+    azel = self.azel(xyz);
+    return self.ns.az(*azel.quals,**azel.kwquals) ** Meq.Selector(azel,index=0);
+
+  def el (self,xyz=None):
+    """Returns el node for this direction.""";
+    azel = self.azel(xyz);
+    return self.ns.el(*azel.quals,**azel.kwquals) ** Meq.Selector(azel,index=1);
     
   def lmn (self,dir0=None):
     """Returns LMN 3-vector node for this direction, given a reference

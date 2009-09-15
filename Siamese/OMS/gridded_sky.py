@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -64,9 +65,9 @@ def make_source (ns,name,l,m,I=1):
   # else fall through and return none
   return None;
 
-def cross_model (ns,basename,l0,m0,dl,dm,nsrc,I):
+def cross_model (ns,basename,l0,m0,dl,dm,nsrc,I,I0):
   """Returns sources arranged in a cross""";
-  model = [make_source(ns,basename+"+0+0",l0,m0,I)];
+  model = [make_source(ns,basename+"+0+0",l0,m0,I0)];
   dy = 0;
   for dx in range(-nsrc,nsrc+1):
     if dx:
@@ -79,29 +80,29 @@ def cross_model (ns,basename,l0,m0,dl,dm,nsrc,I):
       model.append(make_source(ns,name,l0+dl*dx,m0+dm*dy,I));
   return model;
 
-def mbar_model (ns,basename,l0,m0,dl,dm,nsrc,I):
+def mbar_model (ns,basename,l0,m0,dl,dm,nsrc,I,I0):
   """Returns sources arranged in a line along the m axis""";
   model = [];
-  model.append(make_source(ns,basename+"+0",l0,m0,I));
+  model.append(make_source(ns,basename+"+0",l0,m0,I0));
   for dy in range(-nsrc,nsrc+1):
     if dy:
       name = "%s%+d" % (basename,dy);
       model.append(make_source(ns,name,l0,m0+dm*dy,I));
   return model;
 
-def lbar_model (ns,basename,l0,m0,dl,dm,nsrc,I):
+def lbar_model (ns,basename,l0,m0,dl,dm,nsrc,I,I0):
   """Returns sources arranged in a line along the m axis""";
   model = [];
-  model.append(make_source(ns,basename+"+0",l0,m0,I));
+  model.append(make_source(ns,basename+"+0",l0,m0,I0));
   for dx in range(-nsrc,nsrc+1):
     if dx:
       name = "%s%+d" % (basename,dx);
       model.append(make_source(ns,name,l0+dl*dx,m0,I));
   return model;
   
-def star8_model (ns,basename,l0,m0,dl,dm,nsrc,I):
+def star8_model (ns,basename,l0,m0,dl,dm,nsrc,I,I0):
   """Returns sources arranged in an 8-armed star""";
-  model = [ make_source(ns,basename+"+0+0",l0,m0,I) ];
+  model = [ make_source(ns,basename+"+0+0",l0,m0,I0) ];
   for n in range(1,nsrc+1):
     for dx in (-n,0,n):
       for dy in (-n,0,n):
@@ -110,9 +111,9 @@ def star8_model (ns,basename,l0,m0,dl,dm,nsrc,I):
           model.append(make_source(ns,name,l0+dl*dx,m0+dm*dy,I));
   return model;
 
-def grid_model (ns,basename,l0,m0,dl,dm,nsrc,I):
+def grid_model (ns,basename,l0,m0,dl,dm,nsrc,I,I0):
   """Returns sources arranged in a grid""";
-  model = [ make_source(ns,basename+"+0+0",l0,m0,I) ];
+  model = [ make_source(ns,basename+"+0+0",l0,m0,I0) ];
   for dx in range(-nsrc,nsrc+1):
     for dy in range(-nsrc,nsrc+1):
       if dx or dy:
@@ -120,10 +121,10 @@ def grid_model (ns,basename,l0,m0,dl,dm,nsrc,I):
         model.append(make_source(ns,name,l0+dl*dx,m0+dm*dy,I));
   return model;
 
-def circ_grid_model (ns,basename,l0,m0,dl,dm,nsrc,I):
+def circ_grid_model (ns,basename,l0,m0,dl,dm,nsrc,I,I0):
   """Returns sources arranged in a circular grid""";
   # start with a cross model
-  model = cross_model(ns,basename,l0,m0,dl,dm,nsrc,I);
+  model = cross_model(ns,basename,l0,m0,dl,dm,nsrc,I,I0);
   # fill in diagonals
   dl /= math.sqrt(2);
   dm /= math.sqrt(2);
@@ -135,6 +136,8 @@ def circ_grid_model (ns,basename,l0,m0,dl,dm,nsrc,I):
           model.append(make_source(ns,name,l0+dl*dx,m0+dm*dy,I));
   return model;
 
+DefaultFlux = "default";
+
 # NB: use lm0=1e-20 to avoid our nasty bug when there's only a single source
 # at the phase centre
 def source_list (ns,basename="S",l0=None,m0=None):
@@ -143,9 +146,12 @@ def source_list (ns,basename="S",l0=None,m0=None):
   m0 = m0 or grid_m0*ARCMIN;
   if grid_size == 1 and not l0 and not m0:
     l0 = m0 = 1e-20;
+  global center_source_flux;
+  if center_source_flux == DefaultFlux:
+    center_source_flux = source_flux;
   sources = model_func(ns,basename,l0,m0,
                        grid_step*ARCMIN,grid_step*ARCMIN,
-                       (grid_size-1)/2,source_flux);
+                       (grid_size-1)/2,source_flux,center_source_flux);
   return filter(lambda x:x,sources);
 
 # model options
@@ -156,8 +162,10 @@ TDLCompileOption("grid_size","Number of sources in each direction",
       [1,3,5,7],more=int);
 TDLCompileOption("grid_step","Grid step, in arcmin",
       [.1,.5,1,2,5,10,15,20,30],more=float);
-TDLCompileOption("source_flux","Source I flux, Jy",
+TDLCompileOption("source_flux","Default source I flux, Jy",
       [1e-6,1e-3,1],more=float);
+TDLCompileOption("center_source_flux","Center source I flux, Jy",
+      [DefaultFlux,1],more=float);
 
 srctype_opt = TDLCompileOption("source_type","Source type",["point","gaussian"]);
 gauss_menu = TDLCompileMenu("Gaussian shape",

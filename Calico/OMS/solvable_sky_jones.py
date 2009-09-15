@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$
 #
@@ -36,7 +37,6 @@ import Meow
 from Meow import Context
 from Meow import Jones,ParmGroup,Bookmarks
 from Meow.Parameterization import resolve_parameter
-import sets
 import Meow.MeqMaker 
 
 class DiagAmplPhase (object):
@@ -72,7 +72,7 @@ class DiagAmplPhase (object):
     stations = stations or Context.array.stations();
     # figure out which sources to apply to
     if self.subset != "all":
-      srcset = sets.Set(self.subset.split(" "));
+      srcset = set(self.subset.split(" "));
       sources = [ src for src in sources if src.name in srcset ];
     if not sources:
       return None;

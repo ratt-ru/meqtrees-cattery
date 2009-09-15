@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$
 #
@@ -27,8 +28,8 @@
 from Timba.TDL import *
 from Timba.Meq import meq
 import math
-import sets
 import inspect
+import types
 
 import Meow
 from Meow import StdTrees
@@ -145,13 +146,13 @@ class MeqMaker (object):
               ))
     );
 
-  def add_uv_jones (self,label,name,modules,pointing=None):
+  def add_uv_jones (self,label,name=None,modules=None,pointing=None):
     return self._add_jones_modules(label,name,True,pointing,modules);
   
-  def add_vis_proc_module (self,label,name,modules):
+  def add_vis_proc_module (self,label,name=None,modules=None):
     return self._add_vpm_modules(label,name,True,modules);
 
-  def add_sky_jones (self,label,name,modules,pointing=None):
+  def add_sky_jones (self,label,name=None,modules=None,pointing=None):
     return self._add_jones_modules(label,name,False,pointing,modules);
 
   class VPMTerm (object):
@@ -159,7 +160,7 @@ class MeqMaker (object):
     A VPM has the following fields:
       label:      a label (e.g. "G", "E", etc.)
       name:       a descriprive name
-      modules:    a list of possible modules implementing the Jones set
+      modules:    a list of possible modules implementing the VPM
     """;
     def __init__ (self,label,name,modules):
       self.label      = label;
@@ -190,7 +191,14 @@ class MeqMaker (object):
       self.pointing_modules = pointing_modules;
 
   def _add_vpm_modules (self,label,name,is_uvplane,modules):
-    if not modules:
+    if type(label) is types.ModuleType:
+      modules = label;
+      label = getattr(modules,'__default_label__',None);
+      name = getattr(modules,'__default_name__','');
+      if label is None:
+	raise RuntimeError,"""Module '%s' does not provide a __default_label__ attribute, 
+	      so must be added with an explicit label"""%modules.__name__;
+    elif not modules:
       raise RuntimeError,"No modules specified for %s"%name;
     if not isinstance(modules,(list,tuple)):
       modules = [ modules ];
@@ -205,7 +213,16 @@ class MeqMaker (object):
       self._sky_jones_list.append(term);
 
   def _add_jones_modules (self,label,name,is_uvplane,pointing,modules):
-    if not modules:
+    # see if only a module is specified instead of the full label,name,modules
+    # syntax
+    if type(label) is types.ModuleType:
+      modules = label;
+      label = getattr(modules,'__default_label__',None);
+      name = getattr(modules,'__default_name__','');
+      if label is None:
+	raise RuntimeError,"""Module '%s' does not provide a __default_label__ attribute, 
+	      so must be added with an explicit label"""%modules.__name__;
+    elif not modules:
       raise RuntimeError,"No modules specified for %s Jones"%label;
     if not isinstance(modules,(list,tuple)):
       modules = [ modules ];
@@ -282,8 +299,9 @@ class MeqMaker (object):
       setattr(self,toggle,True);
       toggle = None;
     if len(modules) == 1:
+      doc = getattr(modules[0],'__doc__',None);
       modname = _modname(modules[0]);
-      mainmenu = TDLMenu(menutext,toggle=toggle,namespace=self,name=modname,
+      mainmenu = TDLMenu(menutext,toggle=toggle,namespace=self,name=modname,doc=doc,
                          *(_modopts(modules[0],'compile')+list(extra_opts)),**kw);
       setattr(self,exclusive,modname);
     else:
@@ -292,6 +310,7 @@ class MeqMaker (object):
       # its option value
       submenus = [ TDLMenu("Use '%s' module"%_modname(mod),name=_modname(mod),
                             toggle=_modname(mod).replace('.','_'),namespace={},
+			    doc=getattr(mod,'__doc__',None),
                             *_modopts(mod,'compile'))
                     for mod in modules ];
       mainmenu = TDLMenu(menutext,toggle=toggle,exclusive=exclusive,namespace=self,
@@ -350,7 +369,7 @@ class MeqMaker (object):
       name = inspector_node.name.replace('_',' ');
     Meow.Bookmarks.Page(name).add(inspector_node,viewer="Collections Plotter");
 
-  def _get_jones_nodes (self,ns,jt,stations,sources=None,solvable_sources=sets.Set()):
+  def _get_jones_nodes (self,ns,jt,stations,sources=None,solvable_sources=set()):
     """Returns the Jones nodes associated with the given JonesTerm ('jt'). If
     the term has been disabled (through compile-time options), returns None.
     'stations' is a list of stations.
@@ -521,7 +540,7 @@ class MeqMaker (object):
     # This list will contain a list of (name,src) tuples, and will be updated as each sky-Jones term is applied
     sourcelist = [ (src.name,src) for src in sources ];
     # This set will contain names of sources to which solvable sky-Jones were been applied
-    solvable_skyjones = sets.Set();
+    solvable_skyjones = set();
 
     # apply all sky Jones terms
     for jt in self._sky_jones_list:
@@ -744,7 +763,7 @@ class SourceSubsetSelector (object):
     if not self.subset_enabled:
       return [];
     if not self._src_set:
-      self._src_set = sets.Set(self.source_subset.split(" "));
+      self._src_set = set(self.source_subset.split(" "));
     # make list
     srclist = [ src for src in srclist if src.name in self._src_set ];
     # apply annotations

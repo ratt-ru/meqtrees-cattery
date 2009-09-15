@@ -5,10 +5,11 @@ from SolverControl import SolverControl
 
 import os.path
 import os
-try:
-  from qt import QMessageBox
-except:
-  QMessageBox = None;
+#try:
+#  from PyQt4.Qt import QMessageBox
+#except:
+
+QMessageBox = None;
 
 # converts argument to a name
 def namify (arg):
