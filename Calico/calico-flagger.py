@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -35,12 +36,6 @@ import Meow
 from Meow import Bookmarks,Context
 import Meow.StdTrees
 import Calico.Flagger
-import Timba.TDL.GUI
-
-try:
-  import qt
-except:
-  qt = None;
 
 # MS options first
 mssel = Context.mssel = Meow.MSUtils.MSSelector(has_input=True,read_flags=True,has_output=False,tile_sizes=[10,100,200]);
@@ -66,20 +61,16 @@ progress_dialog = None;
 
 def init_progress_dialog (parent,label):
   global progress_dialog;
-  if parent and qt:
-    if progress_dialog is None:
-      progress_dialog = qt.QProgressDialog(label,qt.QString(),100,
-                                           parent,"flagger_progress",True);
-      progress_dialog.setMinimumDuration(0);
-    else:
-      progress_dialog.setLabelText(label);
-    progress_dialog.setProgress(0,100);
-    progress_dialog.show();
+  if progress_dialog is None:
+    progress_dialog = GUI.ProgressDialog(label);
+  else:
+    progress_dialog.setLabelText(label);
+  progress_dialog.show();
     
 def progress_callback (current,total):
   if progress_dialog:
-    progress_dialog.setProgress(current,total);
-    qt.QApplication.eventLoop().processEvents(qt.QEventLoop.ExcludeUserInput);
+    progress_dialog.setMaximum(total);
+    progress_dialog.setValue(current);
 
 def _sigchild_handler (signal,frame):
   # check if glish process has exited
@@ -109,12 +100,13 @@ def _sigchild_handler (signal,frame):
                 exited cleanly (%s). This is usually a sign of something gone wrong. Please
                 refer to the text console for more information.</P>
                 """%status);
-          autoflag_msgbox.setIcon(qt.QMessageBox.Warning);
+          autoflag_msgbox.setBoxType(GUI.Warning);
           autoflag_msgbox.show();
         # stat==0: normal exit
         else:
           autoflag_msgbox.setText("""<P>Autoflagging complete.</P>
                       <P>More information may be available on the text console.</P>""");
+          autoflag_msgbox.setBoxType(GUI.Information);
   # call previous handler
   if callable(old_sigchld_handler):
     old_sigchld_handler(signal,frame);
@@ -180,19 +172,16 @@ def run_autoflagger (mqs,parent,**kw):
     old_sigchld_handler = signal.signal(signal.SIGCHLD,_sigchild_handler);
     sigchld_handler_installed = True;
   # pop up status window
-  if qt and parent:
-    global autoflag_msgbox;
-    if not autoflag_msgbox:
-      autoflag_msgbox = qt.QMessageBox("Running autoflag","",qt.QMessageBox.Information,
-                                  qt.QMessageBox.Ok,qt.QMessageBox.NoButton,qt.QMessageBox.NoButton,
-                                  parent,"autoflag_info",False,);
-      autoflag_msgbox.setButtonText(qt.QMessageBox.Ok,"Hide this window");
-    autoflag_msgbox.setIcon(qt.QMessageBox.Information);
-    autoflag_msgbox.setText("""<P>We're running the autoflag process now. Please refrain from 
+  global autoflag_msgbox;
+  if not autoflag_msgbox:
+    autoflag_msgbox = GUI.MessageBox("Running autoflag","",GUI.Information,GUI.Button.Ok,GUI.Button.Ok);
+    autoflag_msgbox.setButtonText(GUI.Button.Ok,"Hide this window");
+  autoflag_msgbox.setText("""<P>We're running the autoflag process now. Please refrain from 
         any other operations on this MS until this window tells you that the process is complete.</P>
         <P>More information may be available on the text console.</P>
         """);
-    autoflag_msgbox.show();
+  autoflag_msgbox.setBoxType(GUI.Information);
+  autoflag_msgbox.show();
   # form up command file
   cmdfile = time.strftime("autoflag-%m%d-%M%S.g",time.localtime(time.time()));
   cmdfile = os.path.join(mssel.msname,cmdfile);
@@ -242,7 +231,7 @@ def flag_ms (mqs,parent,**kw):
   if chans:
     chan0,chan1,chanstep = chans;
     arg['channels'] = slice(chan0,chan1+1,chanstep);
-  # form up flag/unflag arg['ments']
+  # form up flag/unflag arguments
   if flag_action == 'flag':
     arg['flag'] = flag_flag_selector.get_flagmask();
   else:
@@ -271,19 +260,9 @@ def transfer_legacy_flags (mqs,parent,**kw):
     flagger.close();
   finally:
     progress_callback(100,100);
-  msg = "%.2f%% of rows and %.2f%% of correlations are flagged."%(stats[0]*100,stats[1]*100);
-  if qt and parent:
-    global stat_msgbox;
-    if not stat_msgbox:
-      stat_msgbox = qt.QMessageBox("Flag statistics","",qt.QMessageBox.Information,
-                                  qt.QMessageBox.Ok,qt.QMessageBox.NoButton,qt.QMessageBox.NoButton,
-                                  parent,"flagstat_info",False,);
-      stat_msgbox.setButtonText(qt.QMessageBox.Ok,"Close");
-    stat_msgbox.setText("""<P>%.2f%% of rows are flagged.</P>
+  GUI.info_box("Flag statistics",
+    """<P>%.2f%% of rows are flagged.</P>
       <P>%.2f%% of individual correlations are flagged.</P>"""%(stats[0]*100,stats[1]*100));
-    stat_msgbox.show();
-  else:
-    print msg;
   
 # The get_flag_stats job uses Calico.Flagger to get flag statistics and display them
 def get_flag_stats (mqs,parent,**kw):
@@ -299,19 +278,9 @@ def get_flag_stats (mqs,parent,**kw):
     flagger.close();
   finally:
     progress_callback(100,100);
-  msg = "%.2f%% of rows and %.2f%% of correlations are flagged."%(stats[0]*100,stats[1]*100);
-  if qt and parent:
-    global stat_msgbox;
-    if not stat_msgbox:
-      stat_msgbox = qt.QMessageBox("Flag statistics","",qt.QMessageBox.Information,
-                                  qt.QMessageBox.Ok,qt.QMessageBox.NoButton,qt.QMessageBox.NoButton,
-                                  parent,"flagstat_info",False,);
-      stat_msgbox.setButtonText(qt.QMessageBox.Ok,"Close");
-    stat_msgbox.setText("""<P>%.2f%% of rows are flagged.</P>
+  GUI.info_box("Flag statistics",
+      """<P>%.2f%% of rows are flagged.</P>
       <P>%.2f%% of individual correlations are flagged.</P>"""%(stats[0]*100,stats[1]*100));
-    stat_msgbox.show();
-  else:
-    print msg;
 
 # The fill_legacy_flags job uses Calico.Flagger to fill legacy flags from bitflags
 def fill_legacy_flags (mqs,parent,**kw):
@@ -330,12 +299,11 @@ def fill_legacy_flags (mqs,parent,**kw):
 def clear_flagset (mqs,parent,**kw):
   if not flagger:
     raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
-  if qt and parent:
-    fsets = remove_flag_selector.selected_flagsets();
-    if qt.QMessageBox.question(parent,"Clearing flagsets","""<P>This will clear all 
-          flags in the selected flagsets (%s). Click OK to proceed.</P>"""%" ".join(fsets),
-          qt.QMessageBox.Ok,qt.QMessageBox.Cancel) != qt.QMessageBox.Ok:
-      return;
+  fsets = remove_flag_selector.selected_flagsets();
+  if GUI.warning_box("Clearing flagsets","""<P>This will clear all 
+	flags in the selected flagsets (%s). Click OK to proceed.</P>"""%" ".join(fsets),
+	GUI.Button.Ok|GUI.Button.Cancel,GUI.Button.Cancel) != GUI.Button.Ok:
+    return;
   # open progress meter if GUI available
   init_progress_dialog(parent,"Clearing flags");
   # execute flagging
@@ -349,12 +317,11 @@ def clear_flagset (mqs,parent,**kw):
 def clear_bitflags (mqs,parent,**kw):
   if not flagger:
     raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
-  if qt and parent:
-    fsets = remove_flag_selector.selected_flagsets();
-    if qt.QMessageBox.question(parent,"Clearing bitflags","""<P>This will clear all bitflags in
-          all flagsets. Click OK to proceed.</P>""",
-          qt.QMessageBox.Ok,qt.QMessageBox.Cancel) != qt.QMessageBox.Ok:
-      return;
+  fsets = remove_flag_selector.selected_flagsets();
+  if GUI.warning_box("Clearing bitflags","""<P>This will clear all bitflags in
+	all flagsets. Click OK to proceed.</P>""",
+	GUI.Button.Ok|GUI.Button.Cancel,GUI.Button.Cancel) != GUI.Button.Ok:
+    return;
   # open progress meter if GUI available
   init_progress_dialog(parent,"Clearing bitflags");
   # execute flagging
@@ -368,11 +335,10 @@ def clear_bitflags (mqs,parent,**kw):
 def clear_legacy_flags (mqs,parent,**kw):
   if not flagger:
     raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
-  if qt and parent:
-    if qt.QMessageBox.question(parent,"Clearing FLAG/FLAG_ROW","""<P>This will clear all 
-          flags from the FLAG/FLAG_ROW columns. Click OK to proceed.</P>""",
-          qt.QMessageBox.Ok,qt.QMessageBox.Cancel) != qt.QMessageBox.Ok:
-      return;
+  if GUI.warning_box("Clearing FLAG/FLAG_ROW","""<P>This will clear all 
+	flags from the FLAG/FLAG_ROW columns. Click OK to proceed.</P>""",
+	GUI.Button.Ok|GUI.Button.Cancel,GUI.Button.Cancel) != GUI.Button.Ok:
+    return;
   # open progress meter if GUI available
   init_progress_dialog(parent,"Clearing flags");
   # execute flagging
@@ -387,11 +353,10 @@ def remove_flagset (mqs,parent,**kw):
   if not flagger:
     raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
   fsets = remove_flag_selector.selected_flagsets();
-  if qt and parent:
-    if qt.QMessageBox.question(parent,"Removing flagsets","""<P>This will completely 
+  if GUI.warning_box("Removing flagsets","""<P>This will completely 
            remove the selected flagsets (%s). Click OK to proceed.</P>"""%" ".join(fsets),
-           qt.QMessageBox.Ok,qt.QMessageBox.Cancel) != qt.QMessageBox.Ok:
-      return;
+	GUI.Button.Ok|GUI.Button.Cancel,GUI.Button.Cancel) != GUI.Button.Ok:
+    return;
   # open progress meter if GUI available
   init_progress_dialog(parent,"Clearing flags");
   flagger.remove_flagset(*remove_flag_selector.selected_flagsets());

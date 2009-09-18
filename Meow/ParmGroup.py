@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from Timba.TDL import *
 from Meow import Context
 from Meow import Bookmarks
@@ -5,11 +6,6 @@ from SolverControl import SolverControl
 
 import os.path
 import os
-#try:
-#  from PyQt4.Qt import QMessageBox
-#except:
-
-QMessageBox = None;
 
 # converts argument to a name
 def namify (arg):
@@ -287,10 +283,10 @@ class ParmGroup (object):
         return cmdlist;
 
     def _clear_mep_tables (self,mqs,parent,**kw):
-      if parent and QMessageBox:
-        if QMessageBox.warning(parent,"Clearing solutions","This will clear out <b>all</b> previous solutions from table '%s'. Are you sure you want to do this?"%self.table_name,
-            QMessageBox.Yes,QMessageBox.No|QMessageBox.Default|QMessageBox.Escape) != QMessageBox.Yes:
-          return;
+      if GUI.warning_box("Clearing solutions",
+	 "This will clear out <b>all</b> previous solutions from table '%s'. Are you sure you want to do this?"%self.table_name,
+          GUI.Button.Yes|GUI.Button.No,GUI.Button.No) != GUI.Button.Yes:
+         return;
       try:    os.system("rm -fr "+self.table_name);
       except: pass;
 

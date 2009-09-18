@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -93,8 +94,8 @@ def CS1_LBA_beam(Jones,sources,pointing_offsets=None,**kw):
   ns=Jones.Subscope()
   stations = Context.array.stations();
   radec0= Context.get_observation(None).radec0();
-  freq0=Context.get_observation(None).freq0;
-  freq1=Context.get_observation(None).freq1;
+  freq0=Context.get_observation(None).freq0();
+  freq1=Context.get_observation(None).freq1();
   array=Context.array;
   meptable=None
   solvable=None

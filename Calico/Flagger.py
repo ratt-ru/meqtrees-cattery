@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy
 import Timba.dmi
 import re
@@ -169,25 +170,29 @@ class Flagger (Timba.dmi.verbosity):
       self.purrpipe.title("Flagging").comment("Removing flagset(s) %s."%(','.join(fsnames)));
     self.unflag(mask,purr=False);
 
-  def flag (self,flag=1,*args,**kw):
-    kw.setdefault('purr',True);
-    if kw['purr']:
+  def flag (self,flag=1,**kw):
+    kw = kw.copy();
+    if kw.setdefault('purr',True):
       if isinstance(flag,int):
         fset = "bitflag %x"%flag;
       else:
         fset = "flagset %s"%flag;
       self.purrpipe.title("Flagging").comment("Flagging %s"%fset,endline=False);
-    return self._flag(flag=flag,unflag=0,*args,**kw);
+    kw['flag'] = flag;
+    kw['unflag'] = 0;
+    return self._flag(**kw);
   
-  def unflag (self,unflag=-1,*args,**kw):
-    kw.setdefault('purr',True);
-    if kw['purr']:
+  def unflag (self,unflag=-1,**kw):
+    kw = kw.copy();
+    if kw.setdefault('purr',True):
       if isinstance(unflag,int):
         fset = "bitflag %x"%unflag;
       else:
         fset = "flagset %s"%unflag;
       self.purrpipe.title("Flagging").comment("Unflagging %s"%fset,endline=False);
-    return self._flag(flag=0,unflag=unflag,*args,**kw);
+    kw['flag'] = 0;
+    kw['unflag'] = unflag;
+    return self._flag(**kw);
   
   def transfer (self,flag=1,replace=False,*args,**kw):
     unflag = (replace and flag) or 0;
