@@ -482,7 +482,7 @@ class MSSelector (object):
     self.ms_antenna_names = [];
     self.ms_antenna_sel = self.antsel_option = None;
     ms_option = self._ms_option = \
-      TDLOption('msname',"MS",TDLDirSelect(pattern,default=True),namespace=self);
+      TDLOption('msname',"MS",TDLDirSelect(pattern,default=True),namespace=self,mandatory=True);
     self._compile_opts = [ ms_option ];
     self._opts = [];
     # antenna selector
