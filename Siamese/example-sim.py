@@ -109,12 +109,8 @@ TDLCompileOptions(*Parallelization.compile_options());
 def _define_forest (ns):
   if run_purr:
     Timba.TDL.GUI.purr(mssel.msname,[mssel.msname,'.']);
-    
-  ANTENNAS = mssel.get_antenna_set(range(1,28));
-  array = Meow.IfrArray(ns,ANTENNAS);
-  observation = Meow.Observation(ns);
-  Meow.Context.set(array,observation);
-  stas = array.stations();
+  # setup contexts properly
+  array,observation = mssel.setup_observation_context(ns);
 
   # setup imaging options (now that we have an imaging size set up)
   imsel = mssel.imaging_selector(npix=512,arcmin=meqmaker.estimate_image_size());

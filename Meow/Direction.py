@@ -29,15 +29,17 @@ from Timba.Meq import meq
 from Parameterization import *
 import Jones
 import Context
-from math import cos,sin,sqrt
+from math import cos,sin,acos,asin,sqrt,pi
 
 def radec_to_lmn (ra,dec,ra0,dec0):
   """Returns l,m,n corresponding to direction ra,dec w.r.t. direction ra0,dec0""";
 ## our old formula, perhaps unjustly suspected by me
 ## See purrlog for 3C147_spw0, entries of Nov 21.
+## Doesn't this break down at the pole (l always 0)?
   l = cos(dec) * sin(ra-ra0);
   m = sin(dec) * cos(dec0) - cos(dec) * sin(dec0) * cos(ra-ra0);
 ## Sarod's formula from LSM.common_utils. Doesn't seem to work right!
+## (that's because it's for NCP lm coordinates used in NEWSTAR sky models)
 #  l = sin(ra-ra0)*math.cos(dec);
 #   sind0 = sin(dec0);
 #   if sind0 != 0:
@@ -47,6 +49,31 @@ def radec_to_lmn (ra,dec,ra0,dec0):
   n = sqrt(1-l*l-m*m);
   return l,m,n;
 
+def lm_to_radec (l,m,ra0,dec0):
+  """Returns ra,dec corresponding to l,m w.r.t. direction ra0,dec0""";
+  cosdec0 = cos(dec0);
+  # subpolar formula
+  if cosdec0:
+    ra = ra0 + asin(l)/cosdec0;
+    dec = dec0 + asin(m);
+    if dec > pi/2:
+      dec = pi - dec;
+      ra += pi;
+    elif dec < -pi/2:
+      dec = dec - pi;
+      ra += pi;
+    if ra > 2*pi:
+      ra -= 2*pi;
+  # polar formula, not sure if it's correct
+  else:
+    m = asin(m);
+    l = asin(l);
+    ra = atan2(m,l);
+    if dec0 > 0:
+      dec = pi/2 - sqrt(l*l+m*m);
+    else:
+      dec = sqrt(l*l+m*m) - pi/2;
+  return ra,dec;
 
 class Direction (Parameterization):
   """A Direction represents an absolute direction on the sky, in ra,dec (radians).

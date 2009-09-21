@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -25,7 +26,7 @@
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from Direction import Direction
+from Direction import Direction,lm_to_radec
 from Parameterization import Parameterization
 import Context
 import math
@@ -47,7 +48,7 @@ class LMDirection (Direction):
       n = math.sqrt(1-l*l-m*m);
       self._add_parm('n',n,tags="direction");
       self.static = l,m,n;
-      self.static_lmn = {};
+      self.static_radec = {};
     else:
       self.static = None;
       
@@ -88,3 +89,19 @@ class LMDirection (Direction):
     """;
     return self.static;
     
+  def radec_static (self,dir0=None):
+    """Returns static RA-Dec tuple, given a reference direction dir0, or using the global phase 
+    center if not supplied. 
+    Both this direction and the reference direction must be static, otherwise None is returned.
+    BUG here: reference direction is ignored
+    """;
+    dir0 = Context.get_dir0(dir0);
+    if not self.static or not dir0.radec_static():
+      return None;
+    ra0,dec0 = dir0.radec_static();
+    l,m,n = self.static;
+    # see if we have already computed this lmn
+    radec = self.static_radec.get((ra0,dec0),None);
+    if radec is None:
+      radec = self.static_radec[(ra0,dec0)] = lm_to_radec(l,m,ra0,dec0);
+    return radec;

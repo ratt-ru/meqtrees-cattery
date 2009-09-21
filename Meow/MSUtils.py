@@ -28,6 +28,7 @@ from Timba.TDL import *
 from Timba.Meq import meq
 
 import Meow
+import Meow.Context
 
 import re
 import traceback
@@ -688,6 +689,22 @@ class MSSelector (object):
   
   def is_linear_pol (self):
     return self.ms_polarization == "linear";
+
+  def setup_observation_context (self,ns,antennas=range(3)):
+    """Sets up the contents of Meow.Context based on the content of this MS.
+    Returns a tuple of array,observation (Meow.Context.array,Meow.Context.observation)
+    'ns' is a NodeScope object.
+    'antennas' is a default antenna set, to be used if the antenna selector is not available.
+    """;
+    array = Meow.IfrArray(ns,self.get_antenna_set(antennas));
+    # get phase centre from MS, setup observation
+    observation = Meow.Observation(ns,phase_centre=self.get_phase_dir(),
+	    linear=self.is_linear_pol(),circular=self.is_circular_pol());
+    Meow.Context.set(array,observation);
+    # get active correlations from MS
+    Meow.Context.active_correlations = self.get_correlations();
+    return array,observation;
+
 
   def make_subset_selector (self,namespace,**kw):
     """Makes an MSContentSelector object connected to this MS selector."""
