@@ -279,6 +279,7 @@ class MSContentSelector (object):
   def _select_ddid (self,value):
     """callback used when a new DDID is selected."""
     if self.ms_ddid_numchannels:
+      # setup channel info
       nchan = self._nchan = self.ms_ddid_numchannels[value];
       self.channel_options[0].set_option_list([0,nchan-1]);
       self.channel_options[0].set_value(min(self.ms_channel_start,nchan-1),save=False);
@@ -506,18 +507,16 @@ class MSSelector (object):
       if TABLE:
         self.antsel_option.hide();
       self._compile_opts.append(self.antsel_option);
+
     # correlation options
-    self.ms_corr_names = [ "XX","XY","YX","YY" ];
-    self.corrsel_option = TDLOption("ms_corr_sel","Correlations",
+    self.polarization_option = TDLOption("ms_polarization","Polarization",["XX XY YX YY","RR RL LR LL"],namespace=self);
+    self.corrsel_option = TDLOption("ms_corr_sel","Correlations to use",
                                     [self._corr_2x2,self._corr_2x2_diag,
                                     self._corr_2,self._corr_1],
                                     namespace=self);
-    self._compile_opts.append(self.corrsel_option);
-    # correlation options
-    self.polarization_option = TDLOption("ms_polarization","Polarization representation",
-                                         ["linear","circular"],
-                                         namespace=self);
-    self._compile_opts.append(self.polarization_option);
+    self.polarization_option.when_changed(self._select_polarization);
+    self._compile_opts += [ self.polarization_option,self.corrsel_option ];
+
     self.ms_data_columns = ["DATA","MODEL_DATA","CORRECTED_DATA"];
     if isinstance(forbid_output,str):
       self._forbid_output = set([forbid_output]);
@@ -685,10 +684,10 @@ class MSSelector (object):
     return [ self.ms_corr_names[icorr] for icorr in self.get_corr_index() if icorr >= 0 ];
   
   def is_circular_pol (self):
-    return self.ms_polarization == "circular";
+    return self.ms_corr_names[0] in CIRCULAR_CORRS;
   
   def is_linear_pol (self):
-    return self.ms_polarization == "linear";
+    return self.ms_corr_names[0] in LINEAR_CORRS;
 
   def setup_observation_context (self,ns,antennas=range(3)):
     """Sets up the contents of Meow.Context based on the content of this MS.
@@ -704,7 +703,6 @@ class MSSelector (object):
     # get active correlations from MS
     Meow.Context.active_correlations = self.get_correlations();
     return array,observation;
-
 
   def make_subset_selector (self,namespace,**kw):
     """Makes an MSContentSelector object connected to this MS selector."""
@@ -784,25 +782,18 @@ class MSSelector (object):
         self.antsel_option.show();
       self.ms_antenna_positions = anttable.getcol('POSITION');
       # correlations
-      corrtypes = TABLE(ms.getkeyword('POLARIZATION'),
-                       lockoptions='autonoread').getcol('CORR_TYPE');
-      # take the first row (corrtypes[0]), and assume this holds for the whole MS
-      corrtypes = [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
-                    None for ctype in corrtypes[0] ];
-      self.ms_corr_names = corrtypes;
-      if corrtypes[0] in LINEAR_CORRS:
-        self.polarization_option.set_value("linear");
-      elif corrtypes[0] in CIRCULAR_CORRS:
-        self.polarization_option.set_value("circular");
-      # set options for how to form up Jones matrices
-      ncorr = len(corrtypes);
-      if ncorr < 2:
-        corrlist = [self._corr_1];
-      elif ncorr < 4:
-        corrlist = [self._corr_2,self._corr_1];
-      else:
-        corrlist = [self._corr_2x2,self._corr_2x2_diag,self._corr_2,self._corr_1];
-      self.corrsel_option.set_option_list(corrlist);
+      # polarization IDs
+      pol_tab = TABLE(ms.getkeyword('POLARIZATION'),lockoptions='autonoread');
+      # get list of corrype enums for each row of polarizxation table, and convert
+      # to strings via MS_STOKES_ENUMS. self._corrnames is now a list of lists of strings
+      self._corrnames = [ [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
+			    None for ctype in pol_tab.getcol('CORR_TYPE',pol_id,1)[0] ]
+			  for pol_id in range(pol_tab.nrows()) ]; 
+      # convert to joined names (for ms_polariation option)
+      self._corrstrings = [ " ".join(names) for names in self._corrnames ];
+      self.polarization_option.set_option_list(self._corrstrings);
+      # hide option if only one correlation type
+      self.polarization_option.show(len(self._corrstrings)>1);
       # get flagsets and notify flag selectors
       self.flagsets = get_flagsets(ms);
       self.flagsets.load(ms);
@@ -821,7 +812,20 @@ class MSSelector (object):
       print "error reading MS",msname;
       traceback.print_exc();
       return False;
-      
+
+  def _select_polarization (self,value):
+    """Called when the polarization representation is selected""";
+    self.ms_corr_names = value.split(" ");
+    # set options for correlation subset
+    ncorr = len(self.ms_corr_names);
+    if ncorr < 2:
+      corrlist = [self._corr_1];
+    elif ncorr < 4:
+      corrlist = [self._corr_2,self._corr_1];
+    else:
+      corrlist = [self._corr_2x2,self._corr_2x2_diag,self._corr_2,self._corr_1];
+    self.corrsel_option.set_option_list(corrlist);
+
   def _antenna_sel_validator (self,value):
     try:
       antenna_subset = parse_antenna_subset(value,self.ms_antenna_names);
