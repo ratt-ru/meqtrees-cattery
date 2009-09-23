@@ -816,7 +816,7 @@ def export_karma_annotations (sources,filename,
       attrs['%'] = '%';
       attrs['N'] = src.name;
       for st in "IQUV":
-        attrs[st] = src.get_value(st) or 0;
+        attrs[st] = src.get_value(st,default=0);
       lmn = src.direction.lmn_static();
       if lmn:
         R = math.sqrt(lmn[0]**2+lmn[1]**2);

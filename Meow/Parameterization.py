@@ -128,10 +128,13 @@ class Parameterization (object):
       raise TypeError,"argument must be a constant, a node, or a Meow.Parm";
     self._parmdefs[name] = (value,tags,solvable);
     
-  def get_value (self,name):
+  def get_value (self,name,default=None):
     """Gets default value for named parm, or None if it is a node or a funklet.""";
     if name not in self._parmdefs:
-      raise KeyError,"unknown Meow parm '"+name+"'";
+      if default is None:
+        raise KeyError,"unknown Meow parm '"+name+"'";
+      else:
+        return default;
     value,tags,solvable = self._parmdefs[name];
     # now figure out the value
     if isinstance(value,Meow.Parm):
