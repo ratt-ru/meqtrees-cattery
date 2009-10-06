@@ -387,7 +387,7 @@ class MeqMaker (object):
       else:
         selname = getattr(self,self._make_attr(label,"module"));
         for mod in modules:
-          if _modname(mod).replace('.','_') == selname:
+          if self._make_attr(label,"enable",_modname(mod).replace('.','_')) == selname:
             return mod;
     return None;
 
