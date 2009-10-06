@@ -152,7 +152,7 @@ class MeqMaker (object):
     if self._sky_models:
       raise RuntimeError,"add_sky_models() may only be called once";
     self._compile_options.append(
-        self._module_selector("Sky model","sky",modules,use_toggle=False));
+        self._module_selector("Sky model","sky",modules,use_toggle=False,exclusive=False));
     self._sky_models = modules;
     global _annotation_label_doc;
     self._compile_options.append(
@@ -275,7 +275,8 @@ class MeqMaker (object):
       self._runtime_options = [];
       # build list of currently selected modules
       mods = [];
-      mods.append((self._get_selected_module('sky',self._sky_models),'Sky model options',None,None));
+      for module in self._get_selected_modules('sky',self._sky_models):
+        mods.append((module,'%s model options'%_modname(module),None,None));
       for jt in self._sky_jones_list:
         mod,name = self._get_selected_module(jt.label,jt.modules), \
                    "%s Jones (%s) options"%(jt.label,jt.name);
@@ -328,12 +329,15 @@ class MeqMaker (object):
   def _module_togglename (self,label,mod):
     return "%s_%s"%(label,_modname(mod));
 
-  def _module_selector (self,menutext,label,modules,extra_opts=[],use_toggle=True,**kw):
+  def _module_selector (self,menutext,label,modules,extra_opts=[],use_toggle=True,exclusive=True,**kw):
     # Forms up a "module selector" submenu for the given module set.
     # for each module, we either take the options returned by module.compile_options(),
     # or pass in the module itself to let the menu "suck in" its options
     toggle = self._make_attr(label,"enable");
-    exclusive = self._make_attr(label,"module");
+    if exclusive:
+      exclusive = self._make_attr(label,"module");
+    else:
+      exclusive = None;
     if not use_toggle:
       setattr(self,toggle,True);
       toggle = None;
@@ -344,11 +348,11 @@ class MeqMaker (object):
                          *(_modopts(modules[0],'compile')+list(extra_opts)),**kw);
       setattr(self,exclusive,modname);
     else:
-      # note that toggle symbol is set to modname. The symbol is not really used,
-      # since we make an exclusive parent menu, and the symbol will be assigned to
-      # its option value
+      # note that toggle symbol is set to <label>_enable_<modulename>
+      # for exclusive modules we use "<label>_module" above anyway 
       submenus = [ TDLMenu("Use '%s' module"%_modname(mod),name=_modname(mod),
-                            toggle=_modname(mod).replace('.','_'),namespace={},
+                            toggle=self._make_attr(label,"enable",_modname(mod).replace('.','_')),
+                            namespace=self,
 			    doc=getattr(mod,'__doc__',None),
                             *_modopts(mod,'compile'))
                     for mod in modules ];
@@ -370,6 +374,11 @@ class MeqMaker (object):
     return self._inspectors or [];
 
   def _get_selected_module (self,label,modules):
+    """Get selected module from list.
+    Checks the self.<label>_module attribute against module names. This attribute
+    is set by the TDLMenu() invocation in _module_selector above, when called
+    in exclusive mode.
+    """;
     # check global toggle for this module group
     if self.is_group_enabled(label):
       # figure out which module we'll be using. If only one is available, use it regardless.
@@ -382,20 +391,36 @@ class MeqMaker (object):
             return mod;
     return None;
 
+  def _get_selected_modules (self,label,modules):
+    """Get subset of selected modules from list.
+    Checks the self.<label>_enable_<module> attribute against module names. This attribute
+    is set by the TDLMenu() invocations in _module_selector above, when called
+    in non-exclusive mode.
+    """;
+    # get list of check global toggle for this module group
+    if self.is_group_enabled(label):
+      return [ mod for mod in modules
+        if getattr(self,self._make_attr(label,"enable",_modname(mod).replace(".","_")),False) ];
+    return [];
+
   def estimate_image_size (self):
-    module = self._get_selected_module('sky',self._sky_models);
-    if module:
-      estimate = getattr(module,'estimate_image_size',None);
-      if callable(estimate):
-        return estimate();
-    return None;
+    max_estimate = None;
+    modules = self._get_selected_modules('sky',self._sky_models);
+    if modules:
+      for module in modules:
+        estimate = getattr(module,'estimate_image_size',None);
+        if callable(estimate):
+          max_estimate = max(max_estimate,estimate());
+    return max_estimate;
 
   def get_source_list (self,ns):
     if self._source_list is None:
-      module = self._get_selected_module('sky',self._sky_models);
-      if not module:
+      modules = self._get_selected_modules('sky',self._sky_models);
+      if not modules:
         raise RuntimeError,"No source list supplied and no sky model set up";
-      self._source_list = module.source_list(ns);
+      self._source_list = [];
+      for mod in modules:
+        self._source_list += mod.source_list(ns);
       # add indices to source attrubutes (used by the %# directive when exporting  annotations)
       for isrc,src in enumerate(self._source_list):
         src.set_attr("#",isrc);
