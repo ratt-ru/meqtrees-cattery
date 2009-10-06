@@ -510,7 +510,7 @@ class MeqMaker (object):
       if Jj and skyvis:
         jones = Jj(skyvis);
         if jones(stations[0]).initialized():
-	  vis = ns.visualizer(jt.label) << Meq.Composer(*[jones(p) for p in stations],dims=[0]);
+          vis = ns.visualizer(jt.label) << Meq.Composer(dims=[0],*[jones(p) for p in stations]);
           self._add_sky_visualizer(vis,jt.label,jt.name);
       # if module does not make its own inspectors, add automatic ones
       if Jj and self.use_jones_inspectors:
