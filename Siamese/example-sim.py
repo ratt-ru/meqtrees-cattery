@@ -97,14 +97,13 @@ meqmaker.add_uv_jones('G','gains/phases',oms_gain_models);
 
 # very important -- insert meqmaker's options properly
 TDLCompileOptions(*meqmaker.compile_options());
-TDLRuntimeOptions(*meqmaker.runtime_options());
 
 # noise option
 TDLCompileOption("noise_stddev","Add noise, Jy",[None,1e-6,1e-3],more=float);
 
 # MPI options
-from Meow import Parallelization
-TDLCompileOptions(*Parallelization.compile_options());
+# from Meow import Parallelization
+# TDLCompileOptions(*Parallelization.compile_options());
 
 def _define_forest (ns):
   if run_purr:
@@ -154,6 +153,9 @@ def _define_forest (ns):
   # make sinks and vdm.
   # The list of inspectors comes in handy here
   Meow.StdTrees.make_sinks(ns,output,spigots=spigots,post=meqmaker.get_inspectors());
+
+  # very important -- insert meqmaker's options properly
+  TDLRuntimeOptions(*meqmaker.runtime_options());
   
   # close the meqmaker. This produces annotations, etc.
   meqmaker.close();

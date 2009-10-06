@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$
 #
@@ -56,8 +57,11 @@ def WSRT_cos3_beam (E,lm,*dum):
   ns.lmsq << Meq.Sqr(lm);
   ns.lsq  << Meq.Selector(ns.lmsq,index=0);
   ns.msq  << Meq.Selector(ns.lmsq,index=1);
-  E << Meq.Pow(Meq.Cos(Meq.Sqrt(ns.lsq+ns.msq)*(wsrt_beam_size_factor*1e-9)*Meq.Freq()),3);
+  ns.Ex << Meq.Pow(Meq.Cos(Meq.Sqrt(ns.lsq*(1+beam_ellipticity)+ns.msq*(1-beam_ellipticity))*(wsrt_beam_size_factor*1e-9)*Meq.Freq()),3);
+  ns.Ey << Meq.Pow(Meq.Cos(Meq.Sqrt(ns.lsq*(1-beam_ellipticity)+ns.msq*(1+beam_ellipticity))*(wsrt_beam_size_factor*1e-9)*Meq.Freq()),3);
+  E << Meq.Matrix22(ns.Ex,0,0,ns.Ey);
   return E;
+
 # this beam model is not per-station
 WSRT_cos3_beam._not_per_station = True;
 
@@ -93,7 +97,8 @@ _model_option = TDLCompileOption('beam_model',"Beam model",
 );
 
 _wsrt_option_menu = TDLCompileMenu('WSRT beam model options',
-  TDLOption('wsrt_beam_size_factor',"Beam size factor",[68.],more=float)
+  TDLOption('wsrt_beam_size_factor',"Beam size factor",[68.],more=float),
+  TDLOption('beam_ellipticity',"Beam ellipticity",[.01],more=float)
 );
 
 def _show_option_menus (model):

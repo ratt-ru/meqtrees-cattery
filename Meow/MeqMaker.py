@@ -74,8 +74,13 @@ def _modopts (mod,opttype='compile'):
   else:
     return [];
 
+SKYJONES_LM    = "lm plane";
+SKYJONES_RADEC  = "RA-Dec full sky";
+
 class MeqMaker (object):
-  def __init__ (self,namespace='me',solvable=False,use_decomposition=None,use_jones_inspectors=None):
+  def __init__ (self,namespace='me',solvable=False,
+      use_decomposition=None,use_jones_inspectors=None,
+      use_skyjones_visualizers=True):
     self.tdloption_namespace = namespace;
     self._uv_jones_list = [];
     self._sky_jones_list = [];
@@ -83,11 +88,14 @@ class MeqMaker (object):
     self._sky_vpm_list = [];
     self._compile_options = [];
     self._runtime_options = None;
+    self._runtime_vis_options  = [];
     self._sky_models = None;
     self._source_list = None;
     self.export_kvis = False;
     self._solvable = solvable;
     self._inspectors = [];
+    self._skyjones_visualizer_mux = [];
+    self._skyjones_visualizer_source = False;
     
     other_opt = [];
     if use_decomposition is None:
@@ -113,6 +121,20 @@ class MeqMaker (object):
       other_opt.append(self.use_jones_inspectors_opt);
     else:
       self.use_jones_inspectors = use_jones_inspectors;
+
+    if use_skyjones_visualizers:
+      self.use_skyjones_visualizers = True;
+      self.use_skyjones_visualizers_opt = \
+        TDLMenu("Visualize sky-Jones terms",
+	    TDLOption("_skyvis_frame","Coordinate grid",[SKYJONES_LM,SKYJONES_RADEC],namespace=self),
+          doc="""If enabled, then your trees will automatically include visualizer nodes for all
+          sky-Jones terms. This will slow things down somewhat -- perhaps a lot, in an MPI configuration --
+          so you might want to disable this in production trees.""",
+	  toggle='use_skyjones_visualizers',namespace=self
+        );
+      other_opt.append(self.use_skyjones_visualizers_opt);
+    else:
+      self.use_skyjones_visualizers = False;
       
     other_opt.append(
       TDLMenu("Include time & bandwidth smearing",
@@ -284,6 +306,23 @@ class MeqMaker (object):
             self._runtime_options.append(TDLMenu(name,*modopts));
           else:
             self._runtime_options += modopts;
+      # add list of visualization options
+      if self._runtime_vis_options:
+        if self._skyvis_frame == SKYJONES_LM:
+          self._runtime_vis_options = [
+              TDLOption("_skyvis_xgrid","X size (arcmin)",[60],more=float,namespace=self),
+              TDLOption("_skyvis_ygrid","Y size (arcmin)",[60],more=float,namespace=self)
+            ] + self._runtime_vis_options;
+        self._runtime_vis_options = [
+            TDLOption("_skyvis_npix","Number of x/y pixels",[100],more=int,namespace=self),
+            TDLOption("_skyvis_timespan","Time span (hours)",[12],more=float,namespace=self),
+            TDLOption("_skyvis_ntime","Number of time planes",[13],more=int,namespace=self),
+            TDLOption("_skyvis_freq0","Lowest frequency (MHz)",[20],more=float,namespace=self),
+            TDLOption("_skyvis_freq1","Highest frequency (MHz)",[2000],more=float,namespace=self),
+            TDLOption("_skyvis_nfreq","Number of freq planes",[10],more=int,namespace=self),
+          ] + self._runtime_vis_options;
+        self._runtime_options.append(TDLMenu("Visualize sky-Jones terms",
+          *self._runtime_vis_options));
     return self._runtime_options;
 
   def _module_togglename (self,label,mod):
@@ -328,7 +367,7 @@ class MeqMaker (object):
 
   def get_inspectors (self):
     """Returns list of inspector nodes created by this MeqMaker""";
-    return self._inspectors or None;
+    return self._inspectors or [];
 
   def _get_selected_module (self,label,modules):
     # check global toggle for this module group
@@ -369,6 +408,48 @@ class MeqMaker (object):
       name = inspector_node.name.replace('_',' ');
     Meow.Bookmarks.Page(name).add(inspector_node,viewer="Collections Plotter");
 
+  def _make_skyjones_visualizer_source (self,ns):
+    # create visualization nodes
+    if not self._skyjones_visualizer_source:
+      if self._skyvis_frame == SKYJONES_LM:
+	l = ns.lmgrid_l << Meq.Grid(axis="l");
+	m = ns.lmgrid_m << Meq.Grid(axis="m");
+	visdir = Meow.LMDirection(ns,"visgrid",l,m);
+      elif self._skyvis_frame == SKYJONES_RADEC:
+	ra = ns.lmgrid_ra << Meq.Grid(axis="m");
+	dec = ns.lmgrid_dec << Meq.Grid(axis="l");
+	visdir = Meow.Direction(ns,"visgrid",ra,dec);
+      # make a source with this direction object
+      self._skyjones_visualizer_source = Meow.PointSource(ns,"visgrid",visdir);
+    return self._skyjones_visualizer_source;
+
+  def _add_sky_visualizer (self,visnode,label,name):
+    Meow.Bookmarks.Page("%s (%s) visualizer"%(label,name)).add(visnode,viewer="Result Plotter");
+    # add visualization job
+    def tdljob_visualize (mqs,parent,**kw):
+      if self._skyvis_ntime > 1:
+        dt = self._skyvis_timespan/((self._skyvis_ntime-1)*2.);
+      else:
+        dt = self._skyvis_ntime = 1;
+      if self._skyvis_nfreq > 1:
+        df = (self._skyvis_freq1-self._skyvis_freq0)/((self._skyvis_nfreq-1)*2.);
+      else:
+        df = self._skyvis_nfreq = 1;
+      time = [-dt*3600,(self._skyvis_timespan+dt)*3600];
+      freq = [(self._skyvis_freq0-df)*1e+6,(self._skyvis_freq1+df)*1e+6];
+      if self._skyvis_frame == SKYJONES_LM:
+        ARCMIN = math.pi/(180*60);
+        dx = self._skyvis_xgrid*ARCMIN/2;
+        dy = self._skyvis_ygrid*ARCMIN/2;
+        domain = meq.gen_domain(time=time,freq=freq,l=[-dx,dx],m=[-dy,dy]);
+      elif self._skyvis_frame == SKYJONES_RADEC:
+        domain = meq.gen_domain(time=time,freq=freq,l=[-math.pi/2,math.pi/2],m=[0,2*math.pi]);
+      cells = meq.gen_cells(domain,num_time=self._skyvis_ntime,num_freq=self._skyvis_nfreq,
+                                   num_l=self._skyvis_npix,num_m=self._skyvis_npix);
+      request = meq.request(cells, rqtype='ev');
+      mqs.execute(visnode.name,request);
+    self._runtime_vis_options.append(TDLJob(tdljob_visualize,"Visualize %s (%s)"%(label,name)));
+
   def _get_jones_nodes (self,ns,jt,stations,sources=None,solvable_sources=set()):
     """Returns the Jones nodes associated with the given JonesTerm ('jt'). If
     the term has been disabled (through compile-time options), returns None.
@@ -386,8 +467,14 @@ class MeqMaker (object):
       prev_num_solvejobs = ParmGroup.num_solvejobs();  # to keep track of whether module creates its own
       jones_inspectors = [];
       jt.solvable = False;
+      sources0 = sources;
+      skyvis = None;
       # For sky-Jones terms, see if this module has pointing offsets enabled
       if isinstance(jt,self.SkyJonesTerm):
+	# is visualization enabled? insert extra source then for the visualization
+	if self.use_skyjones_visualizers:
+	  skyvis = self._make_skyjones_visualizer_source(ns);
+	  sources = [ skyvis ] + list(sources);
         dlm = None;
         if jt.pointing_modules:
           pointing_module = self._get_selected_module(jt.label+"pe",jt.pointing_modules);
@@ -419,6 +506,12 @@ class MeqMaker (object):
                                           inspectors=inspectors);
       # ignoring the pointing-solvable attribute for now
       jt.solvable = getattr(module,'solvable',True);
+      # add visualizer if asked to
+      if Jj and skyvis:
+        jones = Jj(skyvis);
+        if jones(stations[0]).initialized():
+	  vis = ns.visualizer(jt.label) << Meq.Composer(*[jones(p) for p in stations],dims=[0]);
+          self._add_sky_visualizer(vis,jt.label,jt.name);
       # if module does not make its own inspectors, add automatic ones
       if Jj and self.use_jones_inspectors:
         if inspectors:
@@ -426,21 +519,19 @@ class MeqMaker (object):
         elif Jj:
           qual_list = [stations];
           if sources:
-            qual_list.insert(0,[src for src in sources if Jj(src,stations[0]).initialized()]);
+            qual_list.insert(0,[src for src in sources0 if Jj(src,stations[0]).initialized()]);
           jones_inspectors.append(
               ns.inspector(jt.label) << StdTrees.define_inspector(Jj,*qual_list));
         # add inspectors to internal list
         for insp in jones_inspectors:
           self._add_inspector(insp);
-      ## NB: this is too messy, let's always use solvejobs instead
-      ## see if module has created any solvejobs; create one automatically if not
-      #if self._solvable:
-        #if ParmGroup.num_solvejobs() == prev_num_solvejobs:
-          #parms = jt.base_node.search(tags="solvable");
-          #if parms:
-            #pg = ParmGroup.ParmGroup(jt.label,parms);
-            #ParmGroup.SolveJob("solve_%s"%jt.label,"Solve for %s"%jt.label,pg);
     return jt.base_node,jt.solvable;
+
+    ## create TDL job
+    #def tdljob_compute_visualization (parent,mqs,**kw):
+      #cells = meq.gen_cells(domain,num_time=10,num_l=100,num_m=100);
+      #request = meq.request(cells,rqtype='ev')
+      #mqs.execute('',request);  
 
   def make_predict_tree (self,ns,sources=None):
     """makes predict trees using the sky model and ME.
