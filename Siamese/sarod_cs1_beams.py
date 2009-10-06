@@ -137,7 +137,7 @@ def CS1_LBA_beam(Jones,sources,pointing_offsets=None,**kw):
         Yediag_phi = ns.Yediag_phi(dirname,station) << Meq.Compounder(children=[azelY,By_phi[station]],common_axes=[hiid('l'),hiid('m')])
         Yediag_theta = ns.Yediag_theta(dirname,station) << Meq.Compounder(children=[azelY,By_theta[station]],common_axes=[hiid('l'),hiid('m')])
         # create E matrix, normalize for zenith at 60MHz
-        if station==1:
+        if beam_stations == "all" or str(station) == str(beam_stations):
           Xstatgain=ns.Xstatgain(dirname,station)<<Meq.Compounder(children=[azelX,Xstatbeam],common_axes=[hiid('l'),hiid('m')])
           Ystatgain=ns.Ystatgain(dirname,station)<<Meq.Compounder(children=[azelY,Ystatbeam],common_axes=[hiid('l'),hiid('m')])
           Ej(station) <<Meq.Matrix22(Xstatgain*Xediag_theta,Xstatgain*Xediag_phi,Ystatgain*Yediag_theta,Ystatgain*Yediag_phi)/88.00
@@ -156,3 +156,9 @@ def compute_jones (Jones,sources,pointing_offsets=None,**kw):
 TDLCompileOption('beam_model',"Beam model",[CS1_LBA_beam]);
 TDLCompileOption('beam_library_path',
       "Beam library path",TDLDirSelect());
+TDLCompileOption('beam_stations',"Use station model for",[None,"all",1],more=str,
+    doc="""<P>If 'None' is selected, a dipole beam model is used for all stations.</P>
+<P>If 'all' is selected, a station beam model is used for all stations.</P>
+<P>Otherwise enter a station ID to use a station beam for that station, and a dipole beam for the rest.</P>
+""");
+TDLCompileOption('per_station',"Per-station projection (for large arrays)",True);

@@ -72,10 +72,6 @@ meqmaker.add_sky_models([gridded_sky,transient_sky,fitsimage_sky,lsm]);
 from Siamese.OMS import oms_n_inverse
 meqmaker.add_sky_jones('Ncorr','n-term correction',oms_n_inverse);
 
-# P - Parallactic angle
-from Siamese.OMS import par_angle
-meqmaker.add_sky_jones('P','parallactic angle',par_angle);
-
 # Z - ionosphere
 from Siamese.OMS import oms_ionosphere
 meqmaker.add_sky_jones('Z','ionosphere',oms_ionosphere);
@@ -91,6 +87,10 @@ from Siamese import sarod_cs1_beams
 from Siamese.OMS import oms_pointing_errors
 meqmaker.add_sky_jones('E','beam',[analytic_beams,wsrt_beams,sarod_cs1_beams],
                                   pointing=oms_pointing_errors);
+
+# P - Parallactic angle
+from Siamese.OMS import par_angle
+meqmaker.add_uv_jones('P','parallactic angle',par_angle);
 
 # G - gains
 from Siamese.OMS import oms_gain_models

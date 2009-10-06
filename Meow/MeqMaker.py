@@ -125,11 +125,10 @@ class MeqMaker (object):
     if use_skyjones_visualizers:
       self.use_skyjones_visualizers = True;
       self.use_skyjones_visualizers_opt = \
-        TDLMenu("Visualize sky-Jones terms",
+        TDLMenu("Include visualizers for sky-Jones terms",
 	    TDLOption("_skyvis_frame","Coordinate grid",[SKYJONES_LM,SKYJONES_RADEC],namespace=self),
           doc="""If enabled, then your trees will automatically include visualizer nodes for all
-          sky-Jones terms. This will slow things down somewhat -- perhaps a lot, in an MPI configuration --
-          so you might want to disable this in production trees.""",
+          sky-Jones terms. This does not affect normal performance if you do not use the visualizations.""",
 	  toggle='use_skyjones_visualizers',namespace=self
         );
       other_opt.append(self.use_skyjones_visualizers_opt);
@@ -326,32 +325,54 @@ class MeqMaker (object):
           *self._runtime_vis_options));
     return self._runtime_options;
 
+  def get_inspectors (self):
+    """Returns list of inspector nodes created by this MeqMaker""";
+    return self._inspectors or [];
+
+  def _make_attr (*comps):
+    """Forms up the name of an 'enabled' attribute for a given module group (e.g. a Jones term)"""
+    return "_".join(comps);
+  _make_attr = staticmethod(_make_attr);
+
   def _module_togglename (self,label,mod):
-    return "%s_%s"%(label,_modname(mod));
+    return self._make_attr("enable",label,_modname(mod).replace('.',"_"));
+
+  def _group_togglename (self,label):
+    return self._make_attr("enable",label);
+
+  def is_group_enabled (self,label):
+    """Returns true if the given group is enabled"""
+    return getattr(self,self._group_togglename(label),False);
+
+  def is_module_enabled (self,label,mod):
+    """Returns true if the given module is enabled for the given group label"""
+    return self.is_group_enabled(label) and getattr(self,self._module_togglename(label,mod),False);
 
   def _module_selector (self,menutext,label,modules,extra_opts=[],use_toggle=True,exclusive=True,**kw):
     # Forms up a "module selector" submenu for the given module set.
     # for each module, we either take the options returned by module.compile_options(),
     # or pass in the module itself to let the menu "suck in" its options
-    toggle = self._make_attr(label,"enable");
-    if exclusive:
-      exclusive = self._make_attr(label,"module");
-    else:
-      exclusive = None;
+    
+    # Overall toggle attribute passed to outer option. If we don't use a toggle, set it to True always
+    toggle = self._group_togglename(label);
     if not use_toggle:
       setattr(self,toggle,True);
       toggle = None;
+    # exclusive option. If True, modules are mutually exclusive
+    if exclusive:
+      exclusive = self._make_attr("use",label,"module");
+    else:
+      exclusive = None;
     if len(modules) == 1:
       doc = getattr(modules[0],'__doc__',None);
       modname = _modname(modules[0]);
       mainmenu = TDLMenu(menutext,toggle=toggle,namespace=self,name=modname,doc=doc,
                          *(_modopts(modules[0],'compile')+list(extra_opts)),**kw);
-      setattr(self,exclusive,modname);
+      # set the module's toggle to always on (will be controlled by outer toggle attribute)
+      setattr(self,self._module_togglename(label,modules[0]),True);
     else:
-      # note that toggle symbol is set to <label>_enable_<modulename>
-      # for exclusive modules we use "<label>_module" above anyway 
       submenus = [ TDLMenu("Use '%s' module"%_modname(mod),name=_modname(mod),
-                            toggle=self._make_attr(label,"enable",_modname(mod).replace('.','_')),
+                            toggle=self._module_togglename(label,mod),
                             namespace=self,
 			    doc=getattr(mod,'__doc__',None),
                             *_modopts(mod,'compile'))
@@ -360,19 +381,6 @@ class MeqMaker (object):
                           *(submenus+list(extra_opts)),**kw);
     return mainmenu;
 
-  def _make_attr (*comps):
-    """Forms up the name of an 'enabled' attribute for a given module group (e.g. a Jones term)"""
-    return "_".join(comps);
-  _make_attr = staticmethod(_make_attr);
-
-  def is_group_enabled (self,label):
-    """Returns true if the given module is enabled for the given Jones label"""
-    return getattr(self,self._make_attr(label,"enable"));
-
-  def get_inspectors (self):
-    """Returns list of inspector nodes created by this MeqMaker""";
-    return self._inspectors or [];
-
   def _get_selected_module (self,label,modules):
     """Get selected module from list.
     Checks the self.<label>_module attribute against module names. This attribute
@@ -380,15 +388,9 @@ class MeqMaker (object):
     in exclusive mode.
     """;
     # check global toggle for this module group
-    if self.is_group_enabled(label):
-      # figure out which module we'll be using. If only one is available, use it regardless.
-      if len(modules) == 1:
-        return modules[0];
-      else:
-        selname = getattr(self,self._make_attr(label,"module"));
-        for mod in modules:
-          if self._make_attr(label,"enable",_modname(mod).replace('.','_')) == selname:
-            return mod;
+    for mod in modules:
+      if self.is_module_enabled(label,mod):
+        return mod;
     return None;
 
   def _get_selected_modules (self,label,modules):
@@ -399,18 +401,16 @@ class MeqMaker (object):
     """;
     # get list of check global toggle for this module group
     if self.is_group_enabled(label):
-      return [ mod for mod in modules
-        if getattr(self,self._make_attr(label,"enable",_modname(mod).replace(".","_")),False) ];
-    return [];
+      return [ mod for mod in modules if self.is_module_enabled(label,mod) ];
+    else:
+      return [];
 
   def estimate_image_size (self):
     max_estimate = None;
-    modules = self._get_selected_modules('sky',self._sky_models);
-    if modules:
-      for module in modules:
-        estimate = getattr(module,'estimate_image_size',None);
-        if callable(estimate):
-          max_estimate = max(max_estimate,estimate());
+    for module in self._get_selected_modules('sky',self._sky_models):
+      estimate = getattr(module,'estimate_image_size',None);
+      if callable(estimate):
+        max_estimate = max(max_estimate,estimate());
     return max_estimate;
 
   def get_source_list (self,ns):
