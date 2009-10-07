@@ -485,6 +485,7 @@ class MeqMaker (object):
       cells = meq.gen_cells(domain,num_time=self._skyvis_ntime,num_freq=self._skyvis_nfreq,
                                    num_l=self._skyvis_npix,num_m=self._skyvis_npix);
       request = meq.request(cells, rqtype='ev');
+      mqs.clearcache(visnode.name,recursive=True);
       mqs.execute(visnode.name,request);
     self._runtime_vis_options.append(TDLJob(tdljob_visualize,"Visualize %s (%s)"%(label,name)));
 
