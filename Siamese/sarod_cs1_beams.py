@@ -85,14 +85,14 @@ def makebeam_droopy_theta(ns,station=0,pol='X',L=0.9758, phi0=0, alpha=math.pi/4
 
 
 #### even more complex droopy dipole - with station beam
-def CS1_LBA_beam(Jones,sources,pointing_offsets=None,**kw):
+def CS1_LBA_beam(Jones,sources,stations=None,pointing_offsets=None,**kw):
   Bx_phi={}
   Bx_theta={}
   By_phi={}
   By_theta={}
   
   ns=Jones.Subscope()
-  stations = Context.array.stations();
+  stations = stations or Context.array.stations();
   radec0= Context.get_observation(None).radec0();
   freq0=Context.get_observation(None).freq0();
   freq1=Context.get_observation(None).freq1();
@@ -147,8 +147,8 @@ def CS1_LBA_beam(Jones,sources,pointing_offsets=None,**kw):
   return Ej0;
 
 
-def compute_jones (Jones,sources,pointing_offsets=None,**kw):
-  beam_model(Jones,sources,pointing_offsets)
+def compute_jones (Jones,sources,stations=None,pointing_offsets=None,**kw):
+  beam_model(Jones,sources,pointing_offsets=pointing_offsets,stations=stations)
 
   return Jones;
 
@@ -161,4 +161,3 @@ TDLCompileOption('beam_stations',"Use station model for",[None,"all",1],more=str
 <P>If 'all' is selected, a station beam model is used for all stations.</P>
 <P>Otherwise enter a station ID to use a station beam for that station, and a dipole beam for the rest.</P>
 """);
-TDLCompileOption('per_station',"Per-station projection (for large arrays)",True);

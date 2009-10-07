@@ -52,39 +52,15 @@ def compute_jones (Jones,sources,stations=None,inspectors=[],label='L',**kw):
   stations = stations or Context.array.stations;
   ns = Jones.Subscope();
   insp = Jones.scope.inspector(label);
-  if per_source:
-    if per_station:
-      for src in sources:
-	for p in stations:
-	  Jones(src,p) << proj_matrix(src,Context.array.xyz(p));
-      insp << StdTrees.define_inspector(Jones,sources,stations,label=label);
-    else:
-      for src in sources:
-	Jones(src) << proj_matrix(src,Context.array.xyz0());
-	for p in stations:
-	  Jones(src,p) << Meq.Identity(Jones(src));
-      insp << StdTrees.define_inspector(Jones,sources,label=label);
-  else: # not per source
-    if per_station:
-      for p in stations:
-	Jones(p) << proj_matrix(sources[0],Context.array.xyz(p));
-	for src in sources:
-	  Jones(src,p) << Meq.Identity(Jones(p));
-      insp << StdTrees.define_inspector(Jones,stations,label=label);
-    else:
-      Jones << proj_matrix(sources[0],Context.array.xyz0());
-      for src in sources:
-	for p in stations:
-	  Jones(src,p) << Meq.Identity(Jones);
-      insp << StdTrees.define_inspector(Jones,label=label);
+  for src in sources:
+    for p in stations:
+      Jones(src,p) << proj_matrix(src,Context.array.xyz(p));
+  insp << StdTrees.define_inspector(Jones,sources,stations,label=label);
 
   # add inspectors
   StdTrees.inspector(Jones.scope.inspector(label,'AzEl') ,[src.direction.azel() for src in sources],bookmark=False);
   inspectors += [ insp,Jones.scope.inspector(label,'AzEl') ];
 
   return Jones;
-
-TDLCompileOption('per_station',"Per-station projection (for large arrays)",True);
-TDLCompileOption('per_source',"Per-source projection (for large fields)",True);
 
 

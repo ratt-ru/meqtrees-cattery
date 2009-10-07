@@ -248,16 +248,29 @@ class MeqMaker (object):
     if not isinstance(modules,(list,tuple)):
       modules = [ modules ];
     # extra options for pointing
+    extra_options = [];
     if pointing:
       if not isinstance(pointing,(list,tuple)):
         pointing = [ pointing ];
-      pointing_menu = [ self._module_selector("Apply pointing errors to %s"%label,
+      extra_options += [ self._module_selector("Apply pointing errors to %s"%label,
                                               label+"pe",pointing,nonexclusive=True) ];
+    # extra options for per-station options
+    extra_options.append(
+      TDLOption(self._make_attr('all_stations',label),"Use same %s-Jones for all stations"%label,False,namespace=self,nonexclusive=True,
+        doc="""If checked, then the same %s-Jones term will be used for all stations in the array. This may 
+        make your trees smaller and/or faster. Whether this is a valid approximation or not depends on your
+        physics; typically this is valid if your array is small, and the effect arises far from the receivers."""%label));
+    # extra options for per-source options
+    if not is_uvplane:
+      extra_options.append(
+        TDLOption(self._make_attr('all_sources',label),"Use same %s-Jones for all sources (narrow field)"%label,False,namespace=self,nonexclusive=True,
+        doc="""If checked, then the same %s-Jones term will be used for all source in the model. This is a valid
+        approximation for narrow fields, and will make your trees smaller and/or faster."""%label));
     else:
-      pointing_menu = [];
+      setattr(self,self._make_attr('all_sources',label),False);
     # make option menus for selecting a jones module
     mainmenu = self._module_selector("Use %s Jones (%s)"%(label,name),
-                                     label,modules,extra_opts=pointing_menu);
+                                     label,modules,extra_opts=extra_options);
     self._compile_options.append(mainmenu);
     # Add to internal list
     # each jones module set is represented by a list of:
@@ -486,6 +499,15 @@ class MeqMaker (object):
     If basenode==None, the given JonesTerm is not implemented and may be omitted from the ME.
     """;
     if jt.base_node is None:
+      all_sources,all_stations = sources,(stations or Context.array.stations());
+      # are we doing a per-source and per-station Jones term?
+      same_all_sources = sources and getattr(self,self._make_attr('all_sources',jt.label),False);
+      same_all_stations = getattr(self,self._make_attr('all_stations',jt.label),False);
+      if same_all_sources:
+        sources = [ all_sources[0] ];
+      if same_all_stations:
+        stations = [ all_stations[0] ];
+      # now get the module
       module = self._get_selected_module(jt.label,jt.modules);
       if not module:
         return None,False;
@@ -520,8 +542,7 @@ class MeqMaker (object):
         dlm = None;
       # now make the appropriate matrices
       # note that Jones terms are computed using the original source list.
-      # this is to keep the extra corruption qualifiers from creeping into
-      # their names
+      # this is to keep the extra corruption qualifiers from creeping into their names
       Jj = ns[jt.label];    # create name hint for nodes
       inspectors = [];
       jt.base_node = Jj = module.compute_jones(Jj,sources=sources,stations=stations,
@@ -531,25 +552,49 @@ class MeqMaker (object):
                                           inspectors=inspectors);
       # ignoring the pointing-solvable attribute for now
       jt.solvable = getattr(module,'solvable',True);
-      # add visualizer if asked to
-      if Jj and skyvis:
-        jones = Jj(skyvis);
-        if jones(stations[0]).initialized():
-          vis = ns.visualizer(jt.label) << Meq.Composer(dims=[0],*[jones(p) for p in stations]);
-          self._add_sky_visualizer(vis,jt.label,jt.name);
-      # if module does not make its own inspectors, add automatic ones
-      if Jj and self.use_jones_inspectors:
-        if inspectors:
-          jones_inspectors += inspectors;
-        elif Jj:
-          qual_list = [stations];
+      # Jj will be None if module is not active for some reason
+      if Jj:
+        # add sky-Jones visualizer if asked to
+        if skyvis:
+          jones = Jj(skyvis);
+          if jones(stations[0]).initialized():
+            vis = ns.visualizer(jt.label) << Meq.Composer(dims=[0],*[jones(p) for p in stations]);
+            self._add_sky_visualizer(vis,jt.label,jt.name);
+        # if module does not make its own inspectors, add automatic ones
+        if self.use_jones_inspectors:
+          if inspectors:
+            jones_inspectors += inspectors;
+          elif Jj:
+            qual_list = [stations];
+            if sources:
+              qual_list.insert(0,[src for src in sources0 if Jj(src,stations[0]).initialized()]);
+            jones_inspectors.append(
+                ns.inspector(jt.label) << StdTrees.define_inspector(Jj,*qual_list));
+          # add inspectors to internal list
+          for insp in jones_inspectors:
+            self._add_inspector(insp);
+        # expand into per-station, per-source terms as needed
+        if same_all_sources and same_all_stations:
+          jj0 = Jj(all_sources[0],all_stations[0]);
+          for isrc,src in enumerate(all_sources): 
+            for ip,p in enumerate(all_stations):
+              if isrc or ip:
+                Jj(src,p) << Meq.Identity(jj0);   
+        elif same_all_sources:
+          for p in stations:
+            jj0 = Jj(all_sources[0],p);
+            for src in all_sources[1:]: 
+              Jj(src,p) << Meq.Identity(jj0);   
+        elif same_all_stations:
           if sources:
-            qual_list.insert(0,[src for src in sources0 if Jj(src,stations[0]).initialized()]);
-          jones_inspectors.append(
-              ns.inspector(jt.label) << StdTrees.define_inspector(Jj,*qual_list));
-        # add inspectors to internal list
-        for insp in jones_inspectors:
-          self._add_inspector(insp);
+            for src in sources:
+              jj0 = Jj(src,all_stations[0]);
+              for p in all_stations[1:]: 
+                Jj(src,p) << Meq.Identity(jj0);   
+          else:
+            jj0 = Jj(all_stations[0]);
+            for p in all_stations[1:]: 
+              Jj(p) << Meq.Identity(jj0);   
     return jt.base_node,jt.solvable;
 
     ## create TDL job
