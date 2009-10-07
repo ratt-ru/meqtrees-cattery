@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$
 #
@@ -51,7 +52,7 @@ class IfrArray (object):
   compile_options = staticmethod(compile_options);
 
   def __init__(self,ns,station_list,station_index=None,uvw_table=None,
-               ms_uvw=None,mirror_uvw=None,resamplers=False):
+               ms_uvw=None,mirror_uvw=None,resamplers=False,positions=None):
     """Creates an IfrArray object, representing an interferometer array.
     'station_list' is a list of station IDs, not necessarily numeric.
         It can also be a list of (index,ID) tuples, when a subset of antennas
@@ -83,10 +84,15 @@ class IfrArray (object):
         self._station_index = list(station_list);
       else:
         self._station_index = list(enumerate(station_list));
+    # make a list of positions
+    if positions is not None:
+      self._station_positions = dict([ (ip,positions[ip,:]) for ip,p in self._station_index ]);
+    else:
+      self._station_positions = {};
     # now make some other lists
-    self._stations = [ px[1] for px in self._station_index ];
-    self._ifr_index = [ (px,qx) for px in self._station_index
-                                for qx in self._station_index if px[0]<qx[0] ];
+    self._stations = [ p for ip,p in self._station_index ];
+    self._ifr_index = [ ((ip,p),(iq,q)) for ip,p in self._station_index
+                                        for iq,q in self._station_index if ip<iq ];
     self._ifrs = [ (px[1],qx[1]) for px,qx in self._ifr_index ];
     self._uvw_table = uvw_table;
     self._ms_uvw = ms_uvw;
@@ -195,10 +201,11 @@ class IfrArray (object):
         # to avoid confusion, we call them "x:num0", etc.
         num = 'num'+str(ip);
         # create XYZ nodes
+        x,y,z = self._station_positions.get(ip,(0,0,0));
         xyz = self.ns.xyz(p) << Meq.Composer(
-          self.ns.x(num) << Meq.Constant(0.0),
-          self.ns.y(num) << Meq.Constant(0.0),
-          self.ns.z(num) << Meq.Constant(0.0)
+          self.ns.x(num) << x,
+          self.ns.y(num) << y,
+          self.ns.z(num) << z
         );
         if not xyz0.initialized():
           xyz0 << Meq.Selector(xyz); # xyz0 == xyz first station essentially

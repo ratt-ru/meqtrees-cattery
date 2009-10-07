@@ -263,7 +263,7 @@ class MeqMaker (object):
     # extra options for per-source options
     if not is_uvplane:
       extra_options.append(
-        TDLOption(self._make_attr('all_sources',label),"Use same %s-Jones for all sources (narrow field)"%label,False,namespace=self,nonexclusive=True,
+        TDLOption(self._make_attr('all_sources',label),"Use same %s-Jones for all sources"%label,False,namespace=self,nonexclusive=True,
         doc="""If checked, then the same %s-Jones term will be used for all source in the model. This is a valid
         approximation for narrow fields, and will make your trees smaller and/or faster."""%label));
     else:
@@ -560,6 +560,8 @@ class MeqMaker (object):
           if jones(stations[0]).initialized():
             vis = ns.visualizer(jt.label) << Meq.Composer(dims=[0],*[jones(p) for p in stations]);
             self._add_sky_visualizer(vis,jt.label,jt.name);
+          # remove skyvis from list of sources
+          sources = sources[1:];
         # if module does not make its own inspectors, add automatic ones
         if self.use_jones_inspectors:
           if inspectors:

@@ -695,7 +695,7 @@ class MSSelector (object):
     'ns' is a NodeScope object.
     'antennas' is a default antenna set, to be used if the antenna selector is not available.
     """;
-    array = Meow.IfrArray(ns,self.get_antenna_set(antennas));
+    array = Meow.IfrArray(ns,self.get_antenna_set(antennas),positions=self.ms_antenna_positions);
     # get phase centre from MS, setup observation
     observation = Meow.Observation(ns,phase_centre=self.get_phase_dir(),
 	    linear=self.is_linear_pol(),circular=self.is_circular_pol());

@@ -96,16 +96,16 @@ Gamma4(double tan_al,double sin_al, double sin_th, double cos_th,
  * c: speed of light, f : frequency
  * th: pi/2-elevation
  * phi: phi_0+azimuth, phi_0: dipole orientation
- * parameters: h,L,alpha,phi_0
+ * parameters: h,L,alpha,phi_0,az,el
  * h: height of center from ground, L: projected arm length
  * alpha: droop angle
- * axes: time,freq, az, el
+ * axes: time,freq
  */
 double test_double(const double *par,const double *x){
   const double c=3.e8;
   if (x[3]<=0.0) return 0; /* below horizon */
-  const double theta=M_PI/2-x[3];
-  const double phi=par[3]+x[2];
+  const double theta=M_PI/2-par[5];
+  const double phi=par[3]+par[4];
 
   /* some essential constants */
   double k=2*M_PI*x[1]/c;
@@ -140,8 +140,8 @@ double test_double(const double *par,const double *x){
 complex double test_complex(const complex *par,const complex *x){
   const double c=3.e8;
   const double x1=creal(x[1]);
-  const double x2=creal(x[2]);
-  const double x3=creal(x[3]);
+  const double x2=creal(par[4]);
+  const double x3=creal(par[5]);
   const double p0=creal(par[0]);
   const double p1=creal(par[1]);
   const double p2=creal(par[2]);
@@ -180,5 +180,5 @@ complex double test_complex(const complex *par,const complex *x){
   return(Eph);
 
 }
-int Npar_test=4;
-int Nx_test=4;
+int Npar_test=6;
+int Nx_test=2;
