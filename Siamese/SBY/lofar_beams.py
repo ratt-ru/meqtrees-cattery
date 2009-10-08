@@ -51,27 +51,40 @@ TDLCompileMenu("Dipole configuration",
       TDLOption('lba_alpha',"Dipole slant (alpha, deg)",[45.00001],more=float),
       TDLOption('lba_phi0_x',"X dipole orientation, deg",[45],more=float),
       TDLOption('lba_phi0_y',"Y dipole orientation, deg",[135],more=float),
-      TDLOption('lba_beam_scale',"Beam rescaling factor",[88],more=float),
+      TDLOption('lba_beam_scale',"Beam rescaling factor",[88],more=float,
+        doc="""This is just a scale factor applied to the complex beam gain, to keep the
+        numbers reasonable"""),
     toggle="lba_model"),
   TDLMenu("LOFAR HBA (bowtie)",
       TDLOption('hba_phi0_x',"X dipole orientation, deg",[45],more=float),
       TDLOption('hba_phi0_y',"Y dipole orientation, deg",[135],more=float),
-      TDLOption('hba_beam_scale',"Beam rescaling factor",[600],more=float),
+      TDLOption('hba_beam_scale',"Beam rescaling factor",[600],more=float,
+        doc="""This is just a scale factor applied to the complex beam gain, to keep the
+        numbers reasonable"""),
     toggle="hba_model"),
   exclusive='dipole_model',
 );
 
 station_menu = TDLCompileMenu("Station configuration",
   TDLCompileOption('station_config_path',
-        "Station configuration file",TDLFileSelect(default=os.path.join(dirname,'AntennaCoords.lba'))),
-  TDLCompileOption('station_phi0',"Station orientation, deg",[45],more=float));
+    "Station configuration file",TDLFileSelect(default=os.path.join(dirname,'AntennaCoords.lba')),
+    doc="""This file specifies the layout of dipoles within a station."""
+  ),
+  TDLCompileOption('station_phi0',"Station orientation, deg",[45],more=float,
+    doc="""This parameter can be used to rotate the station layout."""
+  )
+);
 
 def _set_array_composition (value):
   station_menu.show(value!=DIPOLES);
   station_id_opt.show(value==MIX);
 array_opt.when_changed(_set_array_composition);
 
-TDLCompileOption('beam_library_path',"Beam library",TDLFileSelect(default=libname));
+TDLCompileOption('beam_library_path',"Beam library",TDLFileSelect(default=libname),
+  doc="""This is a dynamic library module (usually called lofar_beams_lib.so) conatining the beam computation routines.
+  If you don't see this library, you might need to type "make" in the directory containing this module to build it.
+  """
+);
 
 def make_hba_parameters (ns):
   ns.beam_scale << hba_beam_scale;
