@@ -63,7 +63,7 @@ TDLCompileMenu("Dipole configuration",
 
 station_menu = TDLCompileMenu("Station configuration",
   TDLCompileOption('station_config_path',
-        "Station configuration file",TDLFileSelect(default=os.path.join(dirname,'AntennaCoords'))),
+        "Station configuration file",TDLFileSelect(default=os.path.join(dirname,'AntennaCoords.lba'))),
   TDLCompileOption('station_phi0',"Station orientation, deg",[45],more=float));
 
 def _set_array_composition (value):

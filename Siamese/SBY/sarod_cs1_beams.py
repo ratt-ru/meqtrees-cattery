@@ -1,3 +1,6 @@
+# NB: this file has been superceded by lofar_beams.py
+#
+
 # -*- coding: utf-8 -*-
 #
 #% $Id$ 
