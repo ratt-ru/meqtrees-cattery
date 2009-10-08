@@ -31,57 +31,88 @@ import Meow
 from Meow import Context
 
 dirname = os.path.dirname(__file__);
+libname = os.path.join(dirname,"lofar_beams_lib.so");
+DEG = math.pi/180;
 
-TDLCompileOption('beam_library_path',
-      "Beam library path",TDLDirSelect(default=dirname));
-TDLCompileOption('station_config_path',
-      "Station configuration file",TDLFileSelect(default=os.path.join(dirname,'AntennaCoords')));
-TDLCompileOption('beam_stations',"Use station model for",[None,"all",1],more=str,
-    doc="""<P>If 'None' is selected, a dipole beam model is used for all stations.</P>
-<P>If 'all' is selected, a station beam model is used for all stations.</P>
-<P>Otherwise enter a station ID to use a station beam for that station, and a dipole beam for the rest.</P>
-""");
+DIPOLES = "dipoles";
+STATIONS = "stations";
+MIX = "station vs. dipoles";
 
-TDLCompileMenu("Dipole parameters",
-  TDLOption('beam_L',"L",[0.9758],more=float),
-  TDLOption('beam_phi0',"phi0",[0],more=float),
-  TDLOption('beam_h',"h",[1.706],more=float),
-  TDLOption('beam_alpha',"alpha",[math.pi/4.001],more=float),
-  TDLOption('beam_az0x',"X dipole orientation",[math.pi/4],more=float),
-  TDLOption('beam_az0y',"Y dipole orientation",[3*math.pi/4],more=float),
-  TDLOption('beam_scale',"Rescaling factor",[88],more=float)
+array_opt = TDLCompileOption('array_composition',"Array composition",[DIPOLES,STATIONS,MIX],
+    doc="""<P>Three options are available: an array of dipoles, an array of proper stations,
+or one proper station with the rest being dipoles.</P>""");
+station_id_opt = TDLCompileOption('station_id',"Antenna ID of station",[1],more=str,
+    doc="""<P>ID of antenna corresponding to the one proper station.</P>""");
+
+TDLCompileMenu("Dipole configuration",
+  TDLMenu("LOFAR LBA (droopy dipoles)",
+      TDLOption('lba_L',"Dipole length (L, meters)",[0.9758],more=float),
+      TDLOption('lba_h',"Dipole height (h, meters)",[1.706],more=float),
+      TDLOption('lba_alpha',"Dipole slant (alpha, deg)",[45.00001],more=float),
+      TDLOption('lba_phi0_x',"X dipole orientation, deg",[45],more=float),
+      TDLOption('lba_phi0_y',"Y dipole orientation, deg",[135],more=float),
+      TDLOption('lba_beam_scale',"Beam rescaling factor",[88],more=float),
+    toggle="lba_model"),
+  TDLMenu("LOFAR HBA (bowtie)",
+      TDLOption('hba_phi0_x',"X dipole orientation, deg",[45],more=float),
+      TDLOption('hba_phi0_y',"Y dipole orientation, deg",[135],more=float),
+      TDLOption('hba_beam_scale',"Beam rescaling factor",[600],more=float),
+    toggle="hba_model"),
+  exclusive='dipole_model',
 );
-TDLCompileOption('station_phi0',"Station orientation",[math.pi/4],more=float);
 
-def make_dipole_parameters (ns):
-  ns.L << beam_L + 0j;
-  ns.phi('x') << beam_phi0 + 0j;
-  ns.phi('y') << beam_phi0 - math.pi/2 + 0j
-  ns.h << beam_h + 0j;
-  ns.alpha << beam_alpha + 0j;
-  ns.az0('x') << beam_az0x;
-  ns.az0('y') << beam_az0y - math.pi/2;
-  ns.beam_scale << beam_scale;
+station_menu = TDLCompileMenu("Station configuration",
+  TDLCompileOption('station_config_path',
+        "Station configuration file",TDLFileSelect(default=os.path.join(dirname,'AntennaCoords'))),
+  TDLCompileOption('station_phi0',"Station orientation, deg",[45],more=float));
 
-def make_dipole_beam (ns,E,azX,azY,el):
+def _set_array_composition (value):
+  station_menu.show(value!=DIPOLES);
+  station_id_opt.show(value==MIX);
+array_opt.when_changed(_set_array_composition);
+
+TDLCompileOption('beam_library_path',"Beam library",TDLFileSelect(default=libname));
+
+def make_hba_parameters (ns):
+  ns.beam_scale << hba_beam_scale;
+
+def lba_dipole_beam (ns,E,az,el):
+  # init beam constants
+  if not ns.lba_beam_scale.initialized():
+    ns.L << lba_L + 0j;
+    ns.phi0_x << -lba_phi0_x*DEG + 0j;
+    ns.phi0_y << -lba_phi0_y*DEG + 0j
+    ns.h << lba_h + 0j;
+    ns.alpha << lba_alpha*DEG + 0j;
+    ns.lba_beam_scale << lba_beam_scale;
+  # make dipole beam
   E('unscaled') << Meq.Matrix22(
-    E('xx') <<  Meq.PrivateFunction(children=(ns.h,ns.L,ns.alpha,ns.phi('x'),azX,el),
-                lib_name=beam_library_path+"/beam_dr_theta.so",function_name="test"),
-    E('xy') <<  Meq.PrivateFunction(children=(ns.h,ns.L,ns.alpha,ns.phi('x'),azX,el),
-                lib_name=beam_library_path+"/beam_dr_phi.so",function_name="test"),
-    E('yx') <<  Meq.PrivateFunction(children=(ns.h,ns.L,ns.alpha,ns.phi('y'),azY,el),
-                lib_name=beam_library_path+"/beam_dr_theta.so",function_name="test"),
-    E('yy') <<  Meq.PrivateFunction(children=(ns.h,ns.L,ns.alpha,ns.phi('y'),azY,el),
-                lib_name=beam_library_path+"/beam_dr_phi.so",function_name="test")
+    E('xx') <<  Meq.PrivateFunction(az,el,ns.phi0_x,ns.h,ns.L,ns.alpha,
+                lib_name=beam_library_path,function_name="lba_theta"),
+    E('xy') <<  Meq.PrivateFunction(az,el,ns.phi0_x,ns.h,ns.L,ns.alpha,
+                lib_name=beam_library_path,function_name="lba_phi"),
+    E('yx') <<  Meq.PrivateFunction(az,el,ns.phi0_y,ns.h,ns.L,ns.alpha,
+                lib_name=beam_library_path,function_name="lba_theta"),
+    E('yy') <<  Meq.PrivateFunction(az,el,ns.phi0_y,ns.h,ns.L,ns.alpha,
+                lib_name=beam_library_path,function_name="lba_phi")
   );
-  E << E('unscaled')/ns.beam_scale;
+  E << E('unscaled')/ns.lba_beam_scale;
 
-def make_station_beam (ns,S,azel0,azel,ref_freq):
-  S << Meq.StationBeam(filename=station_config_path,
-              azel_0=azel0,azel=azel,
-              phi_0=station_phi0,
-              ref_freq=ref_freq);
-
+def hba_dipole_beam (ns,E,az,el):
+  ns.hba_beam_scale ** hba_beam_scale;
+  ns.phi0_x ** (-lba_phi0_x*DEG + 0j);
+  ns.phi0_y ** (-lba_phi0_y*DEG + 0j);
+  E('unscaled') << Meq.Matrix22(
+    E('xx') <<  Meq.PrivateFunction(az,el,ns.phi0_x,
+                lib_name=beam_library_path,function_name="hba_theta"),
+    E('xy') <<  Meq.PrivateFunction(az,el,ns.phi0_x,
+                lib_name=beam_library_path,function_name="hba_phi"),
+    E('yx') <<  Meq.PrivateFunction(az,el,ns.phi0_y,
+                lib_name=beam_library_path,function_name="hba_theta"),
+    E('yy') <<  Meq.PrivateFunction(az,el,ns.phi0_y,
+                lib_name=beam_library_path,function_name="hba_phi")
+  );
+  E << E('unscaled')/ns.hba_beam_scale;
 
 def compute_jones (Jones,sources,stations=None,pointing_offsets=None,**kw):
   ns = Jones.Subscope();
@@ -90,7 +121,14 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,**kw):
   freq0 = obs.freq0();
   freq1 = obs.freq1();
 
-  make_dipole_parameters(ns);
+  if hba_model:
+    dipole_model = hba_dipole_beam;
+  else:
+    dipole_model = lba_dipole_beam;
+  # get array composition
+  global station_id;
+  if array_composition != MIX:
+    station_id = None;
   # get reference frequency
   ns.ref_freq << (freq1 + freq0)/2;
 
@@ -101,15 +139,12 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,**kw):
       # az,el of source relative to this station
       az = src.direction.az(Context.array.xyz(station));
       el = src.direction.el(Context.array.xyz(station));
-      # azimuth relative to X/Y dipoles
-      azX = Ej('azX') << az - ns.az0('x');
-      azY = Ej('azY') << az - ns.az0('y');
       # make either a station beam, or a dipole beam
-      if beam_stations == "all" or str(station) == str(beam_stations):
+      if array_composition == STATIONS or str(station) == str(station_id):
         B = Ej('B');
         S = Ej('S');
         # dipole beam
-        make_dipole_beam(ns,B,azX,azY,el);
+        dipole_model(ns,B,az,el);
         # station gains: scalar matrix
         # if independent X/Y beams are formed, then this will become a disgonal
         # matrix (and B*S will need to be a Meq.MatrixMultiply)
@@ -121,6 +156,6 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,**kw):
         Ej << B*S;
       else:
         # dipole beam
-        make_dipole_beam(ns,Ej,azX,azY,el);
+        dipole_model(ns,Ej,az,el);
 
   return Jones;
