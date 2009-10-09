@@ -38,6 +38,7 @@ else:
   from Position import Position
   from Direction import Direction
   from LMDirection import LMDirection
+  from AzElDirection import AzElDirection
   from LMApproxDirection import LMApproxDirection
   from FITSImageComponent import FITSImageComponent
   from GaussianSource import GaussianSource

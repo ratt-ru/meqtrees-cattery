@@ -74,8 +74,10 @@ def _modopts (mod,opttype='compile'):
   else:
     return [];
 
-SKYJONES_LM    = "lm plane";
-SKYJONES_RADEC  = "RA-Dec full sky";
+SKYJONES_LM       = "lm plane";
+SKYJONES_RADEC    = "RA-Dec full sky";
+SKYJONES_AZEL     = "Az-El half sky";
+SKYJONES_AZEL_FULL = "Az-El full sky";
 
 class MeqMaker (object):
   def __init__ (self,namespace='me',solvable=False,
@@ -126,7 +128,8 @@ class MeqMaker (object):
       self.use_skyjones_visualizers = True;
       self.use_skyjones_visualizers_opt = \
         TDLMenu("Include visualizers for sky-Jones terms",
-	    TDLOption("_skyvis_frame","Coordinate grid",[SKYJONES_LM,SKYJONES_RADEC],namespace=self),
+	    TDLOption("_skyvis_frame","Coordinate grid",
+              [SKYJONES_LM,SKYJONES_RADEC,SKYJONES_AZEL,SKYJONES_AZEL_FULL],namespace=self),
           doc="""If enabled, then your trees will automatically include visualizer nodes for all
           sky-Jones terms. This does not affect normal performance if you do not use the visualizations.""",
 	  toggle='use_skyjones_visualizers',namespace=self
@@ -457,14 +460,18 @@ class MeqMaker (object):
 	ra = ns.lmgrid_ra << Meq.Grid(axis="m");
 	dec = ns.lmgrid_dec << Meq.Grid(axis="l");
 	visdir = Meow.Direction(ns,"visgrid",ra,dec);
+      elif self._skyvis_frame == SKYJONES_AZEL or self._skyvis_frame == SKYVIS_AZEL_FULL:
+        az = ns.lmgrid_az << Meq.Grid(axis="m");
+        el = ns.lmgrid_el << Meq.Grid(axis="l");
+        visdir = Meow.AzElDirection(ns,"visgrid",az,el);
       # make a source with this direction object
       self._skyjones_visualizer_source = Meow.PointSource(ns,"visgrid",visdir);
     return self._skyjones_visualizer_source;
 
-  def _add_sky_visualizer (self,visnode,label,name):
+  def _add_sky_visualizer (self,visnode,visnode_sq,label,name):
     Meow.Bookmarks.Page("%s (%s) visualizer"%(label,name)).add(visnode,viewer="Result Plotter");
-    # add visualization job
-    def tdljob_visualize (mqs,parent,**kw):
+    Meow.Bookmarks.Page("|%s^2| (%s) visualizer"%(label,name)).add(visnode_sq,viewer="Result Plotter");
+    def visualize_node (mqs,parent,**kw):
       if self._skyvis_ntime > 1:
         dt = self._skyvis_timespan/((self._skyvis_ntime-1)*2.);
       else:
@@ -480,14 +487,18 @@ class MeqMaker (object):
         dx = self._skyvis_xgrid*ARCMIN/2;
         dy = self._skyvis_ygrid*ARCMIN/2;
         domain = meq.gen_domain(time=time,freq=freq,l=[-dx,dx],m=[-dy,dy]);
-      elif self._skyvis_frame == SKYJONES_RADEC:
+      elif self._skyvis_frame in [SKYJONES_RADEC,SKYJONES_AZEL_FULL]:
         domain = meq.gen_domain(time=time,freq=freq,l=[-math.pi/2,math.pi/2],m=[0,2*math.pi]);
+      elif self._skyvis_frame == SKYJONES_AZEL:
+        domain = meq.gen_domain(time=time,freq=freq,l=[0,math.pi/2],m=[0,2*math.pi]);
       cells = meq.gen_cells(domain,num_time=self._skyvis_ntime,num_freq=self._skyvis_nfreq,
                                    num_l=self._skyvis_npix,num_m=self._skyvis_npix);
       request = meq.request(cells, rqtype='ev');
+      mqs.clearcache(visnode_sq.name,recursive=True);
       mqs.clearcache(visnode.name,recursive=True);
       mqs.execute(visnode.name,request);
-    self._runtime_vis_options.append(TDLJob(tdljob_visualize,"Visualize %s (%s)"%(label,name)));
+      mqs.execute(visnode_sq.name,request);
+    self._runtime_vis_options.append(TDLJob(visualize_node,"Visualize %s (%s)"%(label,name)));
 
   def _get_jones_nodes (self,ns,jt,stations,sources=None,solvable_sources=set()):
     """Returns the Jones nodes associated with the given JonesTerm ('jt'). If
@@ -560,7 +571,13 @@ class MeqMaker (object):
           jones = Jj(skyvis);
           if jones(stations[0]).initialized():
             vis = ns.visualizer(jt.label) << Meq.Composer(dims=[0],*[jones(p) for p in stations]);
-            self._add_sky_visualizer(vis,jt.label,jt.name);
+            for p in stations:
+              jp = jones(p);
+              jpsq = jp('sq') << Meq.MatrixMultiply(jp,jp('t') << Meq.ConjTranspose(jones(p)));
+              jj = jp('2tr') << (jpsq(11) << Meq.Selector(jpsq,index=0)) + (jpsq(22) << Meq.Selector(jpsq,index=3));
+              jp('a2tr') << Meq.Abs(jj);
+            vissq = ns.visualizer_sq(jt.label) << Meq.Composer(dims=[0],*[jones(p,'a2tr') for p in stations]);
+            self._add_sky_visualizer(vis,vissq,jt.label,jt.name);
           # remove skyvis from list of sources
           sources = sources[1:];
         # if module does not make its own inspectors, add automatic ones
