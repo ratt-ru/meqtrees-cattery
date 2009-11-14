@@ -941,8 +941,8 @@ class SourceSubsetSelector (object):
     self.options = [ subset_opt ];
 
   def filter (self,srclist):
-    if not self.subset_enabled:
-      return [];
+    if not self.subset_enabled or self.source_subset == "all":
+      return srclist;
     if not self._src_set:
       self._src_set = set(self.source_subset.split(" "));
     # make list
