@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$
 #
@@ -79,8 +80,8 @@ class FullRealImag (object):
     else:
       x,y,X,Y = 'x','y','X','Y';
     xx,xy,yx,yy = x+x,x+y,y+x,y+y;
-    rxx,rxy,ryx,ryy = [ "r"+q for q in xx,xy,yx,yy ];
-    ixx,ixy,iyx,iyy = [ "i"+q for q in xx,xy,yx,yy ];
+    rxx,rxy,ryx,ryy = [ q+":r" for q in xx,xy,yx,yy ];
+    ixx,ixy,iyx,iyy = [ q+":i" for q in xx,xy,yx,yy ];
     # create parm definitions for each jones element
     tags = NodeTags(tags) + "solvable";
     diag_real = Meq.Parm(1,tags=tags+"diag real");

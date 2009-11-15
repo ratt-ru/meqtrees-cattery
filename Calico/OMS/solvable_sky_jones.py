@@ -120,6 +120,14 @@ class FullRealImag (object):
     stations = stations or Context.array.stations();
     # figure out which sources to apply to
     sources = self.subset_selector.filter(sources);
+    # set up qualifier labels depending on polarization definition
+    if Context.observation.circular():
+      x,y,X,Y = 'R','L','R','L';
+    else:
+      x,y,X,Y = 'x','y','X','Y';
+    xx,xy,yx,yy = x+x,x+y,y+x,y+y;
+    rxx,rxy,ryx,ryy = [ q+":r" for q in xx,xy,yx,yy ];
+    ixx,ixy,iyx,iyy = [ q+":i" for q in xx,xy,yx,yy ];
     # create parm definitions for each jones element
     tags = NodeTags(tags) + "solvable";
     diag_real = Meq.Parm(1,tags=tags+"diag real");
@@ -138,28 +146,28 @@ class FullRealImag (object):
       for p in stations:
         jj = jones(src,p);
         jj << Meq.Matrix22(
-          jj("xx") << Meq.ToComplex(
-              jj("rxx") << diag_real,
-              jj("ixx") << diag_imag
+          jj(xx) << Meq.ToComplex(
+              jj(rxx) << diag_real,
+              jj(ixx) << diag_imag
           ),
-          jj("xy") << Meq.ToComplex(
-              jj("rxy") << offdiag_real,
-              jj("ixy") << offdiag_imag
+          jj(xy) << Meq.ToComplex(
+              jj(rxy) << offdiag_real,
+              jj(ixy) << offdiag_imag
           ),
-          jj("yx") << Meq.ToComplex(
-              jj("ryx") << offdiag_real,
-              jj("iyx") << offdiag_imag
+          jj(yx) << Meq.ToComplex(
+              jj(ryx) << offdiag_real,
+              jj(iyx) << offdiag_imag
           ),
-          jj("yy") << Meq.ToComplex(
-              jj("ryy") << diag_real,
-              jj("iyy") << diag_imag
+          jj(yy) << Meq.ToComplex(
+              jj(ryy) << diag_real,
+              jj(iyy) << diag_imag
           )
         );
         # add to list of parms for groups and subgroups
-        parms = [ jj(zz) for zz in "rxx","ixx","ryy","iyy" ]
+        parms = [ jj(zz) for zz in rxx,ixx,ryy,iyy ]
         parms_diag += parms;
         sgdiag += parms;
-        parms = [ jj(zz) for zz in "rxy","ixy","ryx","iyx" ];
+        parms = [ jj(zz) for zz in rxy,ixy,ryx,iyx ];
         parms_offdiag += parms;
         sgoff  += parms;
       # add subgroup for this source

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$
 #
@@ -53,9 +54,10 @@ class IfrGains (object):
       gg = [];
       for corr in Context.correlations:
         if corr in Context.active_correlations:
-          gain_ri  = [ resolve_parameter(corr,G(p,q,corr,'r'),def1,tags="ifr gain real"),
-                       resolve_parameter(corr,G(p,q,corr,'i'),def0,tags="ifr gain imag") ];
-          gg.append(G(p,q,corr) << Meq.ToComplex(*gain_ri));
+          cc = corr.lower();
+          gain_ri  = [ resolve_parameter(cc,G(p,q,cc,'r'),def1,tags="ifr gain real"),
+                       resolve_parameter(cc,G(p,q,cc,'i'),def0,tags="ifr gain imag") ];
+          gg.append(G(p,q,cc) << Meq.ToComplex(*gain_ri));
           gains += gain_ri;
         else:
           gg.append(1);
@@ -101,9 +103,10 @@ class IfrBiases (object):
       gg = [];
       for corr in Context.correlations:
         if corr in Context.active_correlations:
-          bias_ri  = [ resolve_parameter(corr,G(p,q,corr,'r'),def0,tags="ifr bias real"),
-                       resolve_parameter(corr,G(p,q,corr,'i'),def0,tags="ifr bias imag") ];
-          gg.append(G(p,q,corr) << Meq.ToComplex(*bias_ri));
+          cc = corr.lower();
+          bias_ri  = [ resolve_parameter(cc,G(p,q,cc,'r'),def0,tags="ifr bias real"),
+                       resolve_parameter(cc,G(p,q,cc,'i'),def0,tags="ifr bias imag") ];
+          gg.append(G(p,q,cc) << Meq.ToComplex(*bias_ri));
           biases += bias_ri;
         else:
           gg.append(1);

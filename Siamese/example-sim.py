@@ -108,7 +108,7 @@ TDLCompileOption("noise_stddev","Add noise, Jy",[None,1e-6,1e-3],more=float);
 
 def _define_forest (ns):
   if run_purr:
-    Timba.TDL.GUI.purr(mssel.msname,[mssel.msname,'.']);
+    Timba.TDL.GUI.purr(mssel.msname+".purrlog",[mssel.msname,'.']);
   # setup contexts properly
   array,observation = mssel.setup_observation_context(ns);
 

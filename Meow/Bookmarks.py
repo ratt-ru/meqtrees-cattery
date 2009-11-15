@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -136,7 +137,7 @@ def _int_or_str(x):
   try: return int(x);
   except: return x;
 
-def make_node_folder (name,nodes,sorted=False,ncol=2,nrow=3,folder=None):
+def make_node_folder (name,nodes,sorted=False,ncol=2,nrow=2,folder=None):
   """Creates a sub-folder with bookmarks for a group of nodes.
   """;
   # sort nodes by name

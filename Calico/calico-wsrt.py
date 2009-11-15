@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$
 #
@@ -78,10 +79,11 @@ cal_toggle.when_changed(enable_calibration);
 # specify available sky models
 # these will show up in the menu automatically
 from Calico.OMS import central_point_source
+from Siamese.OMS import fitsimage_sky
 import Meow.LSM
 lsm = Meow.LSM.MeowLSM(include_options=False);
 
-meqmaker.add_sky_models([central_point_source,lsm]);
+meqmaker.add_sky_models([lsm,central_point_source,fitsimage_sky]);
 
 # now add optional Jones terms
 # these will show up in the menu automatically
@@ -117,7 +119,7 @@ import Purr.Pipe
 
 def _define_forest(ns,parent=None,**kw):
   if run_purr:
-    Timba.TDL.GUI.purr(mssel.msname,[mssel.msname,'.']);
+    Timba.TDL.GUI.purr(mssel.msname+".purrlog",[mssel.msname,'.']);
   # create Purr pipe
   global purrpipe;
   purrpipe = Purr.Pipe.Pipe(mssel.msname);

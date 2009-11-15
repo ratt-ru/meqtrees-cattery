@@ -127,8 +127,8 @@ def compute_jones (Jones,sources,stations=None,label="beam",pointing_offsets=Non
       if lmnst:
         l,m = lmsrc[src.name] = lmnst[0:2];
         src.set_attr(label+'r',math.sqrt(l**2+m**2)/math.pi*(180*60));
-        log.write("%s l=%.14g m=%.14g r=%.14g (computed)\n"
-                    %(src.name,l,m,sqrt(l*l+m*m)));
+#        log.write("%s l=%.14g m=%.14g r=%.14g (computed)\n"
+#                   %(src.name,l,m,sqrt(l*l+m*m)));
       # else use lmn node
       else:
         lmsrc[src.name] = src.direction.lm();

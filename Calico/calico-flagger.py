@@ -528,7 +528,7 @@ import Purr.Pipe
 def _define_forest(ns,parent=None,**kw):
   if run_purr:
     Timba.TDL.GUI.log_message("starting purr");
-    Timba.TDL.GUI.purr(mssel.msname,[mssel.msname,'.']);
+    Timba.TDL.GUI.purr(mssel.msname+".purrlog",[mssel.msname,'.']);
   
   ANTENNAS = msse1.get_antenna_set(range(15));
   array = Meow.IfrArray(ns,ANTENNAS,mirror_uvw=False);
