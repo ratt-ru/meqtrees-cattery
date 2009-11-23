@@ -10,20 +10,27 @@ import Purr.Pipe
 
 # figure out which table implementation to use -- try pyrap/casacore first
 try:
-  import pyrap_tables
-  TABLE = pyrap_tables.table
-  print "Calico flagger: using the pyrap_tables module"
+  # first try current pyrap.tables module
+  import pyrap.tables
+  TABLE = pyrap.tables.table
+  print "Calico flagger: using the pyrap.tables module"
 except:
-  # else try the old pycasatable/aips++ thing
   try:
-    import pycasatable
-    TABLE = pycasatable.table
-    print "Calico flagger: using the pycasatable module. WARNING: this is deprecated."
-    print "Please install pyrap and casacore!"
+    # try old pyrap_tables module
+    import pyrap_tables
+    TABLE = pyrap_tables.table
+    print "Calico flagger: using the pyrap_tables module. WARNING: this is depreciated."
   except:
-    TABLE = None;
-    print "Calico flagger: no tables module found"
-    print "Please install pyrap and casacore!"
+    # else try the old pycasatable/aips++ thing
+    try:
+      import pycasatable
+      TABLE = pycasatable.table
+      print "Calico flagger: using the pycasatable module. WARNING: this is deprecated."
+      print "Please install pyrap and casacore!"
+    except:
+      TABLE = None;
+      print "Calico flagger: no tables module found"
+      print "Please install pyrap and casacore!"
     
 _gli = MSUtils.find_exec('glish');
 if _gli:
