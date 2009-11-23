@@ -529,7 +529,7 @@ def _define_forest(ns,parent=None,**kw):
     Timba.TDL.GUI.log_message("starting purr");
     Timba.TDL.GUI.purr(mssel.msname+".purrlog",[mssel.msname,'.']);
   
-  ANTENNAS = msse1.get_antenna_set(range(15));
+  ANTENNAS = mssel.get_antenna_set(range(15));
   array = Meow.IfrArray(ns,ANTENNAS,mirror_uvw=False);
   observation = Meow.Observation(ns);
   Meow.Context.set(array,observation);
