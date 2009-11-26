@@ -107,6 +107,8 @@ TDLCompileOption("noise_stddev","Add noise, Jy",[None,1e-6,1e-3],more=float);
 # TDLCompileOptions(*Parallelization.compile_options());
 
 def _define_forest (ns):
+  if not mssel.msname:
+    raise RuntimeError,"MS not set up in compile-time options";
   if run_purr:
     Timba.TDL.GUI.purr(mssel.msname+".purrlog",[mssel.msname,'.']);
   # setup contexts properly
