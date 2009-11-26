@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-#% $Id$ 
+#% $Id$
 #
 #
 # Copyright (C) 2002-2007
-# The MeqTree Foundation & 
+# The MeqTree Foundation &
 # ASTRON (Netherlands Foundation for Research in Astronomy)
 # P.O.Box 2, 7990 AA Dwingeloo, The Netherlands
 #
@@ -19,7 +19,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>,
-# or write to the Free Software Foundation, Inc., 
+# or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
@@ -32,7 +32,7 @@ import Meow
 import Meow.StdTrees
 
 # MS options first
-mssel = Meow.MSUtils.MSSelector(has_input=False,tile_sizes=[8,16,32],flags=False);
+mssel = Meow.Context.mssel = Meow.MSUtils.MSSelector(has_input=False,tile_sizes=[8,16,32],flags=False);
 # MS compile-time options
 TDLCompileOptions(*mssel.compile_options());
 TDLCompileOption("run_purr","Start Purr on this MS",True);
@@ -89,8 +89,8 @@ meqmaker.add_sky_jones('E','beam',[analytic_beams,wsrt_beams,lofar_beams],
                                   pointing=oms_pointing_errors);
 
 # P - Parallactic angle
-from Siamese.OMS import par_angle
-meqmaker.add_uv_jones('P','parallactic angle',par_angle);
+from Siamese.OMS import feed_angle
+meqmaker.add_uv_jones('P','feed angle',feed_angle);
 
 # G - gains
 from Siamese.OMS import oms_gain_models
@@ -110,17 +110,20 @@ def _define_forest (ns):
   if not mssel.msname:
     raise RuntimeError,"MS not set up in compile-time options";
   if run_purr:
-    Timba.TDL.GUI.purr(mssel.msname+".purrlog",[mssel.msname,'.']);
+    print mssel.msname;
+    import os.path
+    purrlog = os.path.normpath(mssel.msname)+".purrlog";
+    Timba.TDL.GUI.purr(purrlog,[mssel.msname,'.']);
   # setup contexts properly
   array,observation = mssel.setup_observation_context(ns);
 
   # setup imaging options (now that we have an imaging size set up)
   imsel = mssel.imaging_selector(npix=512,arcmin=meqmaker.estimate_image_size());
   TDLRuntimeMenu("Imaging options",*imsel.option_list());
-  
+
   # get a predict tree from the MeqMaker
   output = meqmaker.make_predict_tree(ns);
-  
+
   # throw in a bit of noise
   if noise_stddev:
     # make two complex noise terms per station (x/y)
@@ -138,7 +141,7 @@ def _define_forest (ns):
       );
       ns.noisy_predict(p,q) << output(p,q) + noise;
     output = ns.noisy_predict;
-    
+
   # in add or subtract sim mode, make some spigots and add/subtract visibilities
   if sim_mode == ADD_MS:
     spigots = array.spigots();
@@ -152,22 +155,22 @@ def _define_forest (ns):
     output = ns.diff;
   else:
     spigots = False;
-  
+
   # make sinks and vdm.
   # The list of inspectors comes in handy here
   Meow.StdTrees.make_sinks(ns,output,spigots=spigots,post=meqmaker.get_inspectors());
 
   # very important -- insert meqmaker's options properly
   TDLRuntimeOptions(*meqmaker.runtime_options());
-  
+
   # close the meqmaker. This produces annotations, etc.
   meqmaker.close();
 
 
 def _tdl_job_1_simulate_MS (mqs,parent,wait=False):
   mqs.execute('VisDataMux',mssel.create_io_request(),wait=wait);
-  
-  
+
+
 # this is a useful thing to have at the bottom of the script, it allows us to check the tree for consistency
 # simply by running 'python script.tdl'
 
@@ -175,6 +178,6 @@ if __name__ == '__main__':
   ns = NodeScope();
   _define_forest(ns);
   # resolves nodes
-  ns.Resolve();  
-  
+  ns.Resolve();
+
   print len(ns.AllNodes()),'nodes defined';

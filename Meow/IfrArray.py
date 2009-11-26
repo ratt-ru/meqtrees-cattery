@@ -40,7 +40,7 @@ uvw_source_opt = TDLOption('uvw_source',"UVW coordinates",
       In the latter case, you have a choice of two opposite sign conventions.""");
 uvw_refant_opt = TDLOption('uvw_refant',"Reference antenna #",0,more=int,
       doc="""This is the reference antenna used to compute antenna-based UVWs.
-      Specify a 0-based antenna index. Note that this antenna must be present in 
+      Specify a 0-based antenna index. Note that this antenna must be present in
       all timeslots where data is available.""");
 
 _options = [ uvw_source_opt,uvw_refant_opt ];
@@ -84,6 +84,7 @@ class IfrArray (object):
         self._station_index = list(station_list);
       else:
         self._station_index = list(enumerate(station_list));
+    self._name_to_number = dict([(p,ip) for ip,p in self._station_index]);
     # make a list of positions
     if positions is not None:
       self._station_positions = dict([ (ip,positions[ip,:]) for ip,p in self._station_index ]);
@@ -135,10 +136,18 @@ class IfrArray (object):
   VLA = staticmethod(VLA);
 
   def stations (self):
+    """Returns a list of station names.""";
     return self._stations;
 
   def station_index (self):
+    """Returns a station index: that is, a list of  (index,name) tuples. Index is the ordinal number of the station (0-based) in
+    the original station list (e.g. in the MS.), i.e., the same thing as the MS ANTENNA_ID.  When operating with subsets of the
+    full antenna list, 'index' refers to numbering of the full list.""";
     return self._station_index;
+
+  def number_of_station (self,name):
+    """Returns the ordinal number (i.e. ANTENNA_ID) of the named station.""";
+    return self._name_to_number[name];
 
   def num_stations (self):
     return len(self._stations);

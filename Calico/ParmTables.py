@@ -316,7 +316,7 @@ class ParmTab (object):
 
   def make_slicing (self,slicing):
     if not slicing:
-      return [];
+      return ParmTab.DomainSlicing([],self._domain_fullset);
     elif isinstance(slicing,ParmTab.DomainSlicing):
       return slicing;
     elif isinstance(slicing,(str,int)):

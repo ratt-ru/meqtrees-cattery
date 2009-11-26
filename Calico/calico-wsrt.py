@@ -99,6 +99,10 @@ from Calico.OMS import solvable_sky_jones
 meqmaker.add_sky_jones('dE','differential gains',[
     solvable_sky_jones.FullRealImag('dE')]);
 
+# P - feed angle
+from Siamese.OMS import feed_angle
+meqmaker.add_uv_jones('P','feed orientation',[feed_angle]);
+
 # B - bandpass, G - gain
 from Calico.OMS import solvable_jones
 meqmaker.add_uv_jones('B','bandpass',
@@ -171,7 +175,7 @@ def _define_forest(ns,parent=None,**kw):
         parms.update([(p.name,p) for p in src.get_solvables()]);
       if parms:
         pg_src = ParmGroup.ParmGroup("source",parms.values(),
-                    table_name="sources.mep",
+                    table_name="sources.fmep",
                     individual=True,bookmark=True);
         # now make a solvejobs for the source
         ParmGroup.SolveJob("cal_source","Calibrate source model",pg_src);

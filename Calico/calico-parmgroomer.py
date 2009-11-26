@@ -135,14 +135,15 @@ def _define_forest (ns,**kw):
   # make intermediate math node
   pall = ns.all_parms_raw << Meq.Composer(children=nodes,mt_polling=True,dims=[0]);
   pfm = ns.all_parms_fm << Meq.Mean(pall,reduction_axes="freq");
-  ns.all_minus_fm << pall - pfm;
-  ns.all_over_fm << pall/pfm;
+#  ns.all_minus_fm << pall - pfm;
+#  ns.all_over_fm << pall/pfm;
 
   # make root node
   ns.root << Meq.ReqMux(
-    ns.all_minus_fm,
-    ns.all_over_fm,
-    ns.fft_all_over_fm << Meq.FFTBrick(Meq.Selector(ns.all_over_fm,index=0,multi=True),axes_in=(hiid("time"),hiid("freq")),axes_out=(hiid("l"),hiid("m")))
+    pfm
+#    ns.all_minus_fm,
+#    ns.all_over_fm,
+#    ns.fft_all_over_fm << Meq.FFTBrick(Meq.Selector(ns.all_over_fm,index=0,multi=True),axes_in=(hiid("time"),hiid("freq")),axes_out=(hiid("l"),hiid("m")))
   );
   Bookmarks.Page("Composite view").add(ns.all_parms_fm,viewer="Collections Plotter");
   # make bookmark folder
