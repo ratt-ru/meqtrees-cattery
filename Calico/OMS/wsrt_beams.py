@@ -74,7 +74,7 @@ class SourceBeam (object):
     self.beams = beams;
     # p0 is the first station index. It is used to check if a beam is per-station
     self.p0 = p0;
-  def __call__ (self,src,p=None):
+  def __call__ (self,src,p=None,*args,**kw):
     beam = self.beams(src);
     # if station is specified, return per-station beam (if available),
     # else the common source beam

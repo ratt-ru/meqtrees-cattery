@@ -131,7 +131,10 @@ class MeqMaker (object):
 	    TDLOption("_skyvis_frame","Coordinate grid",
               [SKYJONES_LM,SKYJONES_RADEC,SKYJONES_AZEL,SKYJONES_AZEL_FULL],namespace=self),
           doc="""If enabled, then your trees will automatically include visualizer nodes for all
-          sky-Jones terms. This does not affect normal performance if you do not use the visualizations.""",
+          sky-Jones terms. This does not affect normal performance if you do not use the visualizations.
+          <B>WARNING:</B> this feature is still experimental, and may not support all sky-Jones modules.
+          Turn this off if you experience unexpected compilation errors.
+          """,
 	  toggle='use_skyjones_visualizers',namespace=self
         );
       other_opt.append(self.use_skyjones_visualizers_opt);
@@ -570,13 +573,19 @@ class MeqMaker (object):
         if skyvis:
           jones = Jj(skyvis);
           if jones(stations[0]).initialized():
-            vis = ns.visualizer(jt.label) << Meq.Composer(dims=[0],*[jones(p) for p in stations]);
-            for p in stations:
+            # since the jones term may be the same for all stations, check the first two for identity.
+            # If they are identical, use only the first station instead of a full station list.
+            if len(stations)<2 or jones(stations[0]) is jones(stations[1]):
+              vis_stations = stations[0:1];
+            else:
+              vis_stations = stations;
+            vis = ns.visualizer(jt.label) << Meq.Composer(dims=[0],*[jones(p) for p in vis_stations]);
+            for p in vis_stations:
               jp = jones(p);
               jpsq = jp('sq') << Meq.MatrixMultiply(jp,jp('t') << Meq.ConjTranspose(jones(p)));
               jj = jp('2tr') << (jpsq(11) << Meq.Selector(jpsq,index=0)) + (jpsq(22) << Meq.Selector(jpsq,index=3));
               jp('a2tr') << Meq.Abs(jj);
-            vissq = ns.visualizer_sq(jt.label) << Meq.Composer(dims=[0],*[jones(p,'a2tr') for p in stations]);
+            vissq = ns.visualizer_sq(jt.label) << Meq.Composer(dims=[0],*[jones(p)('a2tr') for p in vis_stations]);
             self._add_sky_visualizer(vis,vissq,jt.label,jt.name);
           # remove skyvis from list of sources
           sources = sources[1:];

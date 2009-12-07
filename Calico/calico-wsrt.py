@@ -67,7 +67,7 @@ do_correct_sky = False;
 
 # now load optional modules for the ME maker
 from Meow import MeqMaker
-meqmaker = MeqMaker.MeqMaker(solvable=True,use_jones_inspectors=True);
+meqmaker = MeqMaker.MeqMaker(solvable=True,use_jones_inspectors=True,use_skyjones_visualizers=False);
 
 # disable source decomposition when calibrating
 def enable_calibration (enable):
