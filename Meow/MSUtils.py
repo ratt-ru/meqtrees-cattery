@@ -1068,8 +1068,8 @@ class ImagingSelector (object):
         the viewer here, or enter your own executable name."""));
     # add TDL job to make an image
     def job_make_dirty_image (mqs,parent,**kw):
-      self.make_image();
-    self._opts.append(TDLJob(job_make_dirty_image,"Make a dirty image"));
+      self.make_image(**kw);
+    self._opts.append(TDLJob(job_make_dirty_image,"Make a dirty image",job_id="make_dirty_image"));
     # add options to make a clean image, but only if lwimager is available
     if self.imager_type_opt or self.imager_type ==  'lwimager':
       def job_make_clean_image (mqs,parent,**kw):
@@ -1095,7 +1095,7 @@ class ImagingSelector (object):
     """Returns list of all TDL options"""
     return self._opts;
 
-  def make_image (self,npix=None,cellsize=None,arcmin=None,clean=False):
+  def make_image (self,npix=None,cellsize=None,arcmin=None,clean=False,wait=False,run_viewer=True):
     """Runs external imaging script to make an image.
     If clean=True, then clean image is made, otherwise dirty image.
     The following parameters, if supplied, will override the option settings:
@@ -1160,7 +1160,7 @@ class ImagingSelector (object):
         'spwid=%d'%(selector.get_spectral_window()+offset),
         'field=%d'%(selector.get_field()+offset),
         'padding=%f'%self.imaging_padding,
-        'image_viewer=%s'%self.image_viewer,
+        'image_viewer=%s'%(self.image_viewer if run_viewer else 'none'),
       ];
     # add taper arguments
     if self.imaging_weight != "default" and self.imaging_taper_gauss:
@@ -1263,7 +1263,7 @@ class ImagingSelector (object):
           pass; 
     print "MSUtils: imager args are"," ".join(args);
     # run script
-    os.spawnvp(os.P_NOWAIT,_IMAGER,args);
+    return os.spawnvp(os.P_WAIT if wait else os.P_NOWAIT,_IMAGER,args);
 
 # keep a global map of flagsets associated with each MS,
 # so that different "customers" can always deal with the same flagset object

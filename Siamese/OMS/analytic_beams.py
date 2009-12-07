@@ -71,10 +71,6 @@ class WSRT_cos3_beam (object):
       raise RuntimeError,"illegal dish sizes specification";
     self._per_station = len(self._sizes)>1;
     self._prepared = True;
-  
-  def is_per_station (self):
-    self.prepare();
-    return self._per_station;
 
   def compute (self,E,lm,p=0):
     """computes a cos^3 beam for the given direction, using NEWSTAR's
@@ -97,31 +93,6 @@ class WSRT_cos3_beam (object):
     size = self._sizes[min(p,len(self._sizes)-1)];
     E << Meq.WSRTCos3Beam(self.bf*(size/25.)*1e-9,r,clip=clip);
     return E;
-
-class SkyJonesNotPerStation (object):
-  """This class implements a Sky Jones contract, given a set of nodes that are
-  per-source but (possibly) not per-station""";
-  def __init__ (self,jones,p0):
-    self.jones = jones;
-    # p0 is the first station index. It is used to check if a beam is per-station
-    self.p0 = p0;
-  def __call__ (self,src,p=None):
-    beam = self.jones(src);
-    # if station is specified, return per-station beam (if available),
-    # else the common source beam
-    if p is not None:
-      if beam(p).initialized():
-        return beam(p);
-      else:
-        return beam;
-    # else return potentially qualifiable beam
-    else:
-      if beam(self.p0).initialized():
-        return beam;
-      else:
-        return lambda p:beam;
-  def search (self,*args,**kw):
-    return self.jones.search(*args,**kw);
 
 def compute_jones (Jones,sources,stations=None,
                     label="beam",pointing_offsets=None,inspectors=[],
@@ -183,7 +154,7 @@ def compute_jones (Jones,sources,stations=None,
       # if LM is a static constant still, make constant node for it
       if isinstance(lm,(list,tuple)):
         lm = ns.lm(name) << Meq.Constant(value=Timba.array.array(lm));
-      for ip,p in enumerate(Context.array.stations()):
+      for ip,p in enumerate(stations):
         # make offset lm
         lm1 = lm(p) << lm + pointing_offsets(p);
         # make beam model
@@ -191,20 +162,9 @@ def compute_jones (Jones,sources,stations=None,
   
   # now, all_sources is the set of sources for which we haven't computed the beam yet
   if all_sources:
-    # if not per-station, use same beam for every source
-    if not beam_model.is_per_station():
-      for name in all_sources:
-        beam_model.compute(Jones(name),lmsrc[name]);
-      inspectors.append(Jones('inspector') << StdTrees.define_inspector(Jones,list(all_sources)));
-      # in this case we return a wrapper around the base Jones node, to make sure
-      # that the station index is applied or not applied depending on whether a per-station
-      # beam is available
-      return SkyJonesNotPerStation(Jones,p0=Context.array.stations()[0]);
-    # else make per-source, per-station beam
-    else:
-      for name in all_sources:
-        for ip,p in enumerate(Context.array.stations()):
-          beam_model.compute(Jones(name,p),lmsrc[name],ip);
+    for name in all_sources:
+      for ip,p in enumerate(stations):
+        beam_model.compute(Jones(name,p),lmsrc[name],ip);
           
   return Jones;
 

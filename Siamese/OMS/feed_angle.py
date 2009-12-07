@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """<P>This module implements a feed rotation Jones term. The term is a simple rotation matrix:</P>
 
 <P align="center"><I>P = Rot(&rho;)</I></P>
@@ -64,6 +65,10 @@ if Context.mssel:
 #
 # now define our compile-time options
 #
+msopt = TDLCompileOption("read_ms","Read orientation from MS FEED subtable",False,doc="""<P>Select this to automatically
+  fill in feed angles from the MS FEED subtable. Some MS's do not have this filled correctly, so
+  we provide options for manually setting the feed orientation here.
+  </P>""");
 TDLCompileOption("enable_pa","Add parallactic angle (for alt-az mounts)",False,doc="""Include the (time-variable) parallactic angle &eta;. Use this option for alt-az mounts. Disable this
 for equatorial mounts,""");
 angle_opt = TDLCompileOption("feed_angle","Feed orientation, degrees",["0"],more=str,doc="""<P>This is the per-station feed orientation angle &rho;<sub>q</sub>. Enter a list
@@ -72,8 +77,6 @@ angle_opt = TDLCompileOption("feed_angle","Feed orientation, degrees",["0"],more
   <P>Note that this list is absolute and not subject to antenna subset selection. If you have one feed angle for the first ten antennas, and a different angle for the next four (i.e. for
   WSRT "cross-pol" observations), then enter the first angle ten times, and the second angle four times, regardless of what antenna subset you have selected elsewhere.</P>
   """);
-msopt = TDLCompileOption("read_ms","Read orientation from MS FEED subtable",False,doc="""<P>Select this to automatically
-  fill in feed angles from the MS FEED subtable.</P>""");
 
 msopt.when_changed(_read_ms_feed);
 
