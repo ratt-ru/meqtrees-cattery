@@ -36,9 +36,6 @@ class ParmGroup (object):
       self.pg = pg;
       self.label = label = "%s.%s"%(label,self.pg.label);
       self.tdloption_namespace = label.replace(":","_").replace(" ","_");
-      # this will need to be manipulated from _select_new_ms() below
-      self._table_name_option = \
-        TDLOption('table_name','MEP table name',TDLDirSelect("*.mep",default=pg.table_name),namespace=self);
       # build up list of options
       self._option_list = [];
       # make individual solvability tdloptions for every parm, if so asked
@@ -113,7 +110,9 @@ class ParmGroup (object):
         self._option_list += so;
       # now, more common options which are the same for individual/non-individual parms
       self._option_list += [
-        self._table_name_option,
+        TDLMenu("Use non-default MEP table (default is MS/%s)"%self.pg.default_table_name,
+            TDLOption('nondefault_meptable','MEP table',TDLDirSelect("*mep",default=pg.table_name),namespace=self),
+          toggle='use_nondefault_meptable',deafult=False,namespace=self),
         TDLOption('use_mep','Initialize with solution from MEP table',True,namespace=self),
         TDLOption('ignore_time',"...even if time domains don't match (e.g. in case of calibrators)",False,namespace=self)
       ];
@@ -129,14 +128,11 @@ class ParmGroup (object):
       ];
       sopts += so;
       self._option_list += so;
-      self._option_list.append(TDLJob(self._clear_mep_tables,"Clear out all previous solutions from MEP tables"));
+      self._option_list.append(TDLJob(self._clear_mep_tables,"Clear out all previous solutions from MEP tables",job_id=self.label+"_clear_meptables"));
       # update option values from keyword arguments
       for opt in self._option_list:
         if hasattr(opt,'symbol') and opt.symbol in kw:
           opt.set_value(kw[opt.symbol]);
-      # register callback with the MS selector
-      if Context.mssel and pg._table_in_ms:
-        Context.mssel.when_changed(self._select_new_ms);
       # now make menu
       self._optmenu = TDLMenu("Solve for %s"%pg.name,
                         toggle='solvable',open=solvable,namespace=self,
@@ -178,16 +174,9 @@ class ParmGroup (object):
     def runtime_options (self,submenu=True):
       return [ self._optmenu ];
 
-    def _select_new_ms (self,msname):
-      if msname:
-        self.table_name = os.path.join(msname,os.path.basename(self.table_name));
-        self._table_name_option.set_value(self.table_name);
-        for node in self.pg.nodes:
-          node.initrec().table_name = self.table_name;
-
     def _fill_state_record (self,state):
       """Fills a state record with common options""";
-      state.table_name    = self.table_name;
+      state.table_name    = self.get_table_name();
       state.reset_funklet = not self.use_mep;
       state.ignore_time   = self.ignore_time;
       state.use_previous  = self.use_previous;
@@ -283,12 +272,21 @@ class ParmGroup (object):
         return cmdlist;
 
     def _clear_mep_tables (self,mqs,parent,**kw):
+      tabname = self.get_table_name();
       if GUI.warning_box("Clearing solutions",
-	 "This will clear out <b>all</b> previous solutions from table '%s'. Are you sure you want to do this?"%self.table_name,
+	 "This will clear out <b>all</b> previous solutions from table '%s'. Are you sure you want to do this?"%tabname,
           GUI.Button.Yes|GUI.Button.No,GUI.Button.No) != GUI.Button.Yes:
          return;
-      try:    os.system("rm -fr "+self.table_name);
+      try:    os.system("rm -fr "+tabname);
       except: pass;
+
+    def get_table_name (self):
+      if self.use_nondefault_meptable and self.nondefault_meptable:
+        return self.nondefault_meptable;
+      elif Context.mssel and Context.mssel.msname:
+        return os.path.join(Context.mssel.msname,self.pg.default_table_name);
+      else:
+        return self.pg.default_table_name;
 
   def _sort_members (members):
     sorted_members = list(members);
@@ -334,15 +332,16 @@ class ParmGroup (object):
       for parm in sg.nodes:
         self.parm_subgroups.setdefault(parm.name,[]).append(sg);
     self.nodes = sorted_nodes;
-    # various properties
-    if table_in_ms and Context.mssel and Context.mssel.msname:
-      table_name = os.path.join(Context.mssel.msname,os.path.basename(table_name));
+    # setup table names
     self.table_name = table_name;
+    self.default_table_name = os.path.basename(table_name);
+    if table_in_ms and Context.mssel and Context.mssel.msname:
+      self.table_name = os.path.join(Context.mssel.msname,self.default_table_name);
     self._table_in_ms = table_in_ms;
     self._individual = individual;
     # put table name into the parms
     for node in self.nodes:
-      node.initrec().table_name = table_name;
+      node.initrec().table_name = self.table_name;
     # create bookmarks (if specified as a [W,H], it gives the number of parms to bookmark)
     if bookmark:
       if isinstance(bookmark,tuple) and len(bookmark) == 2:
@@ -400,7 +399,7 @@ class SolveJob (object):
       self.solver_control = SolverControl(self.label);
       opts.append(TDLMenu("Solver options (for the brave)",*self.solver_control.runtime_options()));
       # add solve job
-      opts.append(TDLJob(self._run_solve_job,self.name or "Run solution"));
+      opts.append(TDLJob(self._run_solve_job,self.name or "Run solution",job_id=self.label));
       # now make a runtime menu
       self._jobmenu = TDLMenu(self.name or "Solve for %s"%self.label,*opts);
     return [ self._jobmenu ];
@@ -416,10 +415,10 @@ class SolveJob (object):
     self.solver_control.update_state(mqs,cmdlist=cmdlist);
     # run the VisDataMux
     vdm = namify(vdm or Context.vdm or 'VisDataMux')
-    mqs.execute(vdm,mssel.create_io_request(tiling),wait=wait);
+    return mqs.execute(vdm,mssel.create_io_request(tiling),wait=wait);
 
   def _run_solve_job (self,mqs,parent,wait=False,**kw):
-    self.run_solution(mqs,tiling=self.tile_size,wait=wait);
+    return self.run_solution(mqs,tiling=self.tile_size,wait=wait);
 
 def num_solvejobs ():
   global _all_solvejobs;

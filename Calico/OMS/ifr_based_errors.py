@@ -98,18 +98,18 @@ class IfrBiases (object):
     label = label or 'ifr_biases';
     C = ns.bias;
     def0 = Meow.Parm(0,tags=tags);
-    biass = [];
+    biases = [];
     for p,q in ifrs:
       gg = [];
       for corr in Context.correlations:
         if corr in Context.active_correlations:
           cc = corr.lower();
-          bias_ri  = [ resolve_parameter(cc,G(p,q,cc,'r'),def0,tags="ifr bias real"),
-                       resolve_parameter(cc,G(p,q,cc,'i'),def0,tags="ifr bias imag") ];
-          gg.append(G(p,q,cc) << Meq.ToComplex(*bias_ri));
+          bias_ri  = [ resolve_parameter(cc,C(p,q,cc,'r'),def0,tags="ifr bias real"),
+                       resolve_parameter(cc,C(p,q,cc,'i'),def0,tags="ifr bias imag") ];
+          gg.append(C(p,q,cc) << Meq.ToComplex(*bias_ri));
           biases += bias_ri;
         else:
-          gg.append(1);
+          gg.append(0);
       C(p,q) << Meq.Matrix22(*gg);
       nodes(p,q) << input_nodes(p,q) + C(p,q);
 
@@ -117,7 +117,7 @@ class IfrBiases (object):
                           individual_toggles=False,
                           table_name="%s.fmep"%label,bookmark=False);
     Bookmarks.make_node_folder("%s (interferometer-based biases)"%label,
-      [ G(p,q) for p,q in ifrs ],sorted=True,nrow=2,ncol=2);
+      [ C(p,q) for p,q in ifrs ],sorted=True,nrow=2,ncol=2);
     ParmGroup.SolveJob("cal_%s"%label,
                        "Calibrate %s (interferometer-based biases)"%label,pg_ifr_ampl);
     

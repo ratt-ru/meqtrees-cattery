@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-#% $Id$ 
+#% $Id$
 #
 #
 # Copyright (C) 2002-2007
-# The MeqTree Foundation & 
+# The MeqTree Foundation &
 # ASTRON (Netherlands Foundation for Research in Astronomy)
 # P.O.Box 2, 7990 AA Dwingeloo, The Netherlands
 #
@@ -20,7 +20,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>,
-# or write to the Free Software Foundation, Inc., 
+# or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
@@ -45,15 +45,15 @@ class _BaseTree (object):
         raise ValueError,"this tree is already using a different set of inputs";
     else:
       self._inputs = inputs or self.array.spigots(flag_bit=1);
-    
+
   def inputs (self):
     return self._inputs;
-    
+
 class ResidualTree (_BaseTree):
   def __init__ (self,ns,predict,array=None,observation=None):
     _BaseTree.__init__(self,ns,array,observation);
     self._predict = predict;
-    
+
   def residuals (self,inputs=None):
     """Makes residual trees, by subtracting predict(p,q) from inputs(p,q).
     Returns residual node, which must be qualified with a (p,q) pair.
@@ -76,7 +76,7 @@ class SolveTree (ResidualTree):
   def outputs (self,inputs=None):
     """Makes solver tree, returns the set of reqseq output nodes.
     This is for compatibility with older scripts. The output nodes will be
-    reqseqs returning either inputs or residuals, as chosen in the 
+    reqseqs returning either inputs or residuals, as chosen in the
     constructor.
     """;
     self.set_inputs(inputs);
@@ -85,10 +85,10 @@ class SolveTree (ResidualTree):
     else:
       outputs = self._inputs;
     return self.sequencers(inputs,outputs=outputs);
-    
+
   def solver (self,inputs=None):
     """Makes solver tree given the inputs and the predicts, returns
-    solver node. 
+    solver node.
     """;
     self.set_inputs(inputs);
     solver = self.ns.solver;
@@ -119,7 +119,7 @@ class SolveTree (ResidualTree):
       if self.bookmarks:
         Bookmarks.Page("Solver").add(solver,viewer="Result Plotter");
     return solver;
- 
+
   def sequencers (self,inputs=None,outputs=None):
     """Makes solver tree and adds sequencers to execute an
     'outputs' branch after the solve is complete.
@@ -128,7 +128,7 @@ class SolveTree (ResidualTree):
     self.set_inputs(inputs);
     if outputs is None:
       raise TypeError,"mandatory 'outputs' argument missing";
-      
+
     reqseq = self._outputs = self.ns.reqseq;
     if not reqseq(*self.array.ifrs()[0]).initialized():
       solver = self.solver();
@@ -136,16 +136,16 @@ class SolveTree (ResidualTree):
       for p,q in self.array.ifrs():
         reqseq(p,q) << Meq.ReqSeq(solver,outputs(p,q),result_index=1);
         outputs(p,q).set_options(cache_num_active_parents=1);
-        
+
     return reqseq;
-    
+
   def define_solve_job (self,jobname,jobid,solvables,tile_sizes=[1,10,100],vdm=None):
     """Defines a "solve job", with a runtime menu entry and its own set of options
     'jobname':    a descriptive name (will appear in the menu)
     'jobid':      unique identifier string
     'solvables':  list of solvables (Parm nodes or node names)
     'tile_sizes': list of suggested tilings
-    'vdm':        VisDataMux node which runs things, Context.vdm is used if None   
+    'vdm':        VisDataMux node which runs things, Context.vdm is used if None
     """;
     # make sure solvables is a list of names
     def namify (arg):
@@ -161,7 +161,7 @@ class SolveTree (ResidualTree):
     tiling = 'tiling_'+jobid;
     solver_opts = '_solver_'+jobid;
     globals()[tiling] = 1;
-    
+
     # figure out VDM name
     vdm = vdm or Context.vdm;
     if vdm is None:
@@ -198,7 +198,7 @@ def define_inspector (nodeseries,qlist,*qualifier_lists,**kw):
     label (=None)     used to supply a base plot label; if not given, then nodeseries.name is used.
     freqavg(=True)    if True, frequency averging is performed on each node in the series. Set to False
                       if you know your nodes do not have a freq axis.
-  """;  
+  """;
   label = kw.get('label',None) or getattr(nodeseries,'name','');
   freqavg = kw.get('freqavg',True);
   plot_labels = [];
@@ -220,10 +220,10 @@ def define_inspector (nodeseries,qlist,*qualifier_lists,**kw):
   return Meq.Composer(plot_label=plot_labels,dims=[0],*children);
 
 def inspector (outnode,nodes,bookmark=True):
-  """Makes a generic inspector for a list of nodes. 
+  """Makes a generic inspector for a list of nodes.
   'outnode' is an output node to which the inspector is assigned.
   'nodes' is a list of nodes.
-  If 'bookmark' is true, a single-page bookmark will automatically be added 
+  If 'bookmark' is true, a single-page bookmark will automatically be added
   for the inspector (use string to give it a non-default name.)
   """
   if not nodes:
@@ -239,13 +239,13 @@ def inspector (outnode,nodes,bookmark=True):
   if bookmark:
     Bookmarks.Page(bookmark).add(outnode,viewer="Collections Plotter");
   return outnode;
-  
-    
+
+
 def vis_inspector (outnode,visnodes,ifrs=None,array=None,bookmark=True):
-  """Makes an inspector for visibility nodes. 
+  """Makes an inspector for visibility nodes.
   'outnode' is an output node to which the inspector is assigned.
   'visnodes' will be qualified with the ifrs pairs from the given array.
-  If 'bookmark' is true, a single-page bookmark will automatically be added 
+  If 'bookmark' is true, a single-page bookmark will automatically be added
   for the inspector (use string to give it a non-default name.)
   """
   if ifrs is None:
@@ -266,13 +266,13 @@ def vis_inspector (outnode,visnodes,ifrs=None,array=None,bookmark=True):
   if bookmark:
     Bookmarks.Page(bookmark).add(outnode,viewer="Collections Plotter");
   return outnode;
-    
+
 
 def jones_inspector (outnode,jones,array=None,bookmark=True):
-  """Makes an inspector for Jones matrices. 
+  """Makes an inspector for Jones matrices.
   'outnode' is an output node to which the inspector is assigned.
   'jones' will be qualified with the stations pairs from the given array.
-  If 'bookmark' is true, a single-page bookmark will automatically be added 
+  If 'bookmark' is true, a single-page bookmark will automatically be added
   for the inspector (use string to give it a non-default name.)
   """
   array = array or Context.array;
@@ -290,10 +290,27 @@ def jones_inspector (outnode,jones,array=None,bookmark=True):
     bookmark = outnode.name;
   if bookmark:
     Bookmarks.Page(bookmark).add(outnode,viewer="Collections Plotter");
-  return outnode;  
-    
-    
-      
+  return outnode;
+
+def make_clipping_flagger (node,minval=None,maxval=None,flagmask=1):
+  flaggers = [];
+  if minval is not None:
+    flaggers.append(node('clip_lt') << Meq.ZeroFlagger(Meq.Abs(node)-minval,oper='lt',flag_bit=flagmask));
+  if maxval is not None:
+    flaggers.append(node('clip_gt') << Meq.ZeroFlagger(Meq.Abs(node)-maxval,oper='gt',flag_bit=flagmask));
+  return node('clipped') << Meq.MergeFlags(node,*flaggers);
+
+def make_jones_norm_flagger (jp,minval=None,maxval=None,flagmask=1):
+  flaggers = [];
+  jpsq = jp('sq') << Meq.MatrixMultiply(jp,jp('conj') << Meq.ConjTranspose(jp));
+  jj = jp('2tr') << (jpsq(11) << Meq.Selector(jpsq,index=0)) + (jpsq(22) << Meq.Selector(jpsq,index=3));
+  jpsq = jp('sqtr') << Meq.Sqrt( jp('a2tr') << Meq.Abs(jj) );
+  if minval is not None:
+    flaggers.append(jp('clip_lt') << Meq.ZeroFlagger(jpsq-minval,oper='lt',flag_bit=flagmask));
+  if maxval is not None:
+    flaggers.append(jp('clip_gt') << Meq.ZeroFlagger(jpsq-maxval,oper='gt',flag_bit=flagmask));
+  return jp('clipped') << Meq.MergeFlags(jp,*flaggers);
+
 def make_sinks (ns,outputs,array=None,
                 post=None,
                 vdm=None,
@@ -334,4 +351,4 @@ def make_sinks (ns,outputs,array=None,
     vdm.add_stepchildren(*[spigots(p,q) for p,q in array.ifrs()]);
 
   return vdm;
-      
+

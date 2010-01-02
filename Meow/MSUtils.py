@@ -78,10 +78,10 @@ if _glish:
 
 if not _lwimager and not _glish:
   print "Meow.MSUtils: no imager found. Please install the casarest package.";
-  
+
 # figure out if we have a visualizer
 _image_viewers = [];
-for viewer in [ "kvis","ds9" ]:  
+for viewer in [ "kvis","ds9" ]:
   vpath = find_exec(viewer);
   if find_exec(viewer):
     print "Meow.MSUtils: found image viewer %s"%vpath;
@@ -108,6 +108,11 @@ FLAG_ADD = "add to set";
 FLAG_REPLACE = "replace set";
 FLAG_REPLACE_ALL = "replace all sets";
 FLAG_FULL = 0x7FFFFFFF;
+
+# standard flagmasks used inside trees
+FLAGMASK_LEGACY = 1;    # this flagmask is for flags originating with the legacy FLAG column
+FLAGMASK_INPUT = 2;       # this flagmask is for flags originating with the input bitflags
+FLAGMASK_OUTPUT = 4;    # this flagmask is for flags added by the tree itself
 
 def longest_prefix (*strings):
   """helper function, returns longest common prefix of a set of strings""";
@@ -168,10 +173,14 @@ class MSContentSelector (object):
       self._opts.append(chanmenu);
     else:
       self.select_channels = False;
+    # baseline selection
+
     # additional taql string
-    self.taql_option = TDLOption('ms_taql_str',"Additional TaQL selection",
-                                [None],more=str,namespace=self)
-    self._opts.append(self.taql_option);
+    self._opts += [
+        TDLOption('ms_min_baseline',"Skip baselines <= (m)",[None],more=float,namespace=self),
+        TDLOption('ms_max_baseline',"Skip baselines >= (m)",[None],more=float,namespace=self),
+        TDLOption('ms_taql_str',"Additional TaQL selection",[None],more=str,namespace=self)
+    ];
     self._nchan = None;
     # if TABLE exists, set up interactivity for ddid/channels
     if TABLE:
@@ -195,7 +204,7 @@ class MSContentSelector (object):
         return self.ms_channel_end,self.ms_channel_start,self.ms_channel_step;
     else:
       return None;
-    
+
   def get_total_channels (self):
     """Returns total # of channels in current spectral window, or None
     if not known""";
@@ -214,13 +223,20 @@ class MSContentSelector (object):
   def get_field (self):
     """Returns the field number""";
     return self.field_index or 0;
-  
+
   def get_ddid (self):
     """Returns the field number""";
     return self.ddid_index or 0;
-  
+
   def get_taql_string (self):
-    return self.ms_taql_str or '';
+    taqls = [];
+    if self.ms_taql_str:
+      taqls.append(self.ms_taql_str);
+    if self.ms_min_baseline:
+      taqls.append('sqrt(sumsqr(UVW))>%f'%self.ms_min_baseline);
+    if self.ms_max_baseline:
+      taqls.append('sqrt(sumsqr(UVW))<%f'%self.ms_max_baseline);
+    return '( ' + ' ) AND ( '.join(taqls) + ' )' if taqls else '';
 
   def create_selection_record (self):
     """Forms up a selection record that can be added to an MS input record""";
@@ -233,8 +249,9 @@ class MSContentSelector (object):
       selection.ddid_index = self.ddid_index;
     if self.field_index is not None:
       selection.field_index = self.field_index;
-    if self.ms_taql_str:
-      selection.selection_string = self.ms_taql_str;
+    taql = self.get_taql_string();
+    if taql:
+      selection.selection_string =  taql;
     return selection;
 
   def _select_new_ms (self,ms):
@@ -246,7 +263,7 @@ class MSContentSelector (object):
     self.ms_spws = list(ddid_tab.getcol('SPECTRAL_WINDOW_ID'));
     self.ms_polarization_ids = list(ddid_tab.getcol('POLARIZATION_ID'));
     ddid_tab = None;
-    # channels per spectral window    
+    # channels per spectral window
     numchans = TABLE(ms.getkeyword('SPECTRAL_WINDOW'),
                                   lockoptions='autonoread').getcol('NUM_CHAN');
     self.ms_ddid_numchannels = [ numchans[spw] for spw in self.ms_spws ];
@@ -327,15 +344,15 @@ class MSFlagSelector (object):
     self.flagsets = None;
     self.bitflag_labels = [];
     self.bitflag_bits   = [ 1<<bit for bit in FLAGBITS ];
-    
+
   def option_list (self):
     """Returns list of all TDL options"""
     return self._opts;
-    
+
   def update_flagsets (self,flagsets):
     self.flagsets = flagsets;
     flagsets.when_changed(self.update);
-    
+
   def update(self):
     pass;
 
@@ -355,22 +372,22 @@ class MSReadFlagSelector (MSFlagSelector):
       self.read_legacy_flag_opt = TDLOption('read_legacy_flags',
           "Include legacy FLAG column",True,namespace=self,
           doc="""If enabled, then data flags in the standard AIPS++ FLAG column will
-          be included in the overall set of data flags. 
+          be included in the overall set of data flags.
           Normally you would only work with flagsets and ignore the FLAG column.
           """);
       self._opts.append(self.read_legacy_flag_opt);
     else:
       self.read_legacy_flags = False;
       self.read_legacy_flag_opt = None;
-    self.read_bitflag_opts = [ 
+    self.read_bitflag_opts = [
         TDLOption('read_bitflag_%d'%bit,
                   "MS bitflag %d"%bit,True,namespace=self,
-                  doc=doc) 
+                  doc=doc)
       for bit in FLAGBITS ];
     for opt in self.read_bitflag_opts:
-      opt.hide(); 
+      opt.hide();
     self._opts += self.read_bitflag_opts;
-    
+
   def update (self):
     self.bitflag_labels = self.flagsets.names() or [];
     self.bitflag_bits   = [ self.flagsets.flagmask(name) for name in self.bitflag_labels ];
@@ -380,18 +397,18 @@ class MSReadFlagSelector (MSFlagSelector):
       opt.show();
     for opt in self.read_bitflag_opts[len(self.bitflag_labels):]:
       opt.hide();
-      
+
   def get_flagmask (self):
     flagmask = 0;
     for bit in range(len(self.bitflag_bits)):
       if getattr(self,'read_bitflag_%d'%bit,True):
         flagmask |= self.bitflag_bits[bit];
     return flagmask;
-      
+
   def selected_flagsets (self):
-    return [ fs for i,fs in enumerate(self.bitflag_labels) 
+    return [ fs for i,fs in enumerate(self.bitflag_labels)
               if getattr(self,'read_bitflag_%d'%i,True) ];
-  
+
 
 class MSWriteFlagSelector (MSFlagSelector):
   def __init__ (self,namespace='ms_wfl'):
@@ -416,12 +433,12 @@ class MSWriteFlagSelector (MSFlagSelector):
         or new flagset. Select the output flagset here by specifying a bit number.""");
     self._has_new_bitflag_label = self.flagsets = None;
     self._opts.append(self.write_bitflag_opt);
-    
+
   def update (self):
     self.bitflag_labels = self.flagsets.names() or [];
     self.bitflag_bits   = [ self.flagsets.flagmask(name) for name in self.bitflag_labels ];
     self.write_bitflag_opt.set_option_list(self.bitflag_labels);
-      
+
   def get_flagmask (self):
     bitflag = self.write_bitflag;
     if isinstance(bitflag,str):
@@ -575,7 +592,7 @@ class MSSelector (object):
         into the tree. Flagged data is (normally) ignored in all calculations.
         There may exist multiple sets of data flags. One set is stored in the legacy FLAG column
         defined by AIPS++/casa. With MeqTrees, you may create a number of additional flagsets with
-        arbitrary labels. Via the suboptions within this menu, you may choose to include or exclude 
+        arbitrary labels. Via the suboptions within this menu, you may choose to include or exclude
         each flagset from the overall set of active data flags.
         """,
         *self.read_flag_selector.option_list()
@@ -606,7 +623,7 @@ class MSSelector (object):
     # if TABLE exists, set up interactivity for MS options
     if TABLE:
       ms_option.set_validator(self._select_new_ms);
-      
+
   def when_changed (self,callback):
     # if tables are available, callbacks will be called by _select_new_ms()
     if TABLE:
@@ -625,6 +642,16 @@ class MSSelector (object):
   def enable_output_column (self,enable=True):
     self.ms_has_output = enable;
     self.output_col_option.show(enable);
+
+  def enable_read_flags (self,enable=True):
+    if not enable:
+      self.ms_read_flags = False;
+    self.read_flags_opt.show(enable);
+
+  def enable_write_flags (self,enable=True):
+    if not enable:
+      self.ms_write_flags = False;
+    self.write_flags_opt.show(enable);
 
   def option_list (self):
     """Returns list of all TDL options. Note that the MS name is always
@@ -651,7 +678,7 @@ class MSSelector (object):
         return subset;
     else:
       return self.ms_antenna_names;
-    
+
   def get_phase_dir (self):
     """Returns the phase direction of the currently selected pointing, or None if none
     is available."""
@@ -674,18 +701,18 @@ class MSSelector (object):
       return list(enumerate(self.ms_antenna_names));
     else:
       return default;
-    
+
   def get_corr_index (self):
     """Returns the set of selected antenna correlation indices
     """;
     return self._corr_index[self.ms_corr_sel];
-  
+
   def get_correlations (self):
     return [ self.ms_corr_names[icorr] for icorr in self.get_corr_index() if icorr >= 0 ];
-  
+
   def is_circular_pol (self):
     return self.ms_corr_names[0] in CIRCULAR_CORRS;
-  
+
   def is_linear_pol (self):
     return self.ms_corr_names[0] in LINEAR_CORRS;
 
@@ -714,7 +741,7 @@ class MSSelector (object):
       sel._select_ddid(self.subset_selector.ddid_index or 0);
     self._content_selectors.append(sel);
     return sel;
-    
+
   def make_read_flag_selector (self,namespace,**kw):
     """Makes an MSReadFlagSelector object connected to this MS selector."""
     sel = MSReadFlagSelector(namespace=namespace,**kw);
@@ -723,7 +750,7 @@ class MSSelector (object):
       sel.update_flagsets(self.flagsets);
     self._flag_selectors.append(sel);
     return sel;
-    
+
   def make_write_flag_selector (self,namespace,**kw):
     """Makes an MSWriteFlagSelector object connected to this MS selector."""
     sel = MSWriteFlagSelector(namespace=namespace,**kw);
@@ -732,23 +759,23 @@ class MSSelector (object):
       sel.update_flagsets(self.flagsets);
     self._flag_selectors.append(sel);
     return sel;
-    
+
   def get_input_flagmask (self):
     if not self.ms_read_flags:
       return 0;
     return self.read_flag_selector.get_flagmask();
-      
+
   def get_output_bitflag (self):
     if not self.ms_write_flags:
       return 0;
     return self.write_flag_selector.get_flagmask();
-  
+
   def reload (self):
     msname = getattr(self,'_msname',None);
     if msname:
       self._msname = None;
       self._select_new_ms(msname);
-    
+
   def _select_new_ms (self,msname):
     """This callback is called whenever a new MS is selected. Returns False if
     table is malformed or n/a""";
@@ -788,7 +815,7 @@ class MSSelector (object):
       # to strings via MS_STOKES_ENUMS. self._corrnames is now a list of lists of strings
       self._corrnames = [ [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
 			    None for ctype in pol_tab.getcol('CORR_TYPE',pol_id,1)[0] ]
-			  for pol_id in range(pol_tab.nrows()) ]; 
+			  for pol_id in range(pol_tab.nrows()) ];
       # convert to joined names (for ms_polariation option)
       self._corrstrings = [ " ".join(names) for names in self._corrnames ];
       self.polarization_option.set_option_list(self._corrstrings);
@@ -867,9 +894,9 @@ class MSSelector (object):
     rec.flag_mask = 0;
     rec.legacy_bitflag = 0;
     if self.ms_read_flags:
-      rec.tile_bitflag = 2;
+      rec.tile_bitflag = FLAGMASK_INPUT;
       if self.read_flag_selector.read_legacy_flags:
-        rec.legacy_bitflag = 1;
+        rec.legacy_bitflag = FLAGMASK_LEGACY;
       rec.flag_mask = self.read_flag_selector.get_flagmask();
     # form top-level record
     iorec = record(ms=rec);
@@ -884,7 +911,7 @@ class MSSelector (object):
     if self.ms_write_flags:
       # output masks
       rec.tile_bitflag = self.get_output_bitflag();
-      rec.tile_flag_mask = FLAG_FULL & ~3; # bitflags 1|2 = input flags
+      rec.tile_flag_mask = FLAG_FULL & ~(FLAGMASK_INPUT|FLAGMASK_LEGACY); # bitflags 1|2 = input flags
       if self.ms_write_flag_policy == FLAG_ADD:
         rec.ms_flag_mask = FLAG_FULL;
       elif self.ms_write_flag_policy == FLAG_REPLACE:
@@ -955,7 +982,9 @@ class ImagingSelector (object):
                           list(mssel.ms_data_columns)+["psf"],more=str,namespace=self);
     mssel.output_col_option.when_changed(curry(self.img_col_option.set_value,save=False));
     self._opts.append(self.img_col_option);
-    
+    # add output filename option
+    self._opts.append(TDLOption('output_fitsname',"Name of output FITS file",["default"],more=str,namespace=self));
+
     chan_menu = TDLMenu("Output channel selection",
         TDLOption('imaging_nchan',"Number of output channels",[1],more=int,namespace=self),
         TDLOption('imaging_chanstart',"Starting at channel",[0],more=int,namespace=self),
@@ -975,8 +1004,8 @@ class ImagingSelector (object):
     else:
       self._opts += [ TDLOption('imaging_totchan',"Frequency channels in input data",
                                [1],more=int,namespace=self,\
-                      doc="""Since pycasatable (aips++) or pyrap_tables (pyrap) is not 
-                      available, we don't know how many total channels there are in the MS.  
+                      doc="""Since pycasatable (aips++) or pyrap_tables (pyrap) is not
+                      available, we don't know how many total channels there are in the MS.
                       Please supply the number here.""") ];
       chan_opt = TDLOption('imaging_chanmode',"Frequency channels in image",
                     [CHANMODE_ALL,CHANMODE_MFS,CHANMODE_MANUAL],
@@ -1009,7 +1038,7 @@ class ImagingSelector (object):
       chan_menu,
       weight_opt,taper_opt,
       TDLOption('imaging_stokes',"Stokes parameters to image",
-                ["I","IQUV"],namespace=self)
+                ["I","IQ","IV","IQUV"],namespace=self)
     ];
     if npix:
       if not isinstance(npix,(list,tuple)):
@@ -1049,7 +1078,7 @@ class ImagingSelector (object):
     # add center
     self._opts.append(TDLOption('imaging_phasecenter',"Phase center",["default"],namespace=self,more=str,
         doc="""You can center the image on a particular point in the sky. The default is
-        the phase center of the observation. To override this, enter a direction string 
+        the phase center of the observation. To override this, enter a direction string
         of the form, e.g., 'J2000,05h35m10s,-30deg15m30s'"""));
     # add MS subset selector, if needed
     if subset:
@@ -1067,29 +1096,28 @@ class ImagingSelector (object):
         doc="""If you want an image viewer to be automatically started when the image is complete, select
         the viewer here, or enter your own executable name."""));
     # add TDL job to make an image
-    def job_make_dirty_image (mqs,parent,**kw):
-      self.make_image(**kw);
+    def job_make_dirty_image (mqs,parent,wait=False,**kw):
+      self.make_image(wait=wait);
     self._opts.append(TDLJob(job_make_dirty_image,"Make a dirty image",job_id="make_dirty_image"));
     # add options to make a clean image, but only if lwimager is available
     if self.imager_type_opt or self.imager_type ==  'lwimager':
-      def job_make_clean_image (mqs,parent,**kw):
-        self.make_image(clean=True);
+      def job_make_clean_image (mqs,parent,wait=False,**kw):
+        self.make_image(clean=True,wait=wait);
       self.clean_opt = TDLMenu("Make a clean image",
         TDLOption("image_clean_method","CLEAN algorithm",["clark","hogbom","csclean"],namespace=self),
         TDLOption("image_clean_niter","Number of iterations",1000,more=int,namespace=self),
         TDLOption("image_clean_gain","Loop gain",.1,more=float,namespace=self),
         TDLOption("image_clean_threshold","Flux threshold",["0Jy"],more=str,namespace=self,
-          doc="""Stop cleaning when a certain threshold is reached. Specify as a quantity string, such as 
+          doc="""Stop cleaning when a certain threshold is reached. Specify as a quantity string, such as
           ".1mJy" """),
         TDLOption("image_clean_resetmodel","Reset model before starting CLEAN",True,namespace=self,
           doc="""If checked, then any models from a previous deconvolution are discarded. You should only ever
           uncheck this option if you want to resume deconvolving, otherwise it may produce confusing results."""),
-        TDLJob(job_make_clean_image,"Make a clean image")
+        TDLJob(job_make_clean_image,"Make a clean image",job_id="make_clean_image")
       );
       self._opts.append(self.clean_opt);
       if self.imager_type_opt:
         self.imager_type_opt.when_changed(lambda img:self.clean_opt.show(img=='lwimager'));
-    
 
   def option_list (self):
     """Returns list of all TDL options"""
@@ -1165,7 +1193,7 @@ class ImagingSelector (object):
     # add taper arguments
     if self.imaging_weight != "default" and self.imaging_taper_gauss:
       if _IMAGER == "glish":
-        args += [ 
+        args += [
           'filter_bmaj=%farcsec'%self.imaging_taper_bmaj,
           'filter_bmin=%farcsec'%self.imaging_taper_bmin,
           'filter_bpa=%fdeg'%self.imaging_taper_bpa
@@ -1229,22 +1257,27 @@ class ImagingSelector (object):
     if taql:
       args.append("select=%s"%taql);
     # figure out an output FITS filename
-    basename = self.mssel.msname;
-    if basename.endswith('/'):
-      basename = basename[:-1];
-    basename = os.path.basename(basename);
-    basename = "%s.%s.%s.%dch"%(basename,col,imgmode,img_nchan);
-    if clean:
-      fitsname = basename + ".restored.fits";
+    if self.output_fitsname == "default":
+      basename = self.mssel.msname;
+      if basename.endswith('/'):
+        basename = basename[:-1];
+      basename = os.path.basename(basename);
+      basename = "%s.%s.%s.%dch"%(basename,col,imgmode,img_nchan);
+      if clean:
+        fitsname = basename + ".restored.fits";
+      else:
+        fitsname = basename + ".fits";
     else:
-      fitsname = basename + ".fits";
+      fitsname = self.output_fitsname;
+      basename = os.path.splitext(fitsname)[0];
     args += [ 'fits='+fitsname,'image=%s.img'%basename ];
     # if the fits file exists, clobber it
     if os.path.exists(fitsname):
       try:
         os.unlink(fitsname);
       except:
-        pass; 
+        pass;
+    args.append("remove_image");
     # add clean arguments
     if clean:
       modelname = basename + ".model.img";
@@ -1260,7 +1293,7 @@ class ImagingSelector (object):
         try:
           os.system("/bin/rm -fr "+modelname);
         except:
-          pass; 
+          pass;
     print "MSUtils: imager args are"," ".join(args);
     # run script
     return os.spawnvp(os.P_WAIT if wait else os.P_NOWAIT,_IMAGER,args);
@@ -1281,7 +1314,7 @@ class Flagsets (object):
   def __init__ (self,ms):
     """Flagsets is constructed from an MS.""";
     self.msname = ms.name();
-    
+
   def load (self,ms):
     self._wc_callbacks = [];
     if not 'BITFLAG' in ms.colnames():
@@ -1335,24 +1368,24 @@ class Flagsets (object):
             ms.flush();
       else:
         self.order = [];
-        
+
   def when_changed (self,callback):
     self._wc_callbacks.append(callback);
     callback();
-  
+
   def names (self):
     """Returns a list of flagset names, in the order in which they were
     created. Returns None if BITFLAG column is missing (so flagsets are
     not available.)""";
     return self.order;
-  
+
   def flagmask (self,name,create=False):
     """Returns flagmask corresponding to named flagset. If flagset does not exist:
       * if create is True, creates a new one
       * if create is False, raises exception
     """;
     # lookup flagbit, return if found
-    if self.bits is None:
+    if self.order is None:
       raise TypeError,"MS does not contain a BITFLAG column, cannot use flagsets""";
     bit = self.bits.get(name,None);
     if bit is not None:
@@ -1375,7 +1408,7 @@ class Flagsets (object):
         return bit;
     # no free bit found, bummer
     raise ValueError,"Too many flagsets in MS, cannot create another one";
-    
+
   def remove_flagset (self,*fsnames):
     """Removes the named flagset(s). Returns flagmask corresponding to the removed
     flagsets.""";
@@ -1404,7 +1437,7 @@ class Flagsets (object):
     for callback in self._wc_callbacks:
       callback();
     return mask;
-    
+
 def parse_antenna_spec (spec,names=None):
   """Parses string containing antenna number or name, returns number""";
   match = re.match("^(\d+)|([^:,\s]+)$",spec);
@@ -1427,7 +1460,7 @@ def parse_antenna_subset (value,names=None):
     nant = 1;     # unreasonably large...
   subset = [];
   for spec in re.split("[\s,]+",value):
-    # single element 
+    # single element
     if spec.find(':') < 0:
       index = parse_antenna_spec(spec);
       if not names:

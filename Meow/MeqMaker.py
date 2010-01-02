@@ -32,18 +32,16 @@ import inspect
 import types
 
 import Meow
-from Meow import StdTrees
-from Meow import ParmGroup
-from Meow import Parallelization
+from Meow import StdTrees,ParmGroup,Parallelization,MSUtils
 
 _annotation_label_doc = """The following directives may be embedded in the format string:
   '%N':       source name
-  '%#':       source ordinal number 
+  '%#':       source ordinal number
   '%Rr':      source distance from phase centre (if position is fixed), in radians
   '%Rd':        same, in degrees
   '%Rm':        same, in arcmin
   '%Rs':        same, in arcsec
-  '%I','%Q','%U','%V': 
+  '%I','%Q','%U','%V':
               source fluxes
   '%attr':    value of source attribute 'attr', empty string if no such attribute
   '%(attr)format':  value of source attribute 'attr' ('attr' can also be one of N,#,Rr,Rd, etc.),
@@ -81,7 +79,8 @@ SKYJONES_AZEL_FULL = "Az-El full sky";
 
 class MeqMaker (object):
   def __init__ (self,namespace='me',solvable=False,
-      use_decomposition=None,use_jones_inspectors=None,
+      use_decomposition=None,
+      use_jones_inspectors=None,
       use_skyjones_visualizers=True):
     self.tdloption_namespace = namespace;
     self._uv_jones_list = [];
@@ -98,14 +97,13 @@ class MeqMaker (object):
     self._inspectors = [];
     self._skyjones_visualizer_mux = [];
     self._skyjones_visualizer_source = False;
-    
     other_opt = [];
     if use_decomposition is None:
       self.use_decomposition = False;
       self.use_decomposition_opt = \
         TDLOption('use_decomposition',"Use source coherency decomposition, if available",False,namespace=self,
           doc="""If your source models are heavy on point sources, then an alternative form of the M.E. --
-          where the source coherency is decomposed into per-station contributions -- may produce 
+          where the source coherency is decomposed into per-station contributions -- may produce
           faster and/or more compact trees. Check this option to enable. Your mileage may vary."""
         );
       other_opt.append(self.use_decomposition_opt);
@@ -140,13 +138,14 @@ class MeqMaker (object):
       other_opt.append(self.use_skyjones_visualizers_opt);
     else:
       self.use_skyjones_visualizers = False;
-      
+
     other_opt.append(
       TDLMenu("Include time & bandwidth smearing",
         TDLOption('smearing_count',"Apply to N brightest sources only",["all",10,100],more=int,namespace=self),
         namespace=self,toggle='use_smearing',default=True,
       )
     );
+
     other_opt += Meow.IfrArray.compile_options();
     self._compile_options.append(TDLMenu("Measurement Equation options",*other_opt));
 
@@ -173,14 +172,14 @@ class MeqMaker (object):
               ))
     );
 
-  def add_uv_jones (self,label,name=None,modules=None,pointing=None):
-    return self._add_jones_modules(label,name,True,pointing,modules);
-  
+  def add_uv_jones (self,label,name=None,modules=None,pointing=None,use_flagger=None):
+    return self._add_jones_modules(label,name,modules,is_uvplane=True,pointing=pointing);
+
   def add_vis_proc_module (self,label,name=None,modules=None):
     return self._add_vpm_modules(label,name,True,modules);
 
-  def add_sky_jones (self,label,name=None,modules=None,pointing=None):
-    return self._add_jones_modules(label,name,False,pointing,modules);
+  def add_sky_jones (self,label,name=None,modules=None,pointing=None,use_flagger=None):
+    return self._add_jones_modules(label,name,modules,is_uvplane=False,pointing=pointing);
 
   class VPMTerm (object):
     """Essentially a record representing one VPM in an ME.
@@ -194,7 +193,7 @@ class MeqMaker (object):
       self.name       = name;
       self.modules    = modules;
       self.base_node  = None;
-  
+
   class JonesTerm (object):
     """Essentially a record representing one Jones term in an ME.
     A Jones term has the following fields:
@@ -223,7 +222,7 @@ class MeqMaker (object):
       label = getattr(modules,'__default_label__',None);
       name = getattr(modules,'__default_name__','');
       if label is None:
-	raise RuntimeError,"""Module '%s' does not provide a __default_label__ attribute, 
+	raise RuntimeError,"""Module '%s' does not provide a __default_label__ attribute,
 	      so must be added with an explicit label"""%modules.__name__;
     elif not modules:
       raise RuntimeError,"No modules specified for %s"%name;
@@ -239,7 +238,7 @@ class MeqMaker (object):
     else:
       self._sky_jones_list.append(term);
 
-  def _add_jones_modules (self,label,name,is_uvplane,pointing,modules):
+  def _add_jones_modules (self,label,name,modules,is_uvplane=True,pointing=None):
     # see if only a module is specified instead of the full label,name,modules
     # syntax
     if type(label) is types.ModuleType:
@@ -247,10 +246,10 @@ class MeqMaker (object):
       label = getattr(modules,'__default_label__',None);
       name = getattr(modules,'__default_name__','');
       if label is None:
-	raise RuntimeError,"""Module '%s' does not provide a __default_label__ attribute, 
-	      so must be added with an explicit label"""%modules.__name__;
-    elif not modules:
-      raise RuntimeError,"No modules specified for %s Jones"%label;
+        raise RuntimeError,"""Module '%s' does not provide a __default_label__ attribute,
+              so must be added with an explicit label"""%modules.__name__;
+      elif not modules:
+        raise RuntimeError,"No modules specified for %s Jones"%label;
     if not isinstance(modules,(list,tuple)):
       modules = [ modules ];
     # extra options for pointing
@@ -263,7 +262,7 @@ class MeqMaker (object):
     # extra options for per-station options
     extra_options.append(
       TDLOption(self._make_attr('all_stations',label),"Use same %s-Jones for all stations"%label,False,namespace=self,nonexclusive=True,
-        doc="""If checked, then the same %s-Jones term will be used for all stations in the array. This may 
+        doc="""If checked, then the same %s-Jones term will be used for all stations in the array. This may
         make your trees smaller and/or faster. Whether this is a valid approximation or not depends on your
         physics; typically this is valid if your array is small, and the effect arises far from the receivers."""%label));
     # extra options for per-source options
@@ -371,7 +370,7 @@ class MeqMaker (object):
     # Forms up a "module selector" submenu for the given module set.
     # for each module, we either take the options returned by module.compile_options(),
     # or pass in the module itself to let the menu "suck in" its options
-    
+
     # Overall toggle attribute passed to outer option. If we don't use a toggle, set it to True always
     toggle = self._group_togglename(label);
     if not use_toggle:
@@ -444,7 +443,7 @@ class MeqMaker (object):
       for isrc,src in enumerate(self._source_list):
         src.set_attr("#",isrc);
     return self._source_list;
-  
+
   def _add_inspector (self,inspector_node,name=None):
     """adds an inspector node to internal list, and creates a bookmark page for it.""";
     self._inspectors.append(inspector_node);
@@ -605,32 +604,32 @@ class MeqMaker (object):
         # expand into per-station, per-source terms as needed
         if same_all_sources and same_all_stations:
           jj0 = Jj(all_sources[0],all_stations[0]);
-          for isrc,src in enumerate(all_sources): 
+          for isrc,src in enumerate(all_sources):
             for ip,p in enumerate(all_stations):
               if isrc or ip:
-                Jj(src,p) << Meq.Identity(jj0);   
+                Jj(src,p) << Meq.Identity(jj0);
         elif same_all_sources:
           for p in stations:
             jj0 = Jj(all_sources[0],p);
-            for src in all_sources[1:]: 
-              Jj(src,p) << Meq.Identity(jj0);   
+            for src in all_sources[1:]:
+              Jj(src,p) << Meq.Identity(jj0);
         elif same_all_stations:
           if sources:
             for src in sources:
               jj0 = Jj(src,all_stations[0]);
-              for p in all_stations[1:]: 
-                Jj(src,p) << Meq.Identity(jj0);   
+              for p in all_stations[1:]:
+                Jj(src,p) << Meq.Identity(jj0);
           else:
             jj0 = Jj(all_stations[0]);
-            for p in all_stations[1:]: 
-              Jj(p) << Meq.Identity(jj0);   
+            for p in all_stations[1:]:
+              Jj(p) << Meq.Identity(jj0);
     return jt.base_node,jt.solvable;
 
     ## create TDL job
     #def tdljob_compute_visualization (parent,mqs,**kw):
       #cells = meq.gen_cells(domain,num_time=10,num_l=100,num_m=100);
       #request = meq.request(cells,rqtype='ev')
-      #mqs.execute('',request);  
+      #mqs.execute('',request);
 
   def make_predict_tree (self,ns,sources=None):
     """makes predict trees using the sky model and ME.
@@ -684,7 +683,7 @@ class MeqMaker (object):
         # then the final visibility
         corrvis = ns.corrupt_vis;
         sqrtcorrvis = ns.sqrt_corrupt_vis;
-        sqrtcorrvis_conj = sqrtcorrvis('conj'); 
+        sqrtcorrvis_conj = sqrtcorrvis('conj');
         for src in dec_sources:
           # terms is a list of matrices to be multiplied
           sqrtvis = src.sqrt_visibilities();
@@ -722,10 +721,10 @@ class MeqMaker (object):
         Parallelization.add_visibilities(dec_sky,[ns.corrupt_vis(src) for src in dec_sources],ifrs);
         if not sources:
           return self._apply_vpm_list(ns,dec_sky);
-    
+
     # Now, proceed to build normal trees for non-decomposable sources.
     # An important optimization when solving for sky terms is to put all the sources containing
-    # solvable corruptions in one patch, and the rest in another 
+    # solvable corruptions in one patch, and the rest in another
     # (this makes optimal use of cache when solving for the corruption).
     # This list will contain a list of (name,src) tuples, and will be updated as each sky-Jones term is applied
     sourcelist = [ (src.name,src) for src in sources ];
@@ -744,7 +743,7 @@ class MeqMaker (object):
         for name,src in sourcelist:
           jones = Jj(name);
           # if Jones term is initialized, corrupt and append to corr_sources
-          # if not initialized, then append to uncorr_sources 
+          # if not initialized, then append to uncorr_sources
           if jones(stations[0]).initialized():
             src = src.corrupt(jones);
             if solvable:
@@ -754,7 +753,7 @@ class MeqMaker (object):
         sourcelist = newlist;
     # now make two separate lists of sources with solvable corruptions, and sources without
     corrupted_sources = [ src for name,src in sourcelist if name in solvable_skyjones ];
-    uncorrupted_sources = [ src for name,src in sourcelist if name not in solvable_skyjones ];     
+    uncorrupted_sources = [ src for name,src in sourcelist if name not in solvable_skyjones ];
     # if we're solvable, and both lists are populated, make two patches
     if self._solvable and corrupted_sources and uncorrupted_sources:
       sky_sources = [
@@ -785,10 +784,10 @@ class MeqMaker (object):
         vis(p,q) << dec_sky(p,q) + vis2(p,q);
     else:
       vis = allsky.visibilities();
-    
+
     # now chain up any visibility processors
     return self._apply_vpm_list(ns,vis);
-          
+
   def _apply_vpm_list (self,ns,vis):
     # chains up any visibility processors, and applies them to the visibilities.
     # Returns new visibilities.
@@ -807,13 +806,15 @@ class MeqMaker (object):
 
   make_tree = make_predict_tree; # alias for compatibility with older code
 
-  def correct_uv_data (self,ns,inputs,outputs=None,sky_correct=None,inspect_ifrs=None):
+  def correct_uv_data (self,ns,inputs,outputs=None,sky_correct=None,inspect_ifrs=None,flag_jones_minmax=None):
     """makes subtrees for correcting the uv data given by 'inputs'.
     If 'outputs' is given, then it will be qualified by a jones label and by stations pairs
     to derive the output nodes. If it is None, then ns.correct(jones_label) is used as a base name.
     By default only uv-Jones corrections are applied, but if 'sky_correct' is set to
     a source object (or source name), then sky-Jones corrections for this particular source
     are also put in.
+    If 'flag_jones_minmax' is given, it must be a (min,max) tuple. Flags will be assigned to Jones corrections that
+    are above or below the indicated values.
       NB: The source/name given by 'sky_correct' here should have been present in the source list
       used to invoke make_predict_tree().
     Returns an unqualified node that must be qualified with a station pair to get visibilities.
@@ -821,7 +822,7 @@ class MeqMaker (object):
     stations = Meow.Context.array.stations();
     ifrs = Meow.Context.array.ifrs();
     inspect_ifrs = inspect_ifrs or ifrs;
-    
+
     # apply vpm corrections, if any
     for vpm in self._uv_vpm_list:
       module = self._get_selected_module(vpm.label,vpm.modules);
@@ -834,7 +835,7 @@ class MeqMaker (object):
           for insp in inspectors:
             self._add_inspector(insp);
           inputs = nodes;
-          
+
     # now build up a correction chain for every station
     correction_chains = dict([(p,[]) for p in stations]);
 
@@ -843,7 +844,7 @@ class MeqMaker (object):
       for jt in self._sky_jones_list:
         # if using coherency decomposition, we will already have defined a "uvjones" node
         # containing a product of all the sky-Jones terms, so use that
-        skyjones = ns.skyjones(sky_correct); 
+        skyjones = ns.skyjones(sky_correct);
         if skyjones(stations[0]).initialized():
           for p in stations:
             correction_chains[p].insert(0,skyjones(p));
@@ -881,13 +882,18 @@ class MeqMaker (object):
     if len(correction_chains[stations[0]]) > 1:
       Jprod = outputs('Jprod');
       for p in stations:
-        Jprod(p) << Meq.MatrixMultiply(*correction_chains[p]);
-        Jinv(p) << Meq.MatrixInvert22(Jprod(p));
+        jj = Jprod(p) << Meq.MatrixMultiply(*correction_chains[p]);
+        if flag_jones_minmax:
+          jj = StdTrees.make_jones_norm_flagger(jj,*flag_jones_minmax,flagmask=MSUtils.FLAGMASK_OUTPUT);
+        Jinv(p) << Meq.MatrixInvert22(jj);
         if p != stations[0]:
           Jtinv(p) << Meq.ConjTranspose(Jinv(p));
     elif correction_chains[stations[0]]:
       for p in stations:
-        Jinv(p) << Meq.MatrixInvert22(correction_chains[p][0]);
+        jj = correction_chains[p][0];
+        if flag_jones_minmax:
+          jj = StdTrees.make_jones_norm_flagger(jj,*flag_jones_minmax,flagmask=MSUtils.FLAGMASK_OUTPUT);
+        Jinv(p) << Meq.MatrixInvert22(jj);
         if p != stations[0]:
           Jtinv(p) << Meq.ConjTranspose(Jinv(p));
     else:
@@ -908,7 +914,7 @@ class MeqMaker (object):
     self._add_inspector(ns.inspector('output'),name='Inspect corrected data/residuals');
 
     return outputs;
-    
+
   def close (self):
     if self.export_kvis and self._source_list and self.export_karma_filename:
       if self.export_karma_incremental and self.export_karma_incremental != "all":
@@ -921,7 +927,7 @@ class MeqMaker (object):
       else:
         export_karma_annotations(self._source_list,
             self.export_karma_filename,label_format=self.export_karma_label);
-    
+
 class SourceSubsetSelector (object):
   def __init__ (self,title,tdloption_namespace=None,doc=None):
     if tdloption_namespace:
@@ -929,7 +935,7 @@ class SourceSubsetSelector (object):
     self.subset_enabled = False;
     global _annotation_label_doc;
     subset_opt = TDLMenu(title,toggle='subset_enabled',namespace=self,doc=doc,
-      *( 
+      *(
         TDLOption('source_subset',"Sources",["all"],more=str,namespace=self,
                   doc="""Enter source names separated by space."""),
         TDLMenu("Annotate selected sources",doc="""If you're exporting annotations for your sky model,
@@ -964,12 +970,12 @@ class SourceSubsetSelector (object):
     if self.annotation_label != "default":
       [ src.set_attr('ANNOTATION_LABEL',self.annotation_label) for src in srclist ];
     return srclist;
-    
+
 def export_karma_annotations (sources,filename,
       label_format="%N",
       sym_color='yellow',
       lbl_color='blue'):
-  """Exports a list of sources as a Karma annotations file. 
+  """Exports a list of sources as a Karma annotations file.
   label_format is used to generate source labels.\n"""+_annotation_label_doc;
   f = file(filename,'wt');
   f.write('COORD W\nPA STANDARD\nCOLOR GREEN\nFONT hershey12\n');

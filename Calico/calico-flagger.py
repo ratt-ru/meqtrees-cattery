@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -111,7 +112,7 @@ def _sigchild_handler (signal,frame):
     old_sigchld_handler(signal,frame);
   
 # The run_autoflagger job is a wrapper around glish+autoflag tool
-def run_autoflagger (mqs,parent,**kw):
+def run_autoflagger (mqs,parent,wait=False,**kw):
   af = flagger.autoflagger();
   # get column ID in autoflag terms
   column = dict(DATA='DATA',MODEL_DATA='MODEL',CORRECTED_DATA='CORR')[autoflag_column];
@@ -192,7 +193,7 @@ def run_autoflagger (mqs,parent,**kw):
     opt.disable();
   global glish_pid;
   glish_pid = af.run(plotdev=plotdev,devfile=autoflag_plotdev_file,         # plotscr=plotscr,
-                     reset=autoflag_reset,trial=autoflag_trial,cmdfile=cmdfile,wait=False);
+                     reset=autoflag_reset,trial=autoflag_trial,cmdfile=cmdfile,wait=wait);
 
 
 def add_bitflags (mqs,parent,**kw):
@@ -243,6 +244,7 @@ def flag_ms (mqs,parent,**kw):
     flagger.close();
   finally:
     progress_callback(100,100);
+    progress_dialog.hide();
     
 # The transfer_legacy_flags job uses Calico.Flagger to transfer legacy flags into a bitflag
 stat_msgbox = None;
@@ -367,22 +369,22 @@ def remove_flagset (mqs,parent,**kw):
   finally:
     progress_callback(100,100);
 
-view_ms_opt         = TDLRuntimeJob(view_ms,"View MS data & flags");
+view_ms_opt         = TDLRuntimeJob(view_ms,"View MS data & flags",job_id="view_ms");
 add_bitflag_opt     = TDLRuntimeJob(add_bitflags,"Initialize bitflag columns in this MS",
   doc="""This MS does not contain any bitflag columns. Once you have initialized
-  these columns, advanced flagging options will become available.""");
-run_autoflagger_opt = TDLRuntimeJob(run_autoflagger,"Run the autoflagger");
-flag_ms_opt         = TDLRuntimeJob(flag_ms,"Run the flagger");
-transfer_opt        = TDLRuntimeJob(transfer_legacy_flags,"Transfer FLAG/FLAG_ROW column into this flagset")
-fill_opt            = TDLRuntimeJob(fill_legacy_flags,"Fill FLAG/FLAG_ROW from these flagsets")
-get_stat_opt        = TDLRuntimeJob(get_flag_stats,"Get statistics")
+  these columns, advanced flagging options will become available.""",job_id="add_bitflags");
+run_autoflagger_opt = TDLRuntimeJob(run_autoflagger,"Run the autoflagger",job_id="autoflag");
+flag_ms_opt         = TDLRuntimeJob(flag_ms,"Run the flagger",job_id="flag_ms");
+transfer_opt        = TDLRuntimeJob(transfer_legacy_flags,"Transfer FLAG/FLAG_ROW column into this flagset",job_id="xfer_legacy")
+fill_opt            = TDLRuntimeJob(fill_legacy_flags,"Fill FLAG/FLAG_ROW from these flagsets",job_id="fill_legacy")
+get_stat_opt        = TDLRuntimeJob(get_flag_stats,"Get statistics",job_id="get_stats")
 clear_bf_opt        = TDLRuntimeJob(clear_bitflags,"Clear all bitflags",
-  doc="""Clears all bitflag columns completely. Use this option if your BITFLAG columns are in error somehow""");
+  doc="""Clears all bitflag columns completely. Use this option if your BITFLAG columns are in error somehow""",job_id="clear_bitflags");
 clear_fs_opt        = TDLRuntimeJob(clear_flagset,"Clear selected flagset(s)",
-  doc="""Clears all flags in the selected flagset(s), but does not remove the flagsets.""");
-clear_legacy_opt    = TDLRuntimeJob(clear_legacy_flags,"Clear flags from FLAG/FLAG_ROW columns");
+  doc="""Clears all flags in the selected flagset(s), but does not remove the flagsets.""",job_id="clear_flagsets");
+clear_legacy_opt    = TDLRuntimeJob(clear_legacy_flags,"Clear flags from FLAG/FLAG_ROW columns",job_id="clear_legacy");
 remove_fs_opt       = TDLRuntimeJob(remove_flagset,"Remove selected flagset(s)",
-  doc="""Completely removes the selected flagsets.""");
+  doc="""Completely removes the selected flagsets.""",job_id="remove_flagsets");
 
 ms_job_options = [ view_ms_opt,run_autoflagger_opt,flag_ms_opt,transfer_opt,clear_legacy_opt,
                    get_stat_opt,clear_bf_opt,clear_fs_opt,remove_fs_opt,add_bitflag_opt ];

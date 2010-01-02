@@ -303,7 +303,7 @@ class Flagger (Timba.dmi.verbosity):
       queries.append("DATA_DESC_ID==%d"%ddid);
       single_ddid = ddid;
     if fieldid is not None:
-      queries.append("FIELD_ID==%d"%ddid);
+      queries.append("FIELD_ID==%d"%fieldid);
     if antennas is not None:
       antlist = str(list(antennas));
       queries.append("(ANTENNA1 in %s || ANTENNA2 in %s)"%(antlist,antlist));
@@ -692,7 +692,7 @@ class Flagger (Timba.dmi.verbosity):
       self.flagger.close();
       # spawn glish
       self.flagger.dprintf(3,"temp glish command file is %s\n"%cmdfile);
-      waitcode = (wait and os.P_WAIT) or os.P_NOWAIT;
+      waitcode = os.P_WAIT if wait else os.P_NOWAIT;
       return os.spawnvp(waitcode,_GLISH,['glish','-l',cmdfile]);
     
     def save (self,filename='default.af'):

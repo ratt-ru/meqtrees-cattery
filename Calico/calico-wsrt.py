@@ -33,7 +33,8 @@ import Meow
 from Meow import ParmGroup,Bookmarks,StdTrees
 
 # MS options first
-mssel = Meow.Context.mssel = Meow.MSUtils.MSSelector(has_input=True,tile_sizes=None,read_flags=True,
+mssel = Meow.Context.mssel = Meow.MSUtils.MSSelector(has_input=True,tile_sizes=None,
+                  read_flags=True,write_flags=True,
                   hanning=True,invert_phases=True);
 # MS compile-time options
 TDLCompileOptions(*mssel.compile_options());
@@ -50,31 +51,41 @@ cal_options = [
 # if table access is available, add baseline selection options
 if Meow.MSUtils.TABLE:
   cal_options += [
-     TDLOption('min_baseline',"Ignore baselines shorter than or equal to (m)",[None,72,144],more=int),
-     TDLOption('max_baseline',"Ignore baselines longer than or equal to  (m)",[None],more=int)   ];
+    TDLOption('min_baseline',"Ignore baselines shorter than or equal to (m)",[None,72,144],more=int),
+    TDLOption('max_baseline',"Ignore baselines longer than or equal to  (m)",[None],more=int)
+];
 
 cal_toggle = TDLMenu("Calibrate",
-     toggle='do_solve',open=True,
+     toggle='do_solve',open=True,doc="""Select this to include calibration options in your tree.""",
      *cal_options
   );
+flag_toggle =  TDLMenu("...and flag out-of-bounds Jones terms",toggle='do_correct_flag',doc="""If selected,
+      your tree will flag visiblity points where the calibrated value of a Jones term is above or below a threshold.""",
+    *(
+            TDLOption('correct_flag_jmax',"Flag if |J|>",[None,10,100],more=float),
+            TDLOption('correct_flag_jmin',"Flag if |J|<",[None,.1,.01],more=float)
+    ));
+
+
 TDLCompileMenu("What do we want to do",
   cal_toggle,
   TDLOption('do_subtract',"Subtract sky model and generate residuals",True),
-  TDLOption('do_correct',"Correct the data or residuals",True),
+  TDLMenu("Correct the data or residuals",toggle='do_correct',open=True,
+    *(flag_toggle,)
+  )
 );
 do_correct_sky = False;
-  #TDLOption('do_correct_sky',"...include sky-Jones correction for first source in model",True));
+# TDLOption('do_correct_sky',"...include sky-Jones correction for first source in model",True));
 
 # now load optional modules for the ME maker
 from Meow import MeqMaker
-meqmaker = MeqMaker.MeqMaker(solvable=True,use_jones_inspectors=True,use_skyjones_visualizers=False);
+meqmaker = MeqMaker.MeqMaker(solvable=True,
+                            use_jones_inspectors=True,
+                            use_skyjones_visualizers=False,
+                            use_decomposition=False
+);
 
-# disable source decomposition when calibrating
-def enable_calibration (enable):
-  meqmaker.use_decomposition_opt.show(not enable);
-  if enable:
-    meqmaker.use_decomposition_opt.set(False);
-cal_toggle.when_changed(enable_calibration);
+flag_toggle.when_changed(mssel.enable_write_flags);
 
 # specify available sky models
 # these will show up in the menu automatically
@@ -122,12 +133,14 @@ TDLCompileOptions(*meqmaker.compile_options());
 import Purr.Pipe
 
 def _define_forest(ns,parent=None,**kw):
+  if not mssel.msname:
+    raise RuntimeError,"MS not set";
   if run_purr:
     Timba.TDL.GUI.purr(mssel.msname+".purrlog",[mssel.msname,'.']);
   # create Purr pipe
   global purrpipe;
   purrpipe = Purr.Pipe.Pipe(mssel.msname);
-  
+
   # get antennas from MS
   ANTENNAS = mssel.get_antenna_set(range(1,15));
   array = Meow.IfrArray(ns,ANTENNAS,mirror_uvw=False);
@@ -139,7 +152,7 @@ def _define_forest(ns,parent=None,**kw):
   Meow.Context.set(array,observation);
   # get active correlations from MS
   Meow.Context.active_correlations = mssel.get_correlations();
-  
+
   # make spigot nodes
   spigots = spigots0 = outputs = array.spigots(corr=mssel.get_corr_index());
 
@@ -194,7 +207,9 @@ def _define_forest(ns,parent=None,**kw):
       sky_correct = srcs and srcs[0];
     else:
       sky_correct = None;
-    outputs = meqmaker.correct_uv_data(ns,outputs,sky_correct=sky_correct,inspect_ifrs=inspect_ifrs);
+    outputs = meqmaker.correct_uv_data(ns,outputs,sky_correct=sky_correct,
+                                      flag_jones_minmax=do_correct_flag and (correct_flag_jmin,correct_flag_jmax),
+                                      inspect_ifrs=inspect_ifrs);
 
   # make solve trees
   if do_solve:
@@ -244,16 +259,16 @@ def _define_forest(ns,parent=None,**kw):
     else:
       name = None;
     if name:
-      # make a TDL job to runsthe tree
-      def run_tree (mqs,parent,**kw):
+      # make a TDL job to run the tree
+      def run_tree (mqs,parent,wait=False,**kw):
         global tile_size;
         purrpipe.title("Calibrating").comment(comment);
-        mqs.execute(Meow.Context.vdm.name,mssel.create_io_request(tile_size),wait=False);
+        return mqs.execute(Meow.Context.vdm.name,mssel.create_io_request(tile_size),wait=wait);
       TDLRuntimeMenu(name,
         TDLOption('tile_size',"Tile size, in timeslots",[10,60,120,240],more=int,
                   doc="""Input data is sliced by time, and processed in chunks (tiles) of
                   the indicated size. Larger tiles are faster, but use more memory."""),
-        TDLRuntimeJob(run_tree,name)
+        TDLJob(run_tree,name,job_id='generate_visibilities')
       );
 
   # very important -- insert meqmaker's runtime options properly
@@ -265,6 +280,6 @@ def _define_forest(ns,parent=None,**kw):
   # finally, setup imaging options
   imsel = mssel.imaging_selector(npix=512,arcmin=meqmaker.estimate_image_size());
   TDLRuntimeMenu("Make an image from this MS",*imsel.option_list());
-  
+
   # and close meqmaker -- this exports annotations, etc
   meqmaker.close();
