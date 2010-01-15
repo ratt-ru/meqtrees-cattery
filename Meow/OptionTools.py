@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id: Utils.py 6330 2008-09-05 17:39:55Z oms $ 
 #
@@ -29,10 +30,9 @@ from Timba.Meq import meq
 import Meow
 
 class ListOptionParser (object):
-  def __init__ (self,minval=None,maxval=None,name="",allow_names=False):
+  def __init__ (self,minval=None,maxval=None,name=""):
     self.minval,self.maxval = minval,maxval;
     self.name = name or "index";
-    self.allow_names = allow_names;
     
   def set_min (self,minval):
     self.minval = minval;
@@ -48,57 +48,81 @@ class ListOptionParser (object):
       raise ValueError,"illegal %s '%d'"%(self.name,index);
     return index,minval,maxval;
     
-  def parse_list (self,value):
-    """Parses string list of values, returns list of numbers""";
+  def apply (self,value,objlist=None,names=None):
+    """Parses string list of selection values, returns list of selected objects from objlist.
+    If neither 'names' nor 'objlist' is given, just parses and returns numbers.
+    If 'names' is given, it should be a separate list of object names.
+    'names' can be set to True to use str() to derive am object's name.
+    'names' can be set to False to ignore name specifications completely""";
+    value = value.strip();
     if not value:
-      return None;
-    if self.minval is not None:
-      minval = self.minval;
+      return objlist;
+    minval = self.minval or 0;
+    maxval = len(objlist)-1 if objlist else self.maxval;
+    # names
+    if names:
+      if names is True:
+        names = [ str(obj) for obj in (objlist or [])];
+      elif len(names) != len(objlist):
+        raise ValueError,"number of names must match number of objects";
+      name_to_index = dict([(name,i) for i,name in enumerate(names)]);
+    # init set of selected indices. If spec starts with an exclusion ("-smth"),
+    # start with full set, else with empty set
+    if value.startswith('-'):
+      subset = set(range(maxval or 0));
     else:
-      minval = 0;
-    if self.maxval is not None:
-      maxval = self.maxval;
-    else:
-      maxval = 0;
-    subset = [];
-    names = [];
+      subset = set();
+    # now parse specs one  by one
     for spec in re.split("[\s,]+",value):
-      if spec:
-        # single number
-        match = re.match("^\d+$",spec);
-        if match:
-          index,minval,maxval = self._validate_index(int(spec),minval,maxval);
-          subset.append(index);
-          continue;
-        # [number]:[number]
-        match = re.match("^(\d+)?:(\d+)?$",spec);
-        if not match:
-          if self.allow_names:
-            names.append(spec);
-            continue;
-          else:
-            raise ValueError,"illegal %s '%s'"%(self.name,spec);
-        if match.group(1):
-          index1 = int(match.group(1));
-        elif self.minval is not None:
-          index1 = self.minval;
-        else:
+      if not spec:
+        continue;
+      # process "-" at start
+      if spec.startswith("-"):
+        oper = subset.difference_update;
+        spec = spec[1:];
+      else:
+        oper = subset.update;
+      # standard terms
+      if spec.upper() == "ALL":
+        oper(range(maxval or 0));
+        continue;
+      # single number
+      match = re.match("^\d+$",spec);
+      if match:
+        index,minval,maxval = self._validate_index(int(spec),minval,maxval);
+        oper([index]);
+        continue;
+      # [number]:[number]
+      match = re.match("^(\d+)?:(\d+)?$",spec);
+      if not match:
+        if names and spec in name_to_index: 
+          oper([name_to_index[spec]]);
+        elif names is not False:
           raise ValueError,"illegal %s '%s'"%(self.name,spec);
-        if match.group(2):
-          index2 = int(match.group(2));
-        elif self.maxval is not None:
-          index2 = self.maxval;
-        else:
-          index2 = index1;
-        index1,minval,maxval = self._validate_index(index1,minval,maxval);
-        index2,minval,maxval = self._validate_index(index2,minval,maxval);
-        # add to subset
-        subset += range(index1,index2+1);
-    if self.allow_names:
-      return subset,names;
+        continue;
+      if match.group(1):
+        index1 = int(match.group(1));
+      elif self.minval is not None:
+        index1 = self.minval;
+      else:
+        raise ValueError,"illegal %s '%s'"%(self.name,spec);
+      if match.group(2):
+        index2 = int(match.group(2));
+      elif self.maxval is not None:
+        index2 = self.maxval;
+      else:
+        index2 = index1;
+      index1,minval,maxval = self._validate_index(index1,minval,maxval);
+      index2,minval,maxval = self._validate_index(index2,minval,maxval);
+      # add to subset
+      subset.oper(range(index1,index2+1));
+    # return subset
+    subset = sorted(subset);
+    if objlist:
+      return [ objlist[i] for i in subset ];
     else:
       return subset;
 
   def validator (self,value):
-    self.parse_list(value);
+    self.apply(value,names=False);
     return True;

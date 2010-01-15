@@ -497,6 +497,7 @@ if __name__ == '__main__':
   if len(sys.argv) < 2:
     print "Pass in an fmep table to read its stats";
   else:
+    verbose(3);
     pt = ParmTab(sys.argv[1]);
     if '-average' in sys.argv:
       pt.apply(FunkOps.average,"time",newtab=True);

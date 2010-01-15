@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -72,7 +73,7 @@ class SkyComponent (Parameterization):
   def make_visibilities (self,nodes,array,observation,**kw):
     """Abstract method.
     Creates nodes computing nominal visibilities of this component 
-    Actual nodes are then created as nodes(name,sta1,sta2) for all array.ifrs().
+    Actual nodes are then created as nodes(sta1,sta2) for all array.ifrs().
     Returns partially qualified visibility node which must be qualified 
     with an (sta1,sta2) pair.
     """;
@@ -115,7 +116,7 @@ class SkyComponent (Parameterization):
     if nodes is None:
       nodes = self.ns.visibility.qadd(observation.radec0());
     if not nodes(*(array.ifrs()[0])).initialized():
-      self.make_visibilities(nodes,array,observation,**kw);
+      nodes = self.make_visibilities(nodes,array,observation,**kw);
     return nodes;
     
   def corrupt (self,jones,per_station=True,label=None):

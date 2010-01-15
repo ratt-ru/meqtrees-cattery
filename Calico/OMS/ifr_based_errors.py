@@ -41,44 +41,55 @@ class IfrGains (object):
   def runtime_options (self):
     return self.options;
 
+  def init_nodes (self,ns,tags=None,label=''):
+    ifrs = Context.array.ifrs();
+    G = ns.gain;
+    if not G(*ifrs[0]).initialized():
+      def1 = Meow.Parm(1,tags=tags);
+      def0 = Meow.Parm(0,tags=tags);
+      gains = [];
+      for p,q in ifrs:
+        gg = [];
+        for corr in Context.correlations:
+          if corr in Context.active_correlations:
+            cc = corr.lower();
+            gain_ri  = [ resolve_parameter(cc,G(p,q,cc,'r'),def1,tags="ifr gain real"),
+                        resolve_parameter(cc,G(p,q,cc,'i'),def0,tags="ifr gain imag") ];
+            gg.append(G(p,q,cc) << Meq.ToComplex(*gain_ri));
+            gains += gain_ri;
+          else:
+            gg.append(1);
+        G(p,q) << Meq.Matrix22(*gg);
+
+      pg_ifr_ampl = ParmGroup.ParmGroup(label,gains,
+                            individual_toggles=False,
+                            table_name="%s.fmep"%label,bookmark=False);
+      Bookmarks.make_node_folder("%s (interferometer-based gains)"%label,
+        [ G(p,q) for p,q in ifrs ],sorted=True,nrow=2,ncol=2);
+      ParmGroup.SolveJob("cal_%s"%label,
+                        "Calibrate %s (interferometer-based gains)"%label,pg_ifr_ampl);
+    return G;
+    
+
   def process_visibilities (self,nodes,input_nodes,ns=None,
                              ifrs=None,tags=None,label='',**kw):
     ns = ns or nodes.Subscope();
     ifrs = ifrs or Context.array.ifrs();
     label = label or 'ifr_gains';
-    G = ns.gain;
-    def1 = Meow.Parm(1,tags=tags);
-    def0 = Meow.Parm(0,tags=tags);
-    gains = [];
-    for p,q in ifrs:
-      gg = [];
-      for corr in Context.correlations:
-        if corr in Context.active_correlations:
-          cc = corr.lower();
-          gain_ri  = [ resolve_parameter(cc,G(p,q,cc,'r'),def1,tags="ifr gain real"),
-                       resolve_parameter(cc,G(p,q,cc,'i'),def0,tags="ifr gain imag") ];
-          gg.append(G(p,q,cc) << Meq.ToComplex(*gain_ri));
-          gains += gain_ri;
-        else:
-          gg.append(1);
-      G(p,q) << Meq.Matrix22(*gg);
-      nodes(p,q) << input_nodes(p,q)*G(p,q);
+    G = self.init_nodes(ns,tags,label);
 
-    pg_ifr_ampl = ParmGroup.ParmGroup(label,gains,
-                          individual_toggles=False,
-                          table_name="%s.fmep"%label,bookmark=False);
-    Bookmarks.make_node_folder("%s (interferometer-based gains)"%label,
-      [ G(p,q) for p,q in ifrs ],sorted=True,nrow=2,ncol=2);
-    ParmGroup.SolveJob("cal_%s"%label,
-                       "Calibrate %s (interferometer-based gains)"%label,pg_ifr_ampl);
-    
+    # apply gains
+    for p,q in ifrs:
+      nodes(p,q) << G(p,q)*input_nodes(p,q);
+
     return nodes;
 
   def correct_visibilities (self,nodes,input_nodes,ns=None,
                             ifrs=None,tags=None,label='',**kw):
     ns = ns or nodes.Subscope();
     ifrs = ifrs or Context.array.ifrs();
-    G = ns.gain;
+    G = self.init_nodes(ns,tags,label);
+
     for p,q in ifrs:
       nodes(p,q) << input_nodes(p,q)/G(p,q);
     
@@ -91,35 +102,40 @@ class IfrBiases (object):
   def runtime_options (self):
     return self.options;
 
+  def init_nodes (self,ns,tags=None,label=''):
+    ifrs = Context.array.ifrs();
+    C = ns.bias;
+    if not C(*ifrs[0]).initialized():
+      def0 = Meow.Parm(0,tags=tags);
+      biases = [];
+      for p,q in ifrs:
+        gg = [];
+        for corr in Context.correlations:
+          if corr in Context.active_correlations:
+            cc = corr.lower();
+            bias_ri  = [ resolve_parameter(cc,C(p,q,cc,'r'),def0,tags="ifr bias real"),
+                        resolve_parameter(cc,C(p,q,cc,'i'),def0,tags="ifr bias imag") ];
+            gg.append(C(p,q,cc) << Meq.ToComplex(*bias_ri));
+            biases += bias_ri;
+          else:
+            gg.append(0);
+        C(p,q) << Meq.Matrix22(*gg);
+
+      pg_ifr_ampl = ParmGroup.ParmGroup(label,biases,
+                            individual_toggles=False,
+                            table_name="%s.fmep"%label,bookmark=False);
+      Bookmarks.make_node_folder("%s (interferometer-based biases)"%label,
+        [ C(p,q) for p,q in ifrs ],sorted=True,nrow=2,ncol=2);
+      ParmGroup.SolveJob("cal_%s"%label,
+                        "Calibrate %s (interferometer-based biases)"%label,pg_ifr_ampl);
+    return C;
+
   def process_visibilities (self,nodes,input_nodes,ns=None,
                              ifrs=None,tags=None,label='',**kw):
     ns = ns or nodes.Subscope();
     ifrs = ifrs or Context.array.ifrs();
     label = label or 'ifr_biases';
-    C = ns.bias;
-    def0 = Meow.Parm(0,tags=tags);
-    biases = [];
-    for p,q in ifrs:
-      gg = [];
-      for corr in Context.correlations:
-        if corr in Context.active_correlations:
-          cc = corr.lower();
-          bias_ri  = [ resolve_parameter(cc,C(p,q,cc,'r'),def0,tags="ifr bias real"),
-                       resolve_parameter(cc,C(p,q,cc,'i'),def0,tags="ifr bias imag") ];
-          gg.append(C(p,q,cc) << Meq.ToComplex(*bias_ri));
-          biases += bias_ri;
-        else:
-          gg.append(0);
-      C(p,q) << Meq.Matrix22(*gg);
-      nodes(p,q) << input_nodes(p,q) + C(p,q);
-
-    pg_ifr_ampl = ParmGroup.ParmGroup(label,biases,
-                          individual_toggles=False,
-                          table_name="%s.fmep"%label,bookmark=False);
-    Bookmarks.make_node_folder("%s (interferometer-based biases)"%label,
-      [ C(p,q) for p,q in ifrs ],sorted=True,nrow=2,ncol=2);
-    ParmGroup.SolveJob("cal_%s"%label,
-                       "Calibrate %s (interferometer-based biases)"%label,pg_ifr_ampl);
+    C = self.init_nodes(ns,tags,label);
     
     return nodes;
 
@@ -127,7 +143,9 @@ class IfrBiases (object):
                             ifrs=None,tags=None,label='',**kw):
     ns = ns or nodes.Subscope();
     ifrs = ifrs or Context.array.ifrs();
-    C = ns.bias;
+
+    C = self.init_nodes(ns,tags,label);
+
     for p,q in ifrs:
       nodes(p,q) << input_nodes(p,q) - C(p,q);
     

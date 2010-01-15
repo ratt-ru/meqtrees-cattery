@@ -88,6 +88,15 @@ for viewer in [ "kvis","ds9" ]:
     _image_viewers.append(viewer);
 _image_viewers.append("none");
 
+# This defines some standard IFR subsets for some observatories.
+STD_IFR_SUBSETS = dict(
+  WSRT=[ "all -45 -56 -67",
+         "all -45 -56 -67 -9A -AB -CD",
+         "all -45 -46 -56 -67 -68 -9A -AB -CD",
+         "FM",
+         "FM -9A -9B"
+  ]
+);
 
 # This a list of the Stokes enums (as defined in casacore header measures/Stokes.h)
 # These are referenced by the CORR_TYPE column of the MS POLARIZATION subtable.
@@ -133,6 +142,7 @@ def longest_prefix (*strings):
 class MSContentSelector (object):
   def __init__ (self,ddid=[0],field=None,channels=True,namespace='ms_sel'):
     """Creates options for selecting a subset of an MS.
+    parent:     parent MSSelector object
     ddid:       list of suggested DDIDs, or false for no selector.
     field:      list of suggested fields. or false for no selector.
       NB: if TABLE is available, ddid/field is ignored, and selectors are always
@@ -173,12 +183,9 @@ class MSContentSelector (object):
       self._opts.append(chanmenu);
     else:
       self.select_channels = False;
-    # baseline selection
-
     # additional taql string
+    self.ms_taql_string = None;
     self._opts += [
-        TDLOption('ms_min_baseline',"Skip baselines <= (m)",[None],more=float,namespace=self),
-        TDLOption('ms_max_baseline',"Skip baselines >= (m)",[None],more=float,namespace=self),
         TDLOption('ms_taql_str',"Additional TaQL selection",[None],more=str,namespace=self)
     ];
     self._nchan = None;
@@ -229,14 +236,7 @@ class MSContentSelector (object):
     return self.ddid_index or 0;
 
   def get_taql_string (self):
-    taqls = [];
-    if self.ms_taql_str:
-      taqls.append(self.ms_taql_str);
-    if self.ms_min_baseline:
-      taqls.append('sqrt(sumsqr(UVW))>%f'%self.ms_min_baseline);
-    if self.ms_max_baseline:
-      taqls.append('sqrt(sumsqr(UVW))<%f'%self.ms_max_baseline);
-    return '( ' + ' ) AND ( '.join(taqls) + ' )' if taqls else '';
+    return self.ms_taql_string or '';
 
   def create_selection_record (self):
     """Forms up a selection record that can be added to an MS input record""";
@@ -464,10 +464,9 @@ class MSSelector (object):
   """An MSSelector implements TDL options for selecting an MS and a subset therein""";
   def __init__ (self,
                 pattern="*.ms *.MS",
-                has_input=True,
-                has_output=True,
+                has_input=True,has_model=False,has_output=True,
                 forbid_output=["DATA"],
-                antsel=True,
+                std_ifr_subsets=None,
                 tile_sizes=[1,5,10,20,30,60],
                 ddid=[0],
                 field=[0],
@@ -479,10 +478,13 @@ class MSSelector (object):
     """Creates an MSSelector object
     filter:     ms name filter. Default is "*.ms *.MS"
     has_input:  is an input column selector initially enabled.
+    has_model:  is an input model column selector initially enabled.
     has_input:  is an output column selector initially enabled.
     forbid_output: a list of forbidden output columns. "DATA" by default"
-    antsel:     if True, an antenna subset selector will be provided
     tile_sizes: list of suggested tile sizes. If false, no tile size selector is provided.
+    std_ifr_subsets: if provided, this should be a list of standard IFR subset specifications.
+                This will override any default determined by STD_IFR_SUBSETS[obs], where 'obs' 
+                is taken from the MS.
     ddid:       list of suggested DDIDs, or false for no selector.
     field:      list of suggested fields. or false for no selector.
       NB: if TABLE is available, ddid/field is ignored, and selectors are always
@@ -499,31 +501,23 @@ class MSSelector (object):
     self.tdloption_namespace = namespace;
     self._content_selectors = [];
     self.ms_antenna_names = [];
-    self.ms_antenna_sel = self.antsel_option = None;
+    self.ms_ifrset = self.ms_observatory = None;
     ms_option = self._ms_option = \
       TDLOption('msname',"MS",TDLDirSelect(pattern,default=True),namespace=self,mandatory=True);
     self._compile_opts = [ ms_option ];
     self._opts = [];
-    # antenna selector
-    if antsel:
-      if isinstance(antsel,str):
-        antsel = [None,antsel];
-      elif isinstance(antsel,(tuple,list)):
-        antsel = [None]+antsel;
-      else:
-        antsel = [None];
-      self.antsel_option = TDLOption("ms_antenna_sel","Antenna subset",
-                                     [None],more=str,namespace=self,
-        doc="""Selects a subset of antennas to use. You may specify individual indices
-        (1-based) separated by commas or spaces, or ranges, e.g. "M:N" (M to N inclusive),
-        or ":M" (1 to M), or "N:" (N to last).
-        Example subset: ":3 5 8 10:12 16:"."""
-      );
-      self.antsel_option.set_validator(self._antenna_sel_validator);
-      # hide until an MS is selected
-      if TABLE:
-        self.antsel_option.hide();
-      self._compile_opts.append(self.antsel_option);
+    # ifr selector
+    self.ifrsel_fixed = std_ifr_subsets;
+    self.ms_ifr_subsets = ["all"] + (std_ifr_subsets or []);
+    self.ifrsel_option = TDLOption("ms_ifr_subset_str","Interferometers to use",
+                                    self.ms_ifr_subsets,
+                                    more=str,namespace=self,
+                                    doc=Meow.IfrArray.ifr_spec_syntax);
+    # self.antsel_option.set_validator(self._antenna_sel_validator);
+    # hide until an MS is selected
+    if TABLE:
+      self.ifrsel_option.hide();
+    self._compile_opts.append(self.ifrsel_option);
 
     # correlation options
     self.polarization_option = TDLOption("ms_polarization","Polarization",["XX XY YX YY","RR RL LR LL"],namespace=self);
@@ -543,6 +537,7 @@ class MSSelector (object):
       self._forbid_output = [];
     self.input_column = self.output_column = None;
     self.ms_has_input = has_input;
+    self.ms_has_model = has_model;
     self.ms_has_output = has_output;
     self.ms_antenna_positions = None;
     # if no access to tables, then allow more input columns to be entered
@@ -554,12 +549,15 @@ class MSSelector (object):
                                       self.ms_data_columns,
                                       namespace=self,more=more_col);
     self.input_col_option.show(has_input);
-    self._opts.append(self.input_col_option);
+    self.model_col_option = TDLOption('model_column',"Model MS column",
+                                      self.ms_data_columns,
+                                      namespace=self,more=more_col);
+    self.model_col_option.show(has_model);
     self.output_col_option = TDLOption('output_column',"Output MS column",
                                       self.ms_data_columns + [None],
                                       namespace=self,more=str,default=2);
     self.output_col_option.show(has_output);
-    self._opts.append(self.output_col_option);
+    self._opts += [ self.input_col_option,self.model_col_option,self.output_col_option ];
     # tile sizes
     if tile_sizes:
       self._opts.append(TDLOption('tile_size',"Tile size (timeslots)",
@@ -639,6 +637,10 @@ class MSSelector (object):
     self.ms_has_input = enable;
     self.input_col_option.show(enable);
 
+  def enable_model_column (self,enable=True):
+    self.ms_has_model = enable;
+    self.model_col_option.show(enable);
+
   def enable_output_column (self,enable=True):
     self.ms_has_output = enable;
     self.output_col_option.show(enable);
@@ -667,17 +669,18 @@ class MSSelector (object):
     the first option."""
     return self._opts;
 
+  def get_ifr_subset (self):
+    if not self.ms_ifrset:
+      return None;
+    return self.ms_ifrset.subset(self.ms_ifr_subset_str,strict=False);
+
   def get_antenna_names (self):
     """Returns the list of antenna names from the current MS. If pycasatable
     is not available, this will be empty""";
-    if self.ms_antenna_sel:
-      subset = parse_antenna_subset(self.ms_antenna_sel,self.ms_antenna_names);
-      if self.ms_antenna_names:
-        return [self.ms_antenna_names[index] for index in subset];
-      else:
-        return subset;
-    else:
-      return self.ms_antenna_names;
+    subset = self.get_ifr_subset();
+    if not subset:
+      return [];
+    return subset.stations();
 
   def get_phase_dir (self):
     """Returns the phase direction of the currently selected pointing, or None if none
@@ -691,16 +694,10 @@ class MSSelector (object):
   def get_antenna_set (self,default=None):
     """Returns the set of selected antenna indices from the current MS, or None
     if no selection info is available."""
-    subset = self.ms_antenna_sel and parse_antenna_subset(self.ms_antenna_sel,self.ms_antenna_names);
-    if subset:
-      if self.ms_antenna_names:
-        return [(index,self.ms_antenna_names[index]) for index in subset];
-      else:
-        return subset;
-    elif self.ms_antenna_names:
-      return list(enumerate(self.ms_antenna_names));
-    else:
+    subset = self.get_ifr_subset();
+    if not subset:
       return default;
+    return subset.station_index();
 
   def get_corr_index (self):
     """Returns the set of selected antenna correlation indices
@@ -722,7 +719,7 @@ class MSSelector (object):
     'ns' is a NodeScope object.
     'antennas' is a default antenna set, to be used if the antenna selector is not available.
     """;
-    array = Meow.IfrArray(ns,self.get_antenna_set(antennas),positions=self.ms_antenna_positions);
+    array = Meow.IfrArray(ns,self.get_ifr_subset() or antennas);
     # get phase centre from MS, setup observation
     observation = Meow.Observation(ns,phase_centre=self.get_phase_dir(),
 	    linear=self.is_linear_pol(),circular=self.is_circular_pol());
@@ -787,6 +784,7 @@ class MSSelector (object):
       # data columns
       self.ms_data_columns = [ name for name in ms.colnames() if name.endswith('DATA') ];
       self.input_col_option.set_option_list(self.ms_data_columns);
+      self.model_col_option.set_option_list(self.ms_data_columns);
       outcols = [ col for col in self.ms_data_columns if col not in self._forbid_output ];
       self.output_col_option.set_option_list(outcols);
       # antennas
@@ -804,10 +802,20 @@ class MSSelector (object):
         if len(set(self.ms_antenna_names)) < len(self.ms_antenna_names):
           print "Warning! This MS does not define unique ANTENNA names. Using antenna indices instead.";
           self.ms_antenna_names = [ str(i) for i in range(len(self.ms_antenna_names)) ];
-      if self.antsel_option:
-        self.antsel_option.set_option_list([None,"0:%d"%(len(self.ms_antenna_names)-1)]);
-        self.antsel_option.show();
+      # observatory is first station
+      self.ms_observatory = anttable.getcol("STATION")[0];
       self.ms_antenna_positions = anttable.getcol('POSITION');
+      # make IfrSet object for the full antenna set
+      self.ms_ifrset = Meow.IfrArray.IfrSet(self.ms_antenna_names,observatory=self.ms_observatory,
+                                            positions=self.ms_antenna_positions);
+      # show selector
+      if self.ifrsel_option:
+        stdsets = STD_IFR_SUBSETS.get(self.ms_observatory);
+        if stdsets and not self.ifrsel_fixed:
+          self.ms_ifr_subsets = ["all"] + list(stdsets);
+          self.ifrsel_option.set_option_list(self.ms_ifr_subsets);
+        self.ifrsel_option.show();
+        self.ifrsel_option.set_doc(self.ms_ifrset.subset_doc); 
       # correlations
       # polarization IDs
       pol_tab = TABLE(ms.getkeyword('POLARIZATION'),lockoptions='autonoread');
@@ -853,15 +861,6 @@ class MSSelector (object):
       corrlist = [self._corr_2x2,self._corr_2x2_diag,self._corr_2,self._corr_1];
     self.corrsel_option.set_option_list(corrlist);
 
-  def _antenna_sel_validator (self,value):
-    try:
-      antenna_subset = parse_antenna_subset(value,self.ms_antenna_names);
-      return True;
-    except:
-      print "error parsing antenna selection '%s'"%value;
-      traceback.print_exc();
-      return False;
-
   def imaging_selector (self,*args,**kw):
     """Makes an ImagingSelector connected to this MS selector. All arguments
     are passed to the ImagingSelector constructor""";
@@ -873,8 +872,10 @@ class MSSelector (object):
       raise ValueError,"Measurement Set not specified";
     rec = record();
     rec.ms_name          = self.msname
-    if self.input_column:
+    if self.input_column and self.ms_has_input:
       rec.data_column_name = self.input_column;
+    if self.model_column and self.ms_has_model:
+      rec.predict_column_name = self.model_column;
     tiling = tiling or self.tile_size;
     if isinstance(tiling,(list,tuple)):
       if len(tiling) != 2:
@@ -1080,6 +1081,12 @@ class ImagingSelector (object):
         doc="""You can center the image on a particular point in the sky. The default is
         the phase center of the observation. To override this, enter a direction string
         of the form, e.g., 'J2000,05h35m10s,-30deg15m30s'"""));
+    # add baseline selector
+    self._opts.append(TDLOption('imaging_ifrs',"Interferometers to use",
+      mssel.ms_ifr_subsets,
+      namespace=self,more=str,
+      doc=mssel.ms_ifrset and mssel.ms_ifrset.subset_doc));
+    
     # add MS subset selector, if needed
     if subset:
       self.subset_selector = mssel.make_subset_selector(namespace);
@@ -1252,10 +1259,17 @@ class ImagingSelector (object):
     args += [ 'img_nchan='+str(img_nchan),
               'img_chanstart='+str(img_chanstart),
               'img_chanstep='+str(img_chanstep) ];
-    # add TaQL string
+    # get custom TaQL string
     taql = selector.get_taql_string();
-    if taql:
-      args.append("select=%s"%taql);
+    taqls = [taql] if taql else [];
+    # add baseline selection string
+    if self.imaging_ifrs.strip().upper() not in ["","*","ALL"]:
+      if not self.mssel.ms_ifrset:
+        raise RuntimeError,"Can't select baselines since we don't appear to have read the MS!";
+      subset = self.mssel.ms_ifrset.subset(self.imaging_ifrs,strict=False).ifr_index();
+      taql = "||".join(["(ANTENNA1==%d&&ANTENNA2==%d)"%(ip,iq) for (ip,p),(iq,q) in subset ]);
+      taqls.append("(%s)"%taql);
+    args.append("select=(%s)"%"&&".join(taqls));
     # figure out an output FITS filename
     if self.output_fitsname == "default":
       basename = self.mssel.msname;
@@ -1307,6 +1321,7 @@ def get_flagsets (ms):
   fs = _flagset_map.get(msname,None);
   if fs is None:
     fs = _flagset_map[msname] = Flagsets(ms);
+    fs.load(ms);
   return fs;
 
 class Flagsets (object):

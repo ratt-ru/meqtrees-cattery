@@ -64,6 +64,6 @@ def _define_forest(ns):
   imsel = mssel.imaging_selector(npix=512,arcmin=120);
   TDLRuntimeMenu("Make an image from this MS",*imsel.option_list());
 
-def _tdl_job_view_MS (mqs,parent,**kw):
+def _tdl_job_View_MS (mqs,parent,**kw):
   req = mssel.create_io_request();
   mqs.execute('VisDataMux',req,wait=False);

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -125,3 +126,4 @@ class GaussianSource(PointSource):
       gcoh(*ifr) << fluxscale * Meq.Exp((u1s+v1s)*m_iwlsq);
     # phase shift to source position
     self.direction.make_phase_shift(nodes,gcoh,array,dir0,smearing=self.smearing);
+    return nodes;

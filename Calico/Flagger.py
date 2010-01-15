@@ -507,11 +507,11 @@ class Flagger (Timba.dmi.verbosity):
       purr and self.purrpipe.title("Flagging").comment("Filling FLAG/FLAG_ROW from flagsets %s."%','.join(flags));
     elif isinstance(flags,int):
       flagmask = flags;
-      self.dprintf(1,"filling legacy FLAG/FLAG_ROW using flagsets %s\n",flags);
+#      self.dprintf(1,"filling legacy FLAG/FLAG_ROW using flagsets %s\n",flags);
       purr and self.purrpipe.title("Flagging").comment("Filling FLAG/FLAG_ROW from bitflags %x."%flags);
     else:
       raise TypeError,"flagmask argument must be int, str or sequence";
-    self.dprintf(1,"filling legacy FLAG/FLAG_ROW using bitmask 0x%d\n",flagmask);
+    self.dprintf(1,"filling legacy FLAG/FLAG_ROW using bitmask 0x%x\n",flagmask);
     # now go through MS and fill the column
     # get list of per-DDID subsets
     sub_mss = self._get_submss(ms);

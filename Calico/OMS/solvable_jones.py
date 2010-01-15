@@ -39,7 +39,7 @@ from Meow import Jones,ParmGroup,Bookmarks
 from Meow.Parameterization import resolve_parameter
 
 class DiagAmplPhase (object):
-  def __init__ (self):
+  def __init__ (self,label):
     self.options = [];
 
   def runtime_options (self):
@@ -66,10 +66,16 @@ class DiagAmplPhase (object):
     return nodes;
 
 class FullRealImag (object):
-  def __init__ (self):
-    self.options = [];
+  """This implements a full 2x2 Jones matrix with solvable real and imaginary parts""";
+  def __init__ (self,label):
+    self.tdloption_namespace = label+".fullrealimag";
+    self.options = [
+      TDLOption("init_diag","Initial value, diagonal",[0,1],default=1,more=float,namespace=self),
+      TDLOption("init_offdiag","Initial value, off-diagonal",[0,1],default=0,more=float,namespace=self),
+    ];
+    self._offdiag = True;
 
-  def runtime_options (self):
+  def compile_options (self):
     return self.options;
 
   def compute_jones (self,jones,stations=None,tags=None,label='',**kw):
@@ -95,14 +101,14 @@ class FullRealImag (object):
             jones(p,rxx) << diag_real,
             jones(p,ixx) << diag_imag
         ),
-        jones(p,xy) << Meq.ToComplex(
+        (jones(p,xy) << Meq.ToComplex(
             jones(p,rxy) << offdiag_real,
             jones(p,ixy) << offdiag_imag
-        ),
-        jones(p,yx) << Meq.ToComplex(
+        )) if self._offdiag else 0,
+        (jones(p,yx) << Meq.ToComplex(
             jones(p,ryx) << offdiag_real,
             jones(p,iyx) << offdiag_imag
-        ),
+        )) if self._offdiag else 0,
         jones(p,yy) << Meq.ToComplex(
             jones(p,ryy) << diag_real,
             jones(p,iyy) << diag_imag
@@ -123,30 +129,43 @@ class FullRealImag (object):
             [ jones(p,zz) for zz in rxx,ixx,ryy,iyy for p in stations ],
             subgroups = subgroups,
             table_name="%s_diag.fmep"%label,bookmark=False);
-            
-    subgroups = [
-      ParmGroup.Subgroup(X+Y,[jones(p,zz) for zz in rxy,ixy for p in stations]),
-      ParmGroup.Subgroup(Y+X,[jones(p,zz) for zz in ryx,iyx for p in stations]),
-      ParmGroup.Subgroup("real part",[jones(p,zz) for zz in rxy,ryx for p in stations]),
-      ParmGroup.Subgroup("imaginary part",[jones(p,zz) for zz in ixy,iyx for p in stations])
-    ];
-    subgroups += [
-      ParmGroup.Subgroup("station %s"%p,[jones(p,zz) for zz in rxy,ixy,ryx,iyx ])
-      for p in stations
-    ];
-    self.pg_offdiag  = ParmGroup.ParmGroup(label+"_offdiag",
-            [ jones(p,zz) for zz in rxy,ixy,ryx,iyx for p in stations ],
-            subgroups = subgroups,
-            table_name="%s_offdiag.fmep"%label,bookmark=False);
-
     # make bookmarks
     Bookmarks.make_node_folder("%s diagonal terms"%label,
       [ jones(p,zz) for p in stations for zz in xx,yy ],sorted=True);
-    Bookmarks.make_node_folder("%s off-diagonal terms"%label,
-      [ jones(p,zz) for p in stations for zz in xy,yx ],sorted=True);
-
     # make solvejobs
     ParmGroup.SolveJob("cal_"+label+"_diag","Calibrate %s diagonal terms"%label,self.pg_diag);
-    ParmGroup.SolveJob("cal_"+label+"_offdiag","Calibrate %s off-diagonal terms"%label,self.pg_offdiag);
+    
+    if self._offdiag:
+      subgroups = [
+        ParmGroup.Subgroup(X+Y,[jones(p,zz) for zz in rxy,ixy for p in stations]),
+        ParmGroup.Subgroup(Y+X,[jones(p,zz) for zz in ryx,iyx for p in stations]),
+        ParmGroup.Subgroup("real part",[jones(p,zz) for zz in rxy,ryx for p in stations]),
+        ParmGroup.Subgroup("imaginary part",[jones(p,zz) for zz in ixy,iyx for p in stations])
+      ];
+      subgroups += [
+        ParmGroup.Subgroup("station %s"%p,[jones(p,zz) for zz in rxy,ixy,ryx,iyx ])
+        for p in stations
+      ];
+      self.pg_offdiag  = ParmGroup.ParmGroup(label+"_offdiag",
+              [ jones(p,zz) for zz in rxy,ixy,ryx,iyx for p in stations ],
+              subgroups = subgroups,
+              table_name="%s_offdiag.fmep"%label,bookmark=False);
+      # make bookmarks
+      Bookmarks.make_node_folder("%s off-diagonal terms"%label,
+        [ jones(p,zz) for p in stations for zz in xy,yx ],sorted=True);
+      # make solvejobs
+      ParmGroup.SolveJob("cal_"+label+"_offdiag","Calibrate %s off-diagonal terms"%label,self.pg_offdiag);
 
     return jones;
+
+class DiagRealImag (FullRealImag):
+  """This implements a diagonal 2x2 Jones matrix with solvable real and imaginary parts""";
+  # note that this is not really proper OO design, but it's convenient
+  def __init__ (self,label):
+    self.tdloption_namespace = label+".diagrealimag";
+    self.options = [
+      TDLOption("init_diag","Initial value",[0,1],default=1,more=float,namespace=self),
+    ];
+    self._offdiag = False;
+    self.init_offdiag = 0;
+

@@ -106,12 +106,18 @@ class DiagAmplPhase (object):
 
     return nodes;
 
+
 class FullRealImag (object):
+  """This implements a full 2x2 Jones matrix with solvable real and imaginary parts""";
   def __init__ (self,label):
     self.tdloption_namespace = label+".fullrealimag";
     self.subset_selector = Meow.MeqMaker.SourceSubsetSelector("Apply this Jones term to a subset of sources",
                             tdloption_namespace=self.tdloption_namespace);
-    self.options = self.subset_selector.options;
+    self.options = [
+      TDLOption("init_diag","Initial value, diagonal",[0,1],default=1,more=float,namespace=self),
+      TDLOption("init_offdiag","Initial value, off-diagonal",[0,1],default=0,more=float,namespace=self),
+    ] + self.subset_selector.options;
+    self._offdiag = True;
 
   def compile_options (self):
     return self.options;
@@ -130,9 +136,9 @@ class FullRealImag (object):
     ixx,ixy,iyx,iyy = [ q+":i" for q in xx,xy,yx,yy ];
     # create parm definitions for each jones element
     tags = NodeTags(tags) + "solvable";
-    diag_real = Meq.Parm(1,tags=tags+"diag real");
+    diag_real = Meq.Parm(self.init_diag,tags=tags+"diag real");
     diag_imag = Meq.Parm(0,tags=tags+"diag imag");
-    offdiag_real = Meq.Parm(0,tags=tags+"offdiag real");
+    offdiag_real = Meq.Parm(self.init_offdiag,tags=tags+"offdiag real");
     offdiag_imag = Meq.Parm(0,tags=tags+"offdiag imag");
     # loop over sources
     parms_diag = [];
@@ -150,14 +156,14 @@ class FullRealImag (object):
               jj(rxx) << diag_real,
               jj(ixx) << diag_imag
           ),
-          jj(xy) << Meq.ToComplex(
+          (jj(xy) << Meq.ToComplex(
               jj(rxy) << offdiag_real,
               jj(ixy) << offdiag_imag
-          ),
-          jj(yx) << Meq.ToComplex(
+          )) if self._offdiag else 0,
+          (jj(yx) << Meq.ToComplex(
               jj(ryx) << offdiag_real,
               jj(iyx) << offdiag_imag
-          ),
+          )) if self._offdiag else 0,
           jj(yy) << Meq.ToComplex(
               jj(ryy) << diag_real,
               jj(iyy) << diag_imag
@@ -181,23 +187,41 @@ class FullRealImag (object):
     self.pg_diag  = ParmGroup.ParmGroup(label+"_diag",parms_diag,
                       subgroups=subgroups_diag,
                       table_name="%s_diag.fmep"%label,bookmark=False);
-    self.pg_offdiag  = ParmGroup.ParmGroup(label+"_offdiag",parms_offdiag,
-                      subgroups=subgroups_offdiag,
-                      table_name="%s_offdiag.fmep"%label,bookmark=False);
+    if self._offdiag:
+      self.pg_offdiag  = ParmGroup.ParmGroup(label+"_offdiag",parms_offdiag,
+                        subgroups=subgroups_offdiag,
+                        table_name="%s_offdiag.fmep"%label,bookmark=False);
 
     # make bookmarks
     Bookmarks.make_node_folder("%s diagonal terms"%label,
       [ jones(src,p,zz) for src in sources  
         for p in stations for zz in "xx","yy" ],sorted=True);
-    Bookmarks.make_node_folder("%s off-diagonal terms"%label,
-      [ jones(src,p,zz) for src in sources  
-        for p in stations for zz in "xy","yx" ],sorted=True);
+    if self._offdiag:
+      Bookmarks.make_node_folder("%s off-diagonal terms"%label,
+        [ jones(src,p,zz) for src in sources  
+          for p in stations for zz in "xy","yx" ],sorted=True);
 
     # make solvejobs
     ParmGroup.SolveJob("cal_"+label+"_diag","Calibrate %s diagonal terms"%label,self.pg_diag);
-    ParmGroup.SolveJob("cal_"+label+"_offdiag","Calibrate %s off-diagonal terms"%label,self.pg_offdiag);
+    if self._offdiag:
+      ParmGroup.SolveJob("cal_"+label+"_offdiag","Calibrate %s off-diagonal terms"%label,self.pg_offdiag);
 
     return jones;
+
+
+class DiagRealImag (FullRealImag):
+  """This implements a diagonal 2x2 Jones matrix with solvable real and imaginary parts""";
+  # note that this is not really proper OO design, but it's convenient
+  def __init__ (self,label):
+    self.tdloption_namespace = label+".diagrealimag";
+    self.subset_selector = Meow.MeqMaker.SourceSubsetSelector("Apply this Jones term to a subset of sources",
+                            tdloption_namespace=self.tdloption_namespace);
+    self.options = [
+      TDLOption("init_diag","Initial value",[0,1],default=1,more=float,namespace=self),
+    ] + self.subset_selector.options;
+    self._offdiag = False;
+    self.init_offdiag = 0;
+
 
       
 class IntrinsicFR (object):

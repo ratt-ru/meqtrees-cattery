@@ -102,22 +102,29 @@ class MeowLSM (object):
         If your LSM already contains apparent fluxes, or you're not interested in sorting 
         the sources, set this option to 'None'.""");
       self._compile_opts.append(beam_opt);
-      
+
+      subset_doc = """<P>Selects a subset of sources from the
+          LSM. You may specify sources:</P>
+
+          <P>* by name</P>
+          
+          <P>* by ordinal number (from 0, in order of decreasing brightness)</P>
+
+          <P>* as ranges, e.g. "M:N" (M to N inclusive), or ":M" (0 to M), or "N:" (N to last). 
+
+          Prefixing a name or a number or a range by "-" excludes that source from the selection.
+
+          Examples: "-foo" (all sources except 'foo'), "0 3:5 bar" (sources #0,3,4,5 and 'bar'),
+          "-3:5 -foo" (all sources except 3,4,5 and 'foo'.)""";
+
       subset_opt = TDLOption('lsm_subset',"Use subset of LSM sources",
-          ["all"],more=str,namespace=self,doc="""Selects a subset of sources from the
-          LSM. You may specify sources by name (separated by spaces), or by number
-          (in order of decreasing brightness), or as ranges, e.g. "M:N" (M to N inclusive), 
-          or ":M" (0 to M), or "N:" (N to last).""");
-      self._subset_parser = Meow.OptionTools.ListOptionParser(minval=0,
-                              name="source",allow_names=True);
+          ["all"],more=str,namespace=self,doc=subset_doc);
+      self._subset_parser = Meow.OptionTools.ListOptionParser(minval=0,name="source");
       subset_opt.set_validator(self._subset_parser.validator);
       self._compile_opts.append(subset_opt);
       solve_subset_opt = TDLOption("solve_subset","For which sources",["all"],
-            more=str,namespace=self,
-            doc="""You may give a list of source names (separated by spaces), or by number
-          (in order of decreasing brightness), or as ranges, e.g. "M:N" (M to N inclusive), or ":M" (0 to M), or "N:" (N to last)."""); 
-      self._solve_subset_parser = Meow.OptionTools.ListOptionParser(minval=0,
-                                  name="source",allow_names=True);
+            more=str,namespace=self,doc=subset_doc);
+      self._solve_subset_parser = Meow.OptionTools.ListOptionParser(minval=0,name="source");
       self._compile_opts.append(
         TDLMenu("Make solvable source parameters",
           solve_subset_opt,
@@ -241,28 +248,17 @@ class MeowLSM (object):
           r = sqrt(lmn[0]**2+lmn[1]**2);
           Iapp = I*beam_func(r,freq0*1e-9 or 1.4);  # use 1.4 GHz if ref frequency not specified
       # append to list
-      srclist.append((direction,pu,I,Iapp));
+      srclist.append((pu.name,direction,pu,I,Iapp));
     # sort list by decreasing apparent flux
     srclist.sort(lambda a,b:cmp(b[3],a[3]));
     
-    # extract subset
-    if self.lsm_subset != "all":
-      self._subset_parser.set_max(len(srclist)-1);
-      indices,names = self._subset_parser.parse_list(self.lsm_subset);
-      source_set = set(names);
-      source_set.update([srclist[i][1].name for i in indices]);
-    else:
-      source_set = None;
-      
+    srclist_full = srclist;
+    # extract active subset
+    srclist = self._subset_parser.apply(self.lsm_subset,srclist_full,names=[src[0] for src in srclist_full]);
     # extract solvable subset
-    if self.solve_subset != "all":
-      self._solve_subset_parser.set_max(len(srclist)-1);
-      indices,names = self._solve_subset_parser.parse_list(self.solve_subset);
-      solvable_source_set = set(names);
-      solvable_source_set.update([srclist[i][1].name for i in indices]);
-    else:
-      solvable_source_set = None;
-      
+    solve_subset = self._subset_parser.apply(self.solve_subset,srclist_full,names=[src[0] for src in srclist_full]);
+    solve_subset = set([src[0] for src in solve_subset]);
+
     # make copy of kw dict to be used for sources not in solvable set
     kw_nonsolve = dict(kw);
     # and update kw dict to be used for sources in solvable set
@@ -293,9 +289,7 @@ class MeowLSM (object):
   ## Note: conversion from AIPS++ componentlist Gaussians to Gaussian Nodes
   ### eX, eY : multiply by 2
   ### eP: change sign
-    for direction,pu,I,Iapp in srclist:
-      if source_set is not None and pu.name not in source_set:
-        continue;
+    for name,direction,pu,I,Iapp in srclist:
 #      print "%-20s %12f %12f"%(pu.name,I,Iapp);
       src = {};
       ( src['ra'],src['dec'],
@@ -314,7 +308,7 @@ class MeowLSM (object):
       ## construct parms or constants for source attributes
       ## if source is in solvable set (solvable_source_set of None means all are solvable),
       ## use the kw dict, else use the nonsolve dict for source parameters
-      if solvable_source_set is None or pu.name in solvable_source_set:
+      if name in solve_subset:
         solvable = True;
         kwdict = kw;
       else:

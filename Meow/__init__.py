@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -40,15 +41,16 @@ else:
   from LMDirection import LMDirection
   from AzElDirection import AzElDirection
   from LMApproxDirection import LMApproxDirection
-  from FITSImageComponent import FITSImageComponent
-  from GaussianSource import GaussianSource
   from IfrArray import IfrArray
   from Observation import Observation
   from Parameterization import Parameterization
   from Patch import Patch
-  from PointSource import PointSource
-  from SixpackComponent import SixpackComponent
   from SkyComponent import SkyComponent
+  from PointSource import PointSource
+  from KnownVisComponent import KnownVisComponent
+  from GaussianSource import GaussianSource
+  from SixpackComponent import SixpackComponent
+  from FITSImageComponent import FITSImageComponent
   from Parm import Parm
   
   import Bookmarks

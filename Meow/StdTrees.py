@@ -67,10 +67,14 @@ class ResidualTree (_BaseTree):
     return outputs;
 
 class SolveTree (ResidualTree):
-  def __init__ (self,ns,predict,solve_ifrs=None,array=None,observation=None,residuals=None,bookmarks=True):
+  def __init__ (self,ns,predict,solve_ifrs=None,array=None,observation=None,
+        weights=None,modulo=None,
+        residuals=None,bookmarks=True):
     ResidualTree.__init__(self,ns,predict,array,observation);
     self._solve_ifrs = solve_ifrs or self.array.ifrs();
     self._make_residuals = residuals;
+    self._weights = weights;
+    self._modulo = modulo or 0;
     self.bookmarks = bookmarks;
 
   def outputs (self,inputs=None):
@@ -96,10 +100,11 @@ class SolveTree (ResidualTree):
       self._solver_name = solver.name;
       # create condeqs and request sequencers
       for p,q in self._solve_ifrs:
-        inp  = self._inputs(p,q);
-        pred = self._predict(p,q);
-        pred.initrec().cache_num_active_parents = 1;
-        self.ns.ce(p,q) << Meq.Condeq(inp,pred);
+        children = [ self._inputs(p,q),self._predict(p,q) ];
+        children[0].initrec().cache_num_active_parents = 1;
+        if self._weights:
+          children.append(self._weights(p,q));
+        self.ns.ce(p,q) << Meq.Condeq(*children,modulo=self._modulo);
       # create optimal poll order for condeqs, for efficient parallelization
       # (i.e. poll child 1:2, 3:4, 5:6, ..., 13:14 then the rest)
       # however, since _solve_ifrs may be a subset, we'll have to be a bit more clever
@@ -338,13 +343,20 @@ def make_sinks (ns,outputs,array=None,
   elif post and not is_node(post):
     raise TypeError,"'post' argument should be a node or a list of nodes, %s given"%type(post);
 
-  # figure out optimal poll order for children
+  # figure out optimal poll order for children. We want to poll things 
+  # so that per-antenna trees are parallelized as much as possible, so first let's poll
+  # those IFRs that don't share antennas
   cpo = [];
-  sta = array.stations();
-  for i in range(0,len(sta)-1,2):
-    cpo.append(sink(sta[i],sta[i+1]).name);
+  seen_stations = set();
+  for p,q in array.ifrs():
+    if p not in seen_stations and q not in seen_stations:
+      cpo.append(sink(p,q,).name);
+      seen_stations.add(p);
+      seen_stations.add(q);
+      if len(seen_stations) >= array.num_stations()-1:
+        break;
   # now make the vdm
-  vdm << Meq.VisDataMux(post=post,child_poll_order=cpo,*[sink(p,q) for p,q in array.ifrs()]);
+  vdm << Meq.VisDataMux(post=post,child_poll_order=cpo or None,*[sink(p,q) for p,q in array.ifrs()]);
   if spigots:
     if spigots is True:
       spigots = array.spigots();

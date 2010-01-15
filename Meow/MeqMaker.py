@@ -147,7 +147,9 @@ class MeqMaker (object):
     );
 
     other_opt += Meow.IfrArray.compile_options();
-    self._compile_options.append(TDLMenu("Measurement Equation options",*other_opt));
+    self._compile_options += [ TDLMenu("Measurement Equation options",*other_opt),TDLOptionSeparator("Image-plane components") ];
+    # will be True once a uv-plane module has been added
+    self._have_uvplane_modules = False;
 
   def compile_options (self):
     return self._compile_options;
@@ -167,6 +169,8 @@ class MeqMaker (object):
                 TDLOption("export_karma_label","Label format",
                           [None,"%N","%N I=%(I).3g","%N Ia=%(Iapp).3g"],more=str,namespace=self,
                           doc="This determines the format of source labels."+_annotation_label_doc),
+                TDLOption("export_karma_nlabel","Put labels on brightest N sources only",
+                          ["all",10,50],more=int,namespace=self),
                 TDLOption("export_karma_incremental","Export each N sources as a separate file",
                           ["all",10,50],more=int,namespace=self)
               ))
@@ -216,6 +220,16 @@ class MeqMaker (object):
       MeqMaker.JonesTerm.__init__(self,label,name,modules);
       self.pointing_modules = pointing_modules;
 
+  def _add_module_to_compile_options (self,option,is_uvplane):
+    if is_uvplane:
+      if not self._have_uvplane_modules:
+        self._have_uvplane_modules = True;
+        self._compile_options.append(TDLOptionSeparator("UV-plane components"));
+    else:
+      if self._have_uvplane_modules:
+        raise RuntimeError,"cannot add sky-plane terms after uv-plane terms";
+    self._compile_options.append(option);
+
   def _add_vpm_modules (self,label,name,is_uvplane,modules):
     if type(label) is types.ModuleType:
       modules = label;
@@ -228,15 +242,15 @@ class MeqMaker (object):
       raise RuntimeError,"No modules specified for %s"%name;
     if not isinstance(modules,(list,tuple)):
       modules = [ modules ];
-    # make option menus for selecting a visiblity processor
-    mainmenu = self._module_selector("Use %s"%name,label,modules);
-    self._compile_options.append(mainmenu);
     # Add to internal list
     term = self.VPMTerm(label,name,modules);
     if is_uvplane:
       self._uv_vpm_list.append(term);
     else:
       self._sky_jones_list.append(term);
+    # make option menus for selecting a visiblity processor
+    mainmenu = self._module_selector("Use %s"%name,label,modules);
+    self._add_module_to_compile_options(mainmenu,is_uvplane);
 
   def _add_jones_modules (self,label,name,modules,is_uvplane=True,pointing=None):
     # see if only a module is specified instead of the full label,name,modules
@@ -276,7 +290,7 @@ class MeqMaker (object):
     # make option menus for selecting a jones module
     mainmenu = self._module_selector("Use %s Jones (%s)"%(label,name),
                                      label,modules,extra_opts=extra_options);
-    self._compile_options.append(mainmenu);
+    self._add_module_to_compile_options(mainmenu,is_uvplane);
     # Add to internal list
     # each jones module set is represented by a list of:
     #   'label','full name',module_list,pointing_module_list,base_node
@@ -435,7 +449,7 @@ class MeqMaker (object):
     if self._source_list is None:
       modules = self._get_selected_modules('sky',self._sky_models);
       if not modules:
-        raise RuntimeError,"No source list supplied and no sky model set up";
+        return [];		
       self._source_list = [];
       for mod in modules:
         self._source_list += mod.source_list(ns);
@@ -631,14 +645,16 @@ class MeqMaker (object):
       #request = meq.request(cells,rqtype='ev')
       #mqs.execute('',request);
 
-  def make_predict_tree (self,ns,sources=None):
+  def make_predict_tree (self,ns,sources=None,uvdata=None,ifrs=None):
     """makes predict trees using the sky model and ME.
     'ns' is a node scope
     'sources' is a list of sources; the current sky model is used if None.
+    'uvdata' is a basenode for additional model uv-data (which should be qualified with a station pair). If supplied, it will be
+      added to the sky model, before applying any uv terms.
     Returns a base node which should be qualified with a station pair.
     """;
     stations = Meow.Context.array.stations();
-    ifrs = Meow.Context.array.ifrs();
+    ifrs = ifrs or Meow.Context.array.ifrs();
     # use sky model if no source list is supplied
     sources = sources or self.get_source_list(ns);
     if self.use_smearing:
@@ -719,7 +735,7 @@ class MeqMaker (object):
         else:
           dec_sky = ns.visibility('sky');
         Parallelization.add_visibilities(dec_sky,[ns.corrupt_vis(src) for src in dec_sources],ifrs);
-        if not sources:
+        if not sources and not uvdata:
           return self._apply_vpm_list(ns,dec_sky);
 
     # Now, proceed to build normal trees for non-decomposable sources.
@@ -732,25 +748,26 @@ class MeqMaker (object):
     solvable_skyjones = set();
 
     # apply all sky Jones terms
-    for jt in self._sky_jones_list:
-      Jj,solvable = self._get_jones_nodes(ns,jt,stations,sources=sources,solvable_sources=solvable_skyjones);
-      # if this Jones is enabled (Jj not None), corrupt each source
-      if Jj:
-        newlist = [];
-        # go through sourcs, and make new list of corrupted sources.
-        # note that not every source is necessarily corrupted
-        # print jt.label,solvable,len(solvable_skyjones);
-        for name,src in sourcelist:
-          jones = Jj(name);
-          # if Jones term is initialized, corrupt and append to corr_sources
-          # if not initialized, then append to uncorr_sources
-          if jones(stations[0]).initialized():
-            src = src.corrupt(jones);
-            if solvable:
-              solvable_skyjones.add(name);
-          newlist.append((name,src));
-        # update list
-        sourcelist = newlist;
+    if sourcelist:
+      for jt in self._sky_jones_list:
+        Jj,solvable = self._get_jones_nodes(ns,jt,stations,sources=sources,solvable_sources=solvable_skyjones);
+        # if this Jones is enabled (Jj not None), corrupt each source
+        if Jj:
+          newlist = [];
+          # go through sourcs, and make new list of corrupted sources.
+          # note that not every source is necessarily corrupted
+          # print jt.label,solvable,len(solvable_skyjones);
+          for name,src in sourcelist:
+            jones = Jj(name);
+            # if Jones term is initialized, corrupt and append to corr_sources
+            # if not initialized, then append to uncorr_sources
+            if jones(stations[0]).initialized():
+              src = src.corrupt(jones);
+              if solvable:
+                solvable_skyjones.add(name);
+            newlist.append((name,src));
+          # update list
+          sourcelist = newlist;
     # now make two separate lists of sources with solvable corruptions, and sources without
     corrupted_sources = [ src for name,src in sourcelist if name in solvable_skyjones ];
     uncorrupted_sources = [ src for name,src in sourcelist if name not in solvable_skyjones ];
@@ -763,12 +780,14 @@ class MeqMaker (object):
     else:
       sky_sources = corrupted_sources + uncorrupted_sources;
 
-    # now form up patch
-    if dec_sky:
-      patchname = 'sky2';
+    if uvdata:
+      sky_sources.append(Meow.KnownVisComponent(ns,'uvdata',uvdata));
+
+    # If >1 source, form up patch. Call it "sky1" if this is not the final output
+    if len(sky_sources) == 1:
+      allsky = sky_sources[0];
     else:
-      patchname = 'sky';
-    allsky = Meow.Patch(ns,patchname,Meow.Context.observation.phase_centre,components=sky_sources);
+      allsky = Meow.Patch(ns,'sky1' if dec_sky else 'sky',Meow.Context.observation.phase_centre,components=sky_sources);
 
     # add uv-plane effects
     for jt in self._uv_jones_list:
@@ -776,19 +795,23 @@ class MeqMaker (object):
       if Jj:
         allsky = allsky.corrupt(Jj);
 
-    # now, if we also have a contribution from decomposable sources, add it here
+    # form up list of visibility contributions
+    terms = [ allsky.visibilities() ];
     if dec_sky:
+      terms.append(dec_sky);
+
+    # add a Meq.Add node on top of that, if needed
+    if len(terms) > 1:
       vis = ns.visibility('sky');
-      vis2 = allsky.visibilities();
       for p,q in ifrs:
-        vis(p,q) << dec_sky(p,q) + vis2(p,q);
+        vis(p,q) << Meq.Add(*[term(p,q) for term in terms]);
     else:
-      vis = allsky.visibilities();
+      vis = terms[0];
 
     # now chain up any visibility processors
-    return self._apply_vpm_list(ns,vis);
+    return self._apply_vpm_list(ns,vis,ifrs=ifrs);
 
-  def _apply_vpm_list (self,ns,vis):
+  def _apply_vpm_list (self,ns,vis,ifrs=None):
     # chains up any visibility processors, and applies them to the visibilities.
     # Returns new visibilities.
     for vpm in self._uv_vpm_list:
@@ -797,14 +820,34 @@ class MeqMaker (object):
         inspectors = [];
         nodes = vis(vpm.label);
         if module.process_visibilities(nodes,vis,ns=getattr(ns,vpm.label).Subscope(),
-             tags=vpm.label,label=vpm.label,inspectors=inspectors) is not None:
+              ifrs=ifrs,
+              tags=vpm.label,label=vpm.label,inspectors=inspectors) is not None:
           # add inspectors to internal list
           for insp in inspectors:
             self._add_inspector(insp);
           vis = nodes;
     return vis;
 
-  make_tree = make_predict_tree; # alias for compatibility with older code
+  def make_tree (self,*args,**kw):
+    print "Your script uses the deprecated MeqMaker.make_tree() method. Please change it to use make_predict_tree()";
+    return self.make_predict_tree(*args,**kw); # alias for compatibility with older code
+
+  def corrupt_uv_data (self,ns,uvdata,ifrs=None,label="uvdata"):
+    """Corrupts the visibilities given by the 'uvdata' nodes by the current uv-Jones chain.
+    'label' is a label that will be applied to any intermediate visibilty nodes, default is
+    'uvdata'.
+    Returns an unqualified node that must be qualified with a station pair to get visibilities.
+    """;
+    stations = Meow.Context.array.stations();
+    ifrs = ifrs or Meow.Context.array.ifrs();
+    src = Meow.KnownVisComponent(ns,label,uvdata);
+    # apply all uv-Jones
+    for jt in self._uv_jones_list:
+      Jj,solvable = self._get_jones_nodes(ns,jt,stations);
+      if Jj:
+        src = src.corrupt(Jj);
+    # now chain up any visibility processors
+    return self._apply_vpm_list(ns,src.visibilities(),ifrs=ifrs);
 
   def correct_uv_data (self,ns,inputs,outputs=None,sky_correct=None,inspect_ifrs=None,flag_jones_minmax=None):
     """makes subtrees for correcting the uv data given by 'inputs'.
@@ -916,17 +959,26 @@ class MeqMaker (object):
     return outputs;
 
   def close (self):
+    """cleans up the MeqMaker""";
+    # export karma annotations if asked to
     if self.export_kvis and self._source_list and self.export_karma_filename:
+      # how many sources get labels
+      nlab = self.export_karma_nlabel;
+      if nlab == "all":
+        nlab = len(self._source_list);
+      # incremental mode -- split sources into multiple annotation files
       if self.export_karma_incremental and self.export_karma_incremental != "all":
         filename,ext = os.path.splitext(self.export_karma_filename);
         for i0 in range(0,len(self._source_list),self.export_karma_incremental):
           i1 = min(i0+self.export_karma_incremental,len(self._source_list));
           export_karma_annotations(self._source_list[i0:i1],
             filename="%s-%d-%d%s"%(filename,i0,i1-1,ext),
-            label_format=self.export_karma_label);
+            label_format=self.export_karma_label,maxlabels=nlab);
+          nlab = max(nlab-self.export_karma_incremental,0);
+      # normal mode -- all sources go into one file
       else:
         export_karma_annotations(self._source_list,
-            self.export_karma_filename,label_format=self.export_karma_label);
+            self.export_karma_filename,label_format=self.export_karma_label,maxlabels=nlab);
 
 class SourceSubsetSelector (object):
   def __init__ (self,title,tdloption_namespace=None,doc=None):
@@ -974,14 +1026,16 @@ class SourceSubsetSelector (object):
 def export_karma_annotations (sources,filename,
       label_format="%N",
       sym_color='yellow',
-      lbl_color='blue'):
+      lbl_color='blue',maxlabels=None):
   """Exports a list of sources as a Karma annotations file.
   label_format is used to generate source labels.\n"""+_annotation_label_doc;
+  if maxlabels is None:
+    maxlabels = len(sources);
   f = file(filename,'wt');
   f.write('COORD W\nPA STANDARD\nCOLOR GREEN\nFONT hershey12\n');
   # calculate default size for crosses
   xcross=0.01;
-  for src in sources:
+  for isrc,src in enumerate(sources):
     # can only plot static-position sources
     radec = src.direction.radec_static();
     if not radec:
@@ -1006,7 +1060,7 @@ def export_karma_annotations (sources,filename,
       f.write('CROSS %.12f %.12f %f %f\n'%(ra_d,dec_d,xcross,xcross));
     # now generate label
     label = src.get_attr('ANNOTATION_LABEL',label_format);
-    if label:
+    if label and isrc < maxlabels:
       attrs = dict(src.attrs);
       # populate attribute dict
       attrs['%'] = '%';

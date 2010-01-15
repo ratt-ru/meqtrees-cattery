@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -174,7 +175,8 @@ class PointSource(SkyComponent):
     cohnode = lambda p,q: self.coherency(observation);
     # use direction's phase shift method
     self.direction.make_phase_shift(nodes,cohnode,array,observation.phase_center,smearing=self.smearing);
-   
+    return nodes;
+
   def is_station_decomposable (self):
     """Check the type -- subclasses are not necessarily decomposable.""";
     return type(self) == PointSource;

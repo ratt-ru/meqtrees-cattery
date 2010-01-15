@@ -32,6 +32,17 @@ import math
 import Meow
 from Meow import ParmGroup,Bookmarks,StdTrees
 
+# This defines some ifr subsets that are commonly used for WSRT data,
+# to be offered as defaults in the GUI whereverifrs are selected.
+STD_IFR_SUBSETS = [
+    "-45 -56 -67",
+    "-45 -56 -67 -9A -AB -CD",
+    "-45 -46 -56 -67 -68 -9A -AB -CD",
+    "FM",
+    "FM -9A -9B",
+];
+
+TDLCompileOptionSeparator("MS selection");
 # MS options first
 mssel = Meow.Context.mssel = Meow.MSUtils.MSSelector(has_input=True,tile_sizes=None,
                   read_flags=True,write_flags=True,
@@ -41,41 +52,53 @@ TDLCompileOptions(*mssel.compile_options());
 TDLCompileOption("run_purr","Start Purr on this MS",True);
 # MS run-time options
 TDLRuntimeMenu("Data selection & flag handling",*mssel.runtime_options());
-## also possible:
 
-# setup output mode menu
-CAL = record(VIS="visibilities",AMPL="amplitudes",LOGAMPL="log-amplitudes",PHASE="phases");
-cal_options = [
-     TDLOption('cal_type',"Calibrate on",[CAL.VIS,CAL.AMPL,CAL.LOGAMPL,CAL.PHASE]),
-];
+TDLCompileOptionSeparator("Processing options");
+
+# setup calibration mode menu
+# some string constants for the menu entries
+CAL = record(VIS="visibilities",AMPL="amplitudes",LOGAMPL="log-amplitudes",PHASE="phases",
+  DATA = "data vs. M.E.",
+  DIFF = "(data - uv model) vs. M.E."
+);
+cal_type_opt = TDLOption('cal_type',"Equation type",[CAL.DATA,CAL.DIFF]);
+cal_what_opt = TDLOption('cal_what',"Calibrate on",[CAL.VIS,CAL.AMPL,CAL.LOGAMPL,CAL.PHASE]);
+ 
+cal_options = [ cal_type_opt,cal_what_opt ];
+
 # if table access is available, add baseline selection options
 if Meow.MSUtils.TABLE:
-  cal_options += [
-    TDLOption('min_baseline',"Ignore baselines shorter than or equal to (m)",[None,72,144],more=int),
-    TDLOption('max_baseline',"Ignore baselines longer than or equal to  (m)",[None],more=int)
-];
+  calib_ifrs_opt =  TDLOption('calibrate_ifrs',"...using interferometers",
+    ["all"]+STD_IFR_SUBSETS,more=str,doc=Meow.IfrArray.ifr_spec_syntax);
+  cal_options.append(calib_ifrs_opt);
+  mssel.when_changed(lambda msname:calib_ifrs_opt.set_option_list(mssel.ms_ifr_subsets));
 
-cal_toggle = TDLMenu("Calibrate",
-     toggle='do_solve',open=True,doc="""Select this to include calibration options in your tree.""",
+read_ms_model_opt = TDLCompileOption("read_ms_model","Read uv-model visibilities from MS",False);
+read_ms_model_opt.when_changed(cal_type_opt.show);
+
+cal_toggle = TDLCompileMenu("Calibrate (fit corrupted model to data)",
+     toggle='do_solve',open=True,doc="""Select this to include calibration in your tree.""",
      *cal_options
   );
-flag_toggle =  TDLMenu("...and flag out-of-bounds Jones terms",toggle='do_correct_flag',doc="""If selected,
-      your tree will flag visiblity points where the calibrated value of a Jones term is above or below a threshold.""",
+
+CORRECTED_DATA = "corrected data";
+RESIDUALS = "uncorrected residuals";
+CORRECTED_RESIDUALS = "corrected residuals";
+MODEL = "sky model";
+CORRUPTED_MODEL = "corrupted model";
+
+output_option = TDLCompileOption('do_output',"Output visibilities",[CORRECTED_DATA,RESIDUALS,CORRECTED_RESIDUALS,CORRUPTED_MODEL]);
+flag_options = TDLCompileMenu("Flag out-of-bounds Jones terms",toggle='do_correct_flag',doc="""If selected,
+      your tree will flag visiblity points where the norm of a Jones term is above or below a threshold.""",
     *(
             TDLOption('correct_flag_jmax',"Flag if |J|>",[None,10,100],more=float),
             TDLOption('correct_flag_jmin',"Flag if |J|<",[None,.1,.01],more=float)
     ));
 
-
-TDLCompileMenu("What do we want to do",
-  cal_toggle,
-  TDLOption('do_subtract',"Subtract sky model and generate residuals",True),
-  TDLMenu("Correct the data or residuals",toggle='do_correct',open=True,
-    *(flag_toggle,)
-  )
-);
 do_correct_sky = False;
-# TDLOption('do_correct_sky',"...include sky-Jones correction for first source in model",True));
+# correct_sky_options = TDLCompileOption('do_correct_sky',"...include sky-Jones correction for first source in model",False));
+# output_option.when_changed(lambda output:correct_sky_options.show(output in [CORRECTED_RESIDUALS,CORRECTED_DATA]));
+output_option.when_changed(lambda output:flag_options.show(output in [CORRECTED_RESIDUALS,CORRECTED_DATA]));
 
 # now load optional modules for the ME maker
 from Meow import MeqMaker
@@ -85,7 +108,7 @@ meqmaker = MeqMaker.MeqMaker(solvable=True,
                             use_decomposition=False
 );
 
-flag_toggle.when_changed(mssel.enable_write_flags);
+flag_options.when_changed(mssel.enable_write_flags);
 
 # specify available sky models
 # these will show up in the menu automatically
@@ -107,8 +130,9 @@ meqmaker.add_sky_jones('E','primary beam',[wsrt_beams],
   pointing=solvable_pointing_errors);
 # then add differential gains
 from Calico.OMS import solvable_sky_jones
-meqmaker.add_sky_jones('dE','differential gains',[
-    solvable_sky_jones.FullRealImag('dE')]);
+meqmaker.add_sky_jones('dE','differential gains',
+  [ solvable_sky_jones.DiagRealImag('dE'),
+    solvable_sky_jones.FullRealImag('dE') ]);
 
 # P - feed angle
 from Siamese.OMS import feed_angle
@@ -117,15 +141,17 @@ meqmaker.add_uv_jones('P','feed orientation',[feed_angle]);
 # B - bandpass, G - gain
 from Calico.OMS import solvable_jones
 meqmaker.add_uv_jones('B','bandpass',
-  [ solvable_jones.DiagAmplPhase(),
-    solvable_jones.FullRealImag() ]);
+  [ solvable_jones.DiagRealImag("B"),
+    solvable_jones.FullRealImag("B"),
+    solvable_jones.DiagAmplPhase("B") ]);
 meqmaker.add_uv_jones('G','receiver gains/phases',
-  [ solvable_jones.DiagAmplPhase(),
-    solvable_jones.FullRealImag() ]);
+  [ solvable_jones.DiagRealImag("G"),
+    solvable_jones.FullRealImag("G"),
+    solvable_jones.DiagAmplPhase("G") ]);
 
 from Calico.OMS import ifr_based_errors
-meqmaker.add_vis_proc_module('IG','interferometer gains',[ifr_based_errors.IfrGains()]);
-meqmaker.add_vis_proc_module('IC','interferometer biases',[ifr_based_errors.IfrBiases()]);
+meqmaker.add_vis_proc_module('IG','multiplicative IFR errors',[ifr_based_errors.IfrGains()]);
+meqmaker.add_vis_proc_module('IC','additive IFR errors',[ifr_based_errors.IfrBiases()]);
 
 # very important -- insert meqmaker's options properly
 TDLCompileOptions(*meqmaker.compile_options());
@@ -141,46 +167,50 @@ def _define_forest(ns,parent=None,**kw):
   global purrpipe;
   purrpipe = Purr.Pipe.Pipe(mssel.msname);
 
-  # get antennas from MS
-  ANTENNAS = mssel.get_antenna_set(range(1,15));
-  array = Meow.IfrArray(ns,ANTENNAS,mirror_uvw=False);
-  stas = array.stations();
-  # get phase centre from MS, setup observation
-  observation = Meow.Observation(ns,phase_centre=mssel.get_phase_dir(),
-          linear=mssel.is_linear_pol(),
-          circular=mssel.is_circular_pol());
-  Meow.Context.set(array,observation);
-  # get active correlations from MS
-  Meow.Context.active_correlations = mssel.get_correlations();
+  # setup contexts from MS
+  mssel.setup_observation_context(ns);
+  array = Meow.Context.array;
 
-  # make spigot nodes
-  spigots = spigots0 = outputs = array.spigots(corr=mssel.get_corr_index());
+  # all inspector nodes will be added to this list
+  inspectors = [];
+  # make spigot nodes for data
+  if do_solve or do_output not in [MODEL,CORRUPTED_MODEL]:
+    mssel.enable_input_column(True);
+    spigots = spigots0 = outputs = array.spigots(corr=mssel.get_corr_index());
 
-  # ...and an inspector for them
-  StdTrees.vis_inspector(ns.inspector('input'),spigots,
-                              bookmark="Inspect input visibilities");
-  inspectors = [ ns.inspector('input') ];
-  Bookmarks.make_node_folder("Input visibilities by baseline",
-    [ spigots(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
+    # ...and an inspector for them
+    StdTrees.vis_inspector(ns.inspector('data'),spigots,
+                                bookmark="Inspect data visibilities");
+    inspectors += [ ns.inspector('data') ];
+    Bookmarks.make_node_folder("Data visibilities by baseline",
+      [ spigots(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
+  else:
+    mssel.enable_input_column(False);
+    spigots = spigots0 = None;
+
+  # make spigot nodes for model
+  corrupt_uvdata = model_spigots = None;
+  if read_ms_model:
+    mssel.enable_model_column(True);
+    model_spigots = array.spigots(column="PREDICT",corr=mssel.get_corr_index());
+    # ...and an inspector for them
+    StdTrees.vis_inspector(ns.inspector('model'),model_spigots,
+                                bookmark="Inspect model visibilities");
+    inspectors += [ ns.inspector('model') ];
+    Bookmarks.make_node_folder("Model visibilities by baseline",
+      [ model_spigots(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
+    # if calibrating on (input-corrupt model), make corrupt model
+    if do_solve and cal_type == CAL.DIFF:
+      corrupt_uvdata = meqmaker.corrupt_uv_data(ns,model_spigots);
 
   inspect_ifrs = array.ifrs();
-  if do_solve:
-    # filter solvable baselines by baseline length
-    solve_ifrs = [];
-    antpos = mssel.ms_antenna_positions;
-    if (min_baseline or max_baseline) and antpos is not None:
-      for (ip,p),(iq,q) in array.ifr_index():
-        baseline = math.sqrt(((antpos[ip,:]-antpos[iq,:])**2).sum());
-        if (not min_baseline or baseline > min_baseline) and \
-           (not max_baseline or baseline < max_baseline):
-          solve_ifrs.append((p,q));
+  # if needed, then make a predict tree using the MeqMaker
+  if do_solve or do_output != CORRECTED_DATA:
+    if model_spigots and not corrupt_uvdata:
+      uvdata = model_spigots;
     else:
-      solve_ifrs = array.ifrs();
-    inspect_ifrs = solve_ifrs;
-
-  # make a predict tree using the MeqMaker
-  if do_solve or do_subtract:
-    predict = meqmaker.make_tree(ns);
+      uvdata = None;
+    predict = meqmaker.make_predict_tree(ns,uvdata=uvdata);
     # make a ParmGroup and solve jobs for source parameters, if we have any
     if do_solve:
       parms = {};
@@ -192,55 +222,74 @@ def _define_forest(ns,parent=None,**kw):
                     individual=True,bookmark=True);
         # now make a solvejobs for the source
         ParmGroup.SolveJob("cal_source","Calibrate source model",pg_src);
+  else:
+    predict = None;
 
   # make nodes to compute residuals
-  if do_subtract:
+  if do_output in [CORRECTED_RESIDUALS,RESIDUALS]:
     residuals = ns.residuals;
     for p,q in array.ifrs():
-      residuals(p,q) << spigots(p,q) - predict(p,q);
+      if corrupt_uvdata:
+        residuals(p,q) << Meq.Subtract(spigots(p,q),corrupt_uvdata(p,q),predict(p,q));
+      else:
+        residuals(p,q) << spigots(p,q) - predict(p,q);
     outputs = residuals;
 
   # and now we may need to correct the outputs
-  if do_correct:
+  if do_output in [CORRECTED_DATA,CORRECTED_RESIDUALS]:
     if do_correct_sky:
       srcs = meqmaker.get_source_list(ns);
       sky_correct = srcs and srcs[0];
     else:
       sky_correct = None;
+    global do_correct_flag;
+    if do_correct_flag and correct_flag_jmin is None and correct_flag_jmax is None:
+      do_correct_flag = False;
     outputs = meqmaker.correct_uv_data(ns,outputs,sky_correct=sky_correct,
                                       flag_jones_minmax=do_correct_flag and (correct_flag_jmin,correct_flag_jmax),
                                       inspect_ifrs=inspect_ifrs);
+  elif do_output == CORRUPTED_MODEL:
+    outputs = predict;
 
   # make solve trees
   if do_solve:
+    # parse ifr specification
+    solve_ifrs  = array.subset(calibrate_ifrs,strict=False).ifrs();
+    if not solve_ifrs:
+      raise RuntimeError,"No interferometers selected for calibration. Check your ifr specification under calibration options.";
     # inputs to the solver are based on calibration type
-    # if calibrating visibilities, feed them to condeq directly
-    if cal_type == CAL.VIS:
-      observed = spigots;
-      model    = predict;
-    # else take ampl/phase component
+    if corrupt_uvdata:
+      [ ns.diff(p,q) << spigots(p,q) - corrupt_uvdata(p,q) for p,q in solve_ifrs ];
+      rhs = ns.diff;
     else:
-      model = ns.model;
-      observed = ns.observed;
-      if cal_type == CAL.AMPL:
-        for p,q in array.ifrs():
-          observed(p,q) << Meq.Abs(spigots(p,q));
-          model(p,q)  << Meq.Abs(predict(p,q));
-      elif cal_type == CAL.LOGAMPL:
-        for p,q in array.ifrs():
-          observed(p,q) << Meq.Log(Meq.Abs(spigots(p,q)));
-          model(p,q)  << Meq.Log(Meq.Abs(predict(p,q)));
-      elif cal_type == CAL.PHASE:
-        for p,q in array.ifrs():
-          observed(p,q) << 0;
-          model(p,q)  << Meq.Abs(predict(p,q))*Meq.FMod(Meq.Arg(spigots(p,q))-Meq.Arg(predict(p,q)),2*math.pi);
-      else:
-        raise ValueError,"unknown cal_type setting: "+str(cal_type);
+      rhs = spigots;
+    lhs = predict;
+    weights = modulo = None;
+    # if calibrating visibilities, feed them to condeq directly, else take ampl/phase
+    if cal_what == CAL.VIS:
+      pass;
+    elif cal_what == CAL.AMPL:
+      [ x('ampl',p,q) << Meq.Abs(x(p,q)) for p,q in ifrs for x in rhs,lhs ];
+      lhs = lhs('ampl');
+      rhs = rhs('ampl');
+    elif cal_what == CAL.LOGAMPL:
+      [ x('logampl',p,q) << Meq.Log(Meq.Abs(x(p,q))) for p,q in ifrs for x in rhs,lhs ];
+      lhs = lhs('logampl');
+      rhs = rhs('logampl');
+    elif cal_what == CAL.PHASE:
+      [ x('phase',p,q) << Meq.Arg(x(p,q)) for p,q in ifrs for x in rhs,lhs ];
+      [ rhs('ampl',p,q) << Meq.Abs(rhs(p,q)) for p,q in ifrs  ];
+      lhs = lhs('phase');
+      rhs = rhs('phase');
+      weights = rhs('ampl');
+      modulo = 2*math.pi;
+    else:
+      raise ValueError,"unknown cal_what setting: "+str(cal_what);
     # make a solve tree
-    solve_tree = StdTrees.SolveTree(ns,model,solve_ifrs=solve_ifrs);
+    solve_tree = StdTrees.SolveTree(ns,lhs,solve_ifrs=solve_ifrs,weights=weights,modulo=modulo);
     # the output of the sequencer is either the residuals or the spigots,
     # according to what has been set above
-    outputs = solve_tree.sequencers(inputs=observed,outputs=outputs);
+    outputs = solve_tree.sequencers(inputs=rhs,outputs=outputs);
 
   # make sinks and vdm.
   # The list of inspectors must be supplied here
@@ -250,14 +299,8 @@ def _define_forest(ns,parent=None,**kw):
     [ outputs(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
 
   if not do_solve:
-    if do_subtract:
-      name = "Generate residuals";
-      comment = "Generated residual visibilities.";
-    elif do_correct:
-      name = "Generate corrected data";
-      comment = "Generated corrected visibilities.";
-    else:
-      name = None;
+    name = "Generate "+do_output;
+    comment = "Generated "+do_output;
     if name:
       # make a TDL job to run the tree
       def run_tree (mqs,parent,wait=False,**kw):
