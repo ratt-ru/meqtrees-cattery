@@ -106,11 +106,11 @@ meqmaker.add_uv_jones('P','feed orientation',[feed_angle]);
 # B - bandpass, G - gain
 from Calico.OMS import solvable_jones
 meqmaker.add_uv_jones('B','bandpass',
-  [ solvable_jones.DiagAmplPhase(),
-    solvable_jones.FullRealImag() ]);
+  [ solvable_jones.DiagAmplPhase("B"),
+    solvable_jones.FullRealImag("B") ]);
 meqmaker.add_uv_jones('G','receiver gains/phases',
-  [ solvable_jones.DiagAmplPhase(),
-    solvable_jones.FullRealImag() ]);
+  [ solvable_jones.DiagAmplPhase("G"),
+    solvable_jones.FullRealImag("G") ]);
 
 from Calico.OMS import ifr_based_errors
 meqmaker.add_vis_proc_module('IG','interferometer gains',[ifr_based_errors.IfrGains()]);

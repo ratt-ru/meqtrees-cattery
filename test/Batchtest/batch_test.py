@@ -79,7 +79,7 @@ if __name__ == '__main__':
     verify_image('WSRT.MS.CORRECTED_DATA.channel.1ch.fits','test-refresidual.fits',maxdelta=1e-3);
 
     ## all tests succeeded
-    print "========== The hog is airborne!";
+    print "========== Break out the bubbly, this hog is airborne!";
 
   finally:
     print "Stopping meqserver";
