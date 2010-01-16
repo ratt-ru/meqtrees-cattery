@@ -104,7 +104,7 @@ class SolveTree (ResidualTree):
         children[0].initrec().cache_num_active_parents = 1;
         if self._weights:
           children.append(self._weights(p,q));
-        self.ns.ce(p,q) << Meq.Condeq(*children,modulo=self._modulo);
+        self.ns.ce(p,q) << Meq.Condeq(children=children,modulo=self._modulo);
       # create optimal poll order for condeqs, for efficient parallelization
       # (i.e. poll child 1:2, 3:4, 5:6, ..., 13:14 then the rest)
       # however, since _solve_ifrs may be a subset, we'll have to be a bit more clever
