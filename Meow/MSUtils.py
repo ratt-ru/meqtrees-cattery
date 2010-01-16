@@ -1269,7 +1269,8 @@ class ImagingSelector (object):
       subset = self.mssel.ms_ifrset.subset(self.imaging_ifrs,strict=False).ifr_index();
       taql = "||".join(["(ANTENNA1==%d&&ANTENNA2==%d)"%(ip,iq) for (ip,p),(iq,q) in subset ]);
       taqls.append("(%s)"%taql);
-    args.append("select=(%s)"%"&&".join(taqls));
+    if taqls:
+      args.append("select=(%s)"%"&&".join(taqls));
     # figure out an output FITS filename
     if self.output_fitsname == "default":
       basename = self.mssel.msname;
