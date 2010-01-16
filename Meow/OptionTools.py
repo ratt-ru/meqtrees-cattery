@@ -84,7 +84,7 @@ class ListOptionParser (object):
         oper = subset.update;
       # standard terms
       if spec.upper() == "ALL":
-        oper(range(maxval or 0));
+        oper(range((maxval or 0)+1));
         continue;
       # single number
       match = re.match("^\d+$",spec);
