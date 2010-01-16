@@ -927,7 +927,7 @@ class MeqMaker (object):
       for p in stations:
         jj = Jprod(p) << Meq.MatrixMultiply(*correction_chains[p]);
         if flag_jones_minmax:
-          jj = StdTrees.make_jones_norm_flagger(jj,*flag_jones_minmax,flagmask=MSUtils.FLAGMASK_OUTPUT);
+          jj = StdTrees.make_jones_norm_flagger(jj,flag_jones_minmax[0],flag_jones_minmax[1],flagmask=MSUtils.FLAGMASK_OUTPUT);
         Jinv(p) << Meq.MatrixInvert22(jj);
         if p != stations[0]:
           Jtinv(p) << Meq.ConjTranspose(Jinv(p));
@@ -935,7 +935,7 @@ class MeqMaker (object):
       for p in stations:
         jj = correction_chains[p][0];
         if flag_jones_minmax:
-          jj = StdTrees.make_jones_norm_flagger(jj,*flag_jones_minmax,flagmask=MSUtils.FLAGMASK_OUTPUT);
+          jj = StdTrees.make_jones_norm_flagger(jj,flag_jones_minmax[0],flag_jones_minmax[1],flagmask=MSUtils.FLAGMASK_OUTPUT);
         Jinv(p) << Meq.MatrixInvert22(jj);
         if p != stations[0]:
           Jtinv(p) << Meq.ConjTranspose(Jinv(p));
