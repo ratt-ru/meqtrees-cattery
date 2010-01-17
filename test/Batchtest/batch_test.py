@@ -12,9 +12,12 @@ def run (*commands):
 
 def verify_image (file1,file2,maxdelta=1e-6):
   import pyfits
-  im1 = pyfits.open(file1);
-  im2 = pyfits.open(file2);
-  delta = abs(im1[0].data - im2[0].data).max();
+  im1 = pyfits.open(file1)[0].data;
+  im2 = pyfits.open(file2)[0].data;
+  # trim corners, as these may have differences due to modifications of the tapering scheme
+  im1 = im1[...,20:-20,20:-20];
+  im2 = im2[...,20:-20,20:-20];
+  delta = abs(im1-im2).max();
   if delta > maxdelta:
     raise RuntimeError,"%s and %s differ by %g"%(file1,file2,delta);
   print "%s and %s differ by %g, this is within tolerance"%(file1,file2,delta);
@@ -52,7 +55,7 @@ if __name__ == '__main__':
 
     ## compare against reference image
     print "========== Verifying test image ";
-    verify_image('WSRT.MS.MODEL_DATA.channel.1ch.fits','test-refimage.fits');
+    verify_image('WSRT.MS.MODEL_DATA.channel.1ch.fits','test-refimage.fits',maxdelta=1e-3);
 
     print "========== Compiling script with modified config";
     TDLOptions.init_options("simulate-model",save=False);
