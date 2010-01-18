@@ -58,36 +58,91 @@ TDLCompileOptionSeparator("Processing options");
 # setup calibration mode menu
 # some string constants for the menu entries
 CAL = record(VIS="visibilities",AMPL="amplitudes",LOGAMPL="log-amplitudes",PHASE="phases",
-  DATA = "data vs. M.E.",
-  DIFF = "(data - uv model) vs. M.E."
+  DATA = "data vs. predict",
+  DIFF = "(data - uv model) vs. predict"
 );
-cal_type_opt = TDLOption('cal_type',"Equation type",[CAL.DATA,CAL.DIFF]);
-cal_what_opt = TDLOption('cal_what',"Calibrate on",[CAL.VIS,CAL.AMPL,CAL.LOGAMPL,CAL.PHASE]);
+cal_type_opt = TDLOption('cal_type',"Equation type",[CAL.DATA,CAL.DIFF],
+  doc="""<P>This determines how the calibration equations are structured. The first setting is
+  for normal calibration (data is compared to a predict:)</P>
+
+  <P align="center">corrupt(sky_model + uv_model) &rarr; data</P>
+
+  <P>The second setting is used if your uv-model column is already corrupted:</P>
+
+  <P align="center">corrupt(sky_model) &rarr; data - uv_model</P>
+  """
+);
+cal_what_opt = TDLOption('cal_what',"Calibrate on",[CAL.VIS,CAL.AMPL,CAL.LOGAMPL,CAL.PHASE],doc="""
+  <P>Select "visibilities" to directly fit a complex model to complex data. Other options
+will only fit complex amplitudes or phases, don't use these unless you know what you're doing.</P>
+""");
  
 cal_options = [ cal_type_opt,cal_what_opt ];
 
 # if table access is available, add baseline selection options
 if Meow.MSUtils.TABLE:
   calib_ifrs_opt =  TDLOption('calibrate_ifrs',"...using interferometers",
-    ["all"]+STD_IFR_SUBSETS,more=str,doc=Meow.IfrArray.ifr_spec_syntax);
+    ["all"]+STD_IFR_SUBSETS,more=str,doc="""<P>
+      You can restrict calibration to a subset of interferometers. Note that this selection
+      applies on top of (not instead of) the global interferometer selection specified above.
+      """+Meow.IfrArray.ifr_spec_syntax);
   cal_options.append(calib_ifrs_opt);
   mssel.when_changed(lambda msname:calib_ifrs_opt.set_option_list(mssel.ms_ifr_subsets));
 
-read_ms_model_opt = TDLCompileOption("read_ms_model","Read uv-model visibilities from MS",False);
+read_ms_model_opt = TDLCompileOption("read_ms_model","Read additional uv-model visibilities from MS",False,doc="""
+  <P>If enabled, then an extra set of <i>model</i> visibilities will be read from a second column
+  of the MS (in addition to the input data.) These can either be added to whatever is predicted by the 
+  sky model <i>in the uv-plane</i> (i.e. subject to uv-Jones but not sky-Jones corruptions), or directly 
+  subtracted from the input data. See also the "Equation type" option below.
+  
+  <P>If you are repeatedly running a large sky model, and are not solving for any image-plane effects, then this
+  feature lets you compute your sky model (or a part of it) just once, save the result to the uv-model column, 
+  and reuse it in subsequent steps. This can save a lot of processing time.</P>
+  """);
 read_ms_model_opt.when_changed(cal_type_opt.show);
 
 cal_toggle = TDLCompileMenu("Calibrate (fit corrupted model to data)",
-     toggle='do_solve',open=True,doc="""Select this to include calibration in your tree.""",
-     *cal_options
+     toggle='do_solve',open=True,doc="""<P>Select this to include a calibration step in your tree. Calibration
+  involves comparing predicted visibilities to input data, and iteratively adjusting the sky and/or
+  instrumental model for the best fit.
+  </P> 
+  """,*cal_options
   );
 
 CORRECTED_DATA = "corrected data";
 RESIDUALS = "uncorrected residuals";
 CORRECTED_RESIDUALS = "corrected residuals";
-MODEL = "sky model";
-CORRUPTED_MODEL = "corrupted model";
+CORRUPTED_MODEL = "predict";
+CORRUPTED_MODEL_ADD = "data+predict";
 
-output_option = TDLCompileOption('do_output',"Output visibilities",[CORRECTED_DATA,RESIDUALS,CORRECTED_RESIDUALS,CORRUPTED_MODEL]);
+output_option = TDLCompileOption('do_output',"Output visibilities",[CORRECTED_DATA,RESIDUALS,CORRECTED_RESIDUALS,
+  CORRUPTED_MODEL,CORRUPTED_MODEL_ADD],doc="""<P>This selects what sort of visibilities get
+  written to the output column:</P>
+  <ul>
+
+  <li><B>Predict</B> refer to the visibilities given by the sky model (plus an optional uv-model column), 
+  corrupted by the current instrumental modelm using the Measurement Equation specified below.</li>
+
+  <li><B>Corrected data</B> is the input data corrected for the instrumental model (by applying the inverse of the 
+  M.E.)</li>
+
+  <li><B>Residuals</B> refer to input data minus predict. This corresponds to whatever signal is left in your data 
+  that is <b>not</b> represented by the model, and still subject to instrumental corruptions.</li>
+
+  <li><B>Corrected residuals</B> are residuals corrected for the instrumental model. This is what you usually
+  want to see during calibration.</li>
+
+  <li><B>Data+predict</B> is a special mode where the predict is <i>added</I> to the input data. This is used 
+  for injecting synthetic sources into your data, or for accumulating a uv-model in several steps. (In 
+  the latter case your input column need to be set to the uv-model column.)</li>
+  </ul>
+
+  </P>If calibration is enabled above, then a calibration step is executed prior to generating output data. This 
+  will update the instrumental and/or sky models. If calibration is not enabled, then the current models
+  may still be determined by the results of past calibration, since these are stored in persistent <i>MEP 
+  tables.</i></P>
+
+  """);
 flag_options = TDLCompileMenu("Flag out-of-bounds Jones terms",toggle='do_correct_flag',doc="""If selected,
       your tree will flag visiblity points where the norm of a Jones term is above or below a threshold.""",
     *(
@@ -113,11 +168,11 @@ flag_options.when_changed(mssel.enable_write_flags);
 # specify available sky models
 # these will show up in the menu automatically
 from Calico.OMS import central_point_source
-from Siamese.OMS import fitsimage_sky
+from Siamese.OMS import fitsimage_sky,gridded_sky
 import Meow.LSM
 lsm = Meow.LSM.MeowLSM(include_options=False);
 
-meqmaker.add_sky_models([lsm,central_point_source,fitsimage_sky]);
+meqmaker.add_sky_models([lsm,central_point_source,fitsimage_sky,gridded_sky]);
 
 # now add optional Jones terms
 # these will show up in the menu automatically
@@ -174,7 +229,7 @@ def _define_forest(ns,parent=None,**kw):
   # all inspector nodes will be added to this list
   inspectors = [];
   # make spigot nodes for data
-  if do_solve or do_output not in [MODEL,CORRUPTED_MODEL]:
+  if do_solve or do_output not in [CORRUPTED_MODEL]:
     mssel.enable_input_column(True);
     spigots = spigots0 = outputs = array.spigots(corr=mssel.get_corr_index());
 
@@ -250,6 +305,10 @@ def _define_forest(ns,parent=None,**kw):
                                       inspect_ifrs=inspect_ifrs);
   elif do_output == CORRUPTED_MODEL:
     outputs = predict;
+  elif do_output == CORRUPTED_MODEL_ADD:
+    outputs = ns.output;
+    for p,q in array.ifrs():
+      outputs(p,q) << spigots(p,q) + predict(p,q);
 
   # make solve trees
   if do_solve:
