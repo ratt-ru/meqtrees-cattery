@@ -2,6 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import os
+import os.path
+import sys
+
+dir0 = os.getcwd();
+
+def path (filename):
+  return os.path.join(dir0,filename);
 
 def run (*commands):
   cmd = " ".join(commands);
@@ -23,12 +30,24 @@ def verify_image (file1,file2,maxdelta=1e-6):
   print "%s and %s differ by %g, this is within tolerance"%(file1,file2,delta);
 
 if __name__ == '__main__':
+  if len(sys.argv) > 1:
+    newdir = sys.argv[-1];
+    print "========== Changing working directory to",newdir;
+    os.chdir(newdir);
+    print "========== Making required symlinks";
+    run("rm WSRT_ANTENNA ; ln -s %s"%path("WSRT_ANTENNA"));
+    run("rm test-lsm.txt; ln -s %s"%path("test-lsm.txt"));
+
+  if not os.access(".",os.R_OK|os.W_OK):
+    print "Directory",os.getcwd(),"not writable, can't run tests in here."
+    print "You may choose to run the tests in a different directory by giving it as an argument to this script."
+    sys.exit(1);
 
   ## make simulated MS
   print "========== Removing files";
   run("rm -fr WSRT.MS* WSRT*img WSRT*fits");
   print "========== Running makems";
-  run("makems WSRT_makems.cfg");
+  run("makems %s"%path("WSRT_makems.cfg"));
   run("mv WSRT.MS_p0 WSRT.MS");
   run("ls WSRT.MS");
   run("lwimager ms=WSRT.MS data=CORRECTED_DATA mode=channel weight=natural npix=10");
@@ -44,9 +63,9 @@ if __name__ == '__main__':
 
   try:
     ## make simulation with perfect MODEL_DATA
-    script = "testing-sim.py";
+    script = path("testing-sim.py");
     print "========== Compiling",script;
-    TDLOptions.config.read("testing.tdl.conf");
+    TDLOptions.config.read(path("testing.tdl.conf"));
     mod,ns,msg = Compile.compile_file(mqs,script,config="simulate-model");
     print "========== Simulating MODEL_DATA ";
     mod._tdl_job_1_simulate_MS(mqs,None,wait=True);
@@ -55,7 +74,7 @@ if __name__ == '__main__':
 
     ## compare against reference image
     print "========== Verifying test image ";
-    verify_image('WSRT.MS.MODEL_DATA.channel.1ch.fits','test-refimage.fits',maxdelta=1e-3);
+    verify_image('WSRT.MS.MODEL_DATA.channel.1ch.fits',path('test-refimage.fits'),maxdelta=1e-3);
 
     print "========== Compiling script with modified config";
     TDLOptions.init_options("simulate-model",save=False);
@@ -69,7 +88,7 @@ if __name__ == '__main__':
     TDLOptions.get_job_func('Make a dirty image')(mqs,None,wait=True,run_viewer=False);
 
     ## calibrate
-    script = "testing-cal.py";
+    script = path("testing-cal.py");
     print "========== Compiling",script;
     mod,ns,msg = Compile.compile_file(mqs,script,config="calibrate");
     print "========== Calibrating ";
@@ -79,7 +98,7 @@ if __name__ == '__main__':
 
     ## compare against reference image
     print "========== Verifying residual image ";
-    verify_image('WSRT.MS.CORRECTED_DATA.channel.1ch.fits','test-refresidual.fits',maxdelta=1e-3);
+    verify_image('WSRT.MS.CORRECTED_DATA.channel.1ch.fits',path('test-refresidual.fits'),maxdelta=1e-3);
 
     ## all tests succeeded
     print "========== Break out the bubbly, this hog is airborne!";
