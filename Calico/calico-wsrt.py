@@ -33,7 +33,7 @@ import Meow
 from Meow import ParmGroup,Bookmarks,StdTrees
 
 # This defines some ifr subsets that are commonly used for WSRT data,
-# to be offered as defaults in the GUI whereverifrs are selected.
+# to be offered as defaults in the GUI wherever ifrs are selected.
 STD_IFR_SUBSETS = [
     "-45 -56 -67",
     "-45 -56 -67 -9A -AB -CD",
@@ -57,11 +57,11 @@ TDLCompileOptionSeparator("Processing options");
 
 # setup calibration mode menu
 # some string constants for the menu entries
-CAL = record(VIS="visibilities",AMPL="amplitudes",LOGAMPL="log-amplitudes",PHASE="phases",
-  DATA = "data vs. predict",
-  DIFF = "(data - uv model) vs. predict"
-);
-cal_type_opt = TDLOption('cal_type',"Equation type",[CAL.DATA,CAL.DIFF],
+CAL = record(VIS="VIS",AMPL="AMPL",LOGAMPL="LOGAMPL",PHASE="PHASE",DATA="DATA",DIFF="DIFF");
+
+cal_type_opt = TDLOption('cal_type',"Equation type",
+                         [  (CAL.DATA,"data vs. predict"),
+                            (CAL.DIFF,"(data - uvmodel) vs. predict") ],
   doc="""<P>This determines how the calibration equations are structured. The first setting is
   for normal calibration (data is compared to a predict:)</P>
 
@@ -72,11 +72,12 @@ cal_type_opt = TDLOption('cal_type',"Equation type",[CAL.DATA,CAL.DIFF],
   <P align="center">corrupt(sky_model) &rarr; data - uv_model</P>
   """
 );
-cal_what_opt = TDLOption('cal_what',"Calibrate on",[CAL.VIS,CAL.AMPL,CAL.LOGAMPL,CAL.PHASE],doc="""
+cal_what_opt = TDLOption('cal_what',"Calibrate on",
+                        [(CAL.VIS,"complex visibilities"),(CAL.AMPL,"amplitudes"),(CAL.LOGAMPL,"log(amplitudes)"),(CAL.PHASE,"phases")],doc="""
   <P>Select "visibilities" to directly fit a complex model to complex data. Other options
 will only fit complex amplitudes or phases, don't use these unless you know what you're doing.</P>
 """);
- 
+
 cal_options = [ cal_type_opt,cal_what_opt ];
 
 # if table access is available, add baseline selection options
@@ -91,12 +92,12 @@ if Meow.MSUtils.TABLE:
 
 read_ms_model_opt = TDLCompileOption("read_ms_model","Read additional uv-model visibilities from MS",False,doc="""
   <P>If enabled, then an extra set of <i>model</i> visibilities will be read from a second column
-  of the MS (in addition to the input data.) These can either be added to whatever is predicted by the 
-  sky model <i>in the uv-plane</i> (i.e. subject to uv-Jones but not sky-Jones corruptions), or directly 
+  of the MS (in addition to the input data.) These can either be added to whatever is predicted by the
+  sky model <i>in the uv-plane</i> (i.e. subject to uv-Jones but not sky-Jones corruptions), or directly
   subtracted from the input data. See also the "Equation type" option below.
-  
+
   <P>If you are repeatedly running a large sky model, and are not solving for any image-plane effects, then this
-  feature lets you compute your sky model (or a part of it) just once, save the result to the uv-model column, 
+  feature lets you compute your sky model (or a part of it) just once, save the result to the uv-model column,
   and reuse it in subsequent steps. This can save a lot of processing time.</P>
   """);
 read_ms_model_opt.when_changed(cal_type_opt.show);
@@ -105,41 +106,45 @@ cal_toggle = TDLCompileMenu("Calibrate (fit corrupted model to data)",
      toggle='do_solve',open=True,doc="""<P>Select this to include a calibration step in your tree. Calibration
   involves comparing predicted visibilities to input data, and iteratively adjusting the sky and/or
   instrumental model for the best fit.
-  </P> 
+  </P>
   """,*cal_options
   );
 
-CORRECTED_DATA = "corrected data";
-RESIDUALS = "uncorrected residuals";
-CORRECTED_RESIDUALS = "corrected residuals";
-CORRUPTED_MODEL = "predict";
-CORRUPTED_MODEL_ADD = "data+predict";
+CORRECTED_DATA = "CORR_DATA";
+RESIDUALS = "RES";
+CORRECTED_RESIDUALS = "CORR_RES";
+CORRUPTED_MODEL = "PREDICT";
+CORRUPTED_MODEL_ADD = "DATA+PREDICT";
 
-output_option = TDLCompileOption('do_output',"Output visibilities",[CORRECTED_DATA,RESIDUALS,CORRECTED_RESIDUALS,
-  CORRUPTED_MODEL,CORRUPTED_MODEL_ADD],doc="""<P>This selects what sort of visibilities get
-  written to the output column:</P>
+output_option = TDLCompileOption('do_output',"Output visibilities",
+                                 [  (CORRECTED_DATA,"corrected data"),
+                                    (RESIDUALS,"uncorrected residuals"),
+                                    (CORRECTED_RESIDUALS,"corrected residuals"),
+                                    (CORRUPTED_MODEL,"predict"),
+                                    (CORRUPTED_MODEL_ADD,"data+predict")],
+  doc="""<P>This selects what sort of visibilities get written to the output column:</P>
   <ul>
 
-  <li><B>Predict</B> refer to the visibilities given by the sky model (plus an optional uv-model column), 
+  <li><B>Predict</B> refer to the visibilities given by the sky model (plus an optional uv-model column),
   corrupted by the current instrumental modelm using the Measurement Equation specified below.</li>
 
-  <li><B>Corrected data</B> is the input data corrected for the instrumental model (by applying the inverse of the 
+  <li><B>Corrected data</B> is the input data corrected for the instrumental model (by applying the inverse of the
   M.E.)</li>
 
-  <li><B>Residuals</B> refer to input data minus predict. This corresponds to whatever signal is left in your data 
+  <li><B>Residuals</B> refer to input data minus predict. This corresponds to whatever signal is left in your data
   that is <b>not</b> represented by the model, and still subject to instrumental corruptions.</li>
 
   <li><B>Corrected residuals</B> are residuals corrected for the instrumental model. This is what you usually
   want to see during calibration.</li>
 
-  <li><B>Data+predict</B> is a special mode where the predict is <i>added</I> to the input data. This is used 
-  for injecting synthetic sources into your data, or for accumulating a uv-model in several steps. (In 
+  <li><B>Data+predict</B> is a special mode where the predict is <i>added</I> to the input data. This is used
+  for injecting synthetic sources into your data, or for accumulating a uv-model in several steps. (In
   the latter case your input column need to be set to the uv-model column.)</li>
   </ul>
 
-  </P>If calibration is enabled above, then a calibration step is executed prior to generating output data. This 
+  </P>If calibration is enabled above, then a calibration step is executed prior to generating output data. This
   will update the instrumental and/or sky models. If calibration is not enabled, then the current models
-  may still be determined by the results of past calibration, since these are stored in persistent <i>MEP 
+  may still be determined by the results of past calibration, since these are stored in persistent <i>MEP
   tables.</i></P>
 
   """);

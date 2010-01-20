@@ -115,7 +115,7 @@ class ListOptionParser (object):
       index1,minval,maxval = self._validate_index(index1,minval,maxval);
       index2,minval,maxval = self._validate_index(index2,minval,maxval);
       # add to subset
-      subset.oper(range(index1,index2+1));
+      oper(range(index1,index2+1));
     # return subset
     subset = sorted(subset);
     if objlist:

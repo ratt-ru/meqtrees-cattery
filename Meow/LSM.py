@@ -112,10 +112,10 @@ class MeowLSM (object):
 
           <P>* as ranges, e.g. "M:N" (M to N inclusive), or ":M" (0 to M), or "N:" (N to last). 
 
-          Prefixing a name or a number or a range by "-" excludes that source from the selection.
+          <P>Prefixing a name or a number or a range by "-" excludes that source from the selection.</P>
 
-          Examples: "-foo" (all sources except 'foo'), "0 3:5 bar" (sources #0,3,4,5 and 'bar'),
-          "-3:5 -foo" (all sources except 3,4,5 and 'foo'.)""";
+          <P>Examples: "-foo" (all sources except 'foo'), "0 3:5 bar" (sources #0,3,4,5 and 'bar'),
+          "-3:5 -foo" (all sources except 3,4,5 and 'foo'.)</P>""";
 
       subset_opt = TDLOption('lsm_subset',"Use subset of LSM sources",
           ["all"],more=str,namespace=self,doc=subset_doc);
@@ -250,7 +250,7 @@ class MeowLSM (object):
       # append to list
       srclist.append((pu.name,direction,pu,I,Iapp));
     # sort list by decreasing apparent flux
-    srclist.sort(lambda a,b:cmp(b[3],a[3]));
+    srclist.sort(lambda a,b:cmp(b[4],a[4]));
     
     srclist_full = srclist;
     # extract active subset
