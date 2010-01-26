@@ -118,20 +118,27 @@ class PointSource(SkyComponent):
   def coherency_elements (self,observation):
     """helper method: returns the four components of the coherency matrix""";
     i,q,u,v = [ self.stokes(st) for st in STOKES ];
+    diagonal = (len(Context.active_correlations) == 2);
     if observation.circular():
       if self._constant_flux:
-        return i+v,complex(q,u),complex(q,-u),i-v;
+        return (i+v,0,0,i-v) if diagonal else (i+v,complex(q,u),complex(q,-u),i-v);
       rr = self.ns.rr ** (self.stokes("I") + self.stokes("V"));
-      rl = self.ns.rl ** Meq.ToComplex(self.stokes("Q"),self.stokes("U"));
-      lr = self.ns.lr ** Meq.Conj(rl);
+      if diagonal:
+        rl = lr = 0;
+      else:
+        rl = self.ns.rl ** Meq.ToComplex(self.stokes("Q"),self.stokes("U"));
+        lr = self.ns.lr ** Meq.Conj(rl);
       ll = self.ns.ll ** (self.stokes("I") - self.stokes("V"));
       return rr,rl,lr,ll;
     else:
       if self._constant_flux:
-        return i+q,complex(u,v),complex(u,-v),i-q;
+        return (i+q,0,0,i-q) if diagonal else (i+q,complex(u,v),complex(u,-v),i-q);
       xx = self.ns.xx ** (self.stokes("I") + self.stokes("Q"));
-      xy = self.ns.xy ** Meq.ToComplex(self.stokes("U"),self.stokes("V"));
-      yx = self.ns.yx ** Meq.Conj(xy);
+      if diagonal:
+        xy = yx = 0;
+      else:
+        xy = self.ns.xy ** Meq.ToComplex(self.stokes("U"),self.stokes("V"));
+        yx = self.ns.yx ** Meq.Conj(xy);
       yy = self.ns.yy ** (self.stokes("I") - self.stokes("Q"));
       return xx,xy,yx,yy;
     

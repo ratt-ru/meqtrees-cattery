@@ -126,14 +126,14 @@ class MeqMaker (object):
       self.use_skyjones_visualizers = True;
       self.use_skyjones_visualizers_opt = \
         TDLMenu("Include visualizers for sky-Jones terms",
-	    TDLOption("_skyvis_frame","Coordinate grid",
+            TDLOption("_skyvis_frame","Coordinate grid",
               [SKYJONES_LM,SKYJONES_RADEC,SKYJONES_AZEL,SKYJONES_AZEL_FULL],namespace=self),
           doc="""If enabled, then your trees will automatically include visualizer nodes for all
           sky-Jones terms. This does not affect normal performance if you do not use the visualizations.
           <B>WARNING:</B> this feature is still experimental, and may not support all sky-Jones modules.
           Turn this off if you experience unexpected compilation errors.
           """,
-	  toggle='use_skyjones_visualizers',namespace=self
+          toggle='use_skyjones_visualizers',namespace=self
         );
       other_opt.append(self.use_skyjones_visualizers_opt);
     else:
@@ -236,8 +236,8 @@ class MeqMaker (object):
       label = getattr(modules,'__default_label__',None);
       name = getattr(modules,'__default_name__','');
       if label is None:
-	raise RuntimeError,"""Module '%s' does not provide a __default_label__ attribute,
-	      so must be added with an explicit label"""%modules.__name__;
+        raise RuntimeError,"""Module '%s' does not provide a __default_label__ attribute,
+              so must be added with an explicit label"""%modules.__name__;
     elif not modules:
       raise RuntimeError,"No modules specified for %s"%name;
     if not isinstance(modules,(list,tuple)):
@@ -406,7 +406,7 @@ class MeqMaker (object):
       submenus = [ TDLMenu("Use '%s' module"%_modname(mod),name=_modname(mod),
                             toggle=self._module_togglename(label,mod),
                             namespace=self,
-			    doc=getattr(mod,'__doc__',None),
+                            doc=getattr(mod,'__doc__',None),
                             *_modopts(mod,'compile'))
                     for mod in modules ];
       mainmenu = TDLMenu(menutext,toggle=toggle,exclusive=exclusive,namespace=self,
@@ -449,7 +449,7 @@ class MeqMaker (object):
     if self._source_list is None:
       modules = self._get_selected_modules('sky',self._sky_models);
       if not modules:
-        return [];		
+        return [];                
       self._source_list = [];
       for mod in modules:
         self._source_list += mod.source_list(ns);
@@ -458,24 +458,54 @@ class MeqMaker (object):
         src.set_attr("#",isrc);
     return self._source_list;
 
-  def _add_inspector (self,inspector_node,name=None):
+  def add_inspector_node (self,inspector_node,name=None):
     """adds an inspector node to internal list, and creates a bookmark page for it.""";
     self._inspectors.append(inspector_node);
-    if not name:
-      name = inspector_node.name.replace('_',' ');
+    name = name or inspector_node.initrec().get('title',None) or inspector_node.name.replace('_',' ');
     Meow.Bookmarks.Page(name).add(inspector_node,viewer="Collections Plotter");
+
+  def make_bookmark_set (self,nodes,quals,title_inspector,title_folder=None,labels=None,freqmean=True):
+    """Makes a standard set of bookmarks for a series if nodes: i.e. an inspector, and a folder of 
+    individual bookmarks""";
+    labels = labels or [ ':'.join(map(str,qq)) for qq in quals ];
+    if freqmean:
+      nodelist = [ nodes('freqmean',*qq) << Meq.Mean(nodes(*qq),reduction_axes="freq") for qq in quals ];
+    else:
+      nodelist = [ nodes(*qq) for qq in quals ];
+    # make inspector + bookmark
+    insp = nodes('inspector') << Meq.Composer(dims=[0],plot_label=labels,mt_polling=True,*nodelist);
+    self.add_inspector_node(insp,title_inspector);
+    # make folder of per-baseline plots
+    if title_folder is not None:
+      Meow.Bookmarks.make_node_folder(title_folder,[nodes(*qq) for qq in quals],sorted=True,ncol=2,nrow=2);
+
+  def make_per_ifr_bookmarks (self,nodes,title,ifrs=None,freqmean=True):
+    """Makes a standard set of bookmarks for a per-ifr node: i.e. an inspector, and a folder of 
+    per-baseline bookmarks""";
+    ifrs = ifrs or Meow.Context.array.ifrs();
+    return self.make_bookmark_set(nodes,ifrs,
+        "%s: inspector plot"%title,"%s: by interferometer"%title,
+        labels=[ "%s-%s"%(p,q) for p,q in ifrs ],freqmean=freqmean);
+
+  def make_per_station_bookmarks (self,nodes,title,stations=None,freqmean=True):
+    """Makes a standard set of bookmarks for a station node: i.e. an inspector, and a folder of 
+    per-station bookmarks""";
+    stations = stations or Meow.Context.array.stations();
+    return self.make_bookmark_set(nodes,[ (p,) for p in stations],
+        "%s: inspector plot"%title,"%s: by station"%title,
+        freqmean=freqmean);
 
   def _make_skyjones_visualizer_source (self,ns):
     # create visualization nodes
     if not self._skyjones_visualizer_source:
       if self._skyvis_frame == SKYJONES_LM:
-	l = ns.lmgrid_l << Meq.Grid(axis="l");
-	m = ns.lmgrid_m << Meq.Grid(axis="m");
-	visdir = Meow.LMDirection(ns,"visgrid",l,m);
+        l = ns.lmgrid_l << Meq.Grid(axis="l");
+        m = ns.lmgrid_m << Meq.Grid(axis="m");
+        visdir = Meow.LMDirection(ns,"visgrid",l,m);
       elif self._skyvis_frame == SKYJONES_RADEC:
-	ra = ns.lmgrid_ra << Meq.Grid(axis="m");
-	dec = ns.lmgrid_dec << Meq.Grid(axis="l");
-	visdir = Meow.Direction(ns,"visgrid",ra,dec);
+        ra = ns.lmgrid_ra << Meq.Grid(axis="m");
+        dec = ns.lmgrid_dec << Meq.Grid(axis="l");
+        visdir = Meow.Direction(ns,"visgrid",ra,dec);
       elif self._skyvis_frame == SKYJONES_AZEL or self._skyvis_frame == SKYVIS_AZEL_FULL:
         az = ns.lmgrid_az << Meq.Grid(axis="m");
         el = ns.lmgrid_el << Meq.Grid(axis="l");
@@ -520,7 +550,7 @@ class MeqMaker (object):
     """Returns the Jones nodes associated with the given JonesTerm ('jt'). If
     the term has been disabled (through compile-time options), returns None.
     'stations' is a list of stations.
-    'sources' is a list of source (for sky-Jones only).
+    'sources' is a list of sources (for sky-Jones only).
     Return value is tuple of (basenode,solvable). Basenode should be qualified
     with source (if sky-Jones) and station to obtain the Jones term. Solvable is True
     if the Jones set is to be treated as potentially solvable.
@@ -546,10 +576,10 @@ class MeqMaker (object):
       skyvis = None;
       # For sky-Jones terms, see if this module has pointing offsets enabled
       if isinstance(jt,self.SkyJonesTerm):
-	# is visualization enabled? insert extra source then for the visualization
-	if self.use_skyjones_visualizers:
-	  skyvis = self._make_skyjones_visualizer_source(ns);
-	  sources = [ skyvis ] + list(sources);
+        # is visualization enabled? insert extra source then for the visualization
+        if self.use_skyjones_visualizers:
+          skyvis = self._make_skyjones_visualizer_source(ns);
+          sources = [ skyvis ] + list(sources);
         dlm = None;
         if jt.pointing_modules:
           pointing_module = self._get_selected_module(jt.label+"pe",jt.pointing_modules);
@@ -562,10 +592,10 @@ class MeqMaker (object):
                                                     inspectors=inspectors,meqmaker=self);
             pointing_solvable = getattr(pointing_module,'solvable',True);
             if inspectors:
-              jones_inspectors += inspectors;
-            elif dlm:
-              jones_inspectors.append(
-                  ns.inspector(jt.label)('dlm') << StdTrees.define_inspector(dlm,stations));
+              for node in inspectors:
+                self.add_inspector_node(node);
+            elif dlm and self.use_jones_inspectors:
+              self.make_per_station_bookmarks(dlm,"%s pointing errors"%jt.label,stations,freqmean=False);
       else:
         dlm = None;
       # now make the appropriate matrices
@@ -602,19 +632,16 @@ class MeqMaker (object):
             self._add_sky_visualizer(vis,vissq,jt.label,jt.name);
           # remove skyvis from list of sources
           sources = sources[1:];
+        if inspectors:
+          for node in inspectors:
+            self.add_inspector_node(node);
         # if module does not make its own inspectors, add automatic ones
-        if self.use_jones_inspectors:
-          if inspectors:
-            jones_inspectors += inspectors;
-          elif Jj:
-            qual_list = [stations];
-            if sources:
-              qual_list.insert(0,[src for src in sources0 if Jj(src,stations[0]).initialized()]);
-            jones_inspectors.append(
-                ns.inspector(jt.label) << StdTrees.define_inspector(Jj,*qual_list));
-          # add inspectors to internal list
-          for insp in jones_inspectors:
-            self._add_inspector(insp);
+        elif self.use_jones_inspectors:
+          if sources:
+            quals = [ (src,p) for src in sources0 for p in stations if Jj(src,p).initialized() ];
+            self.make_bookmark_set(Jj,quals,"%s-Jones: inspector"%jt.label);
+          else:
+            self.make_per_station_bookmarks(Jj,"%s-Jones"%jt.label,stations);
         # expand into per-station, per-source terms as needed
         if same_all_sources and same_all_stations:
           jj0 = Jj(all_sources[0],all_stations[0]);
@@ -824,7 +851,7 @@ class MeqMaker (object):
               tags=vpm.label,label=vpm.label,inspectors=inspectors) is not None:
           # add inspectors to internal list
           for insp in inspectors:
-            self._add_inspector(insp);
+            self.add_inspector_node(insp);
           vis = nodes;
     return vis;
 
@@ -876,7 +903,7 @@ class MeqMaker (object):
              tags=vpm.label,label=vpm.label,inspectors=inspectors) is not None:
           # add inspectors to internal list
           for insp in inspectors:
-            self._add_inspector(insp);
+            self.add_inspector_nodes(insp);
           inputs = nodes;
 
     # now build up a correction chain for every station
@@ -943,19 +970,13 @@ class MeqMaker (object):
       for p,q in ifrs:
         outputs(p,q) << Meq.Identity(inputs(p,q));
       # make an inspector for the results
-      StdTrees.vis_inspector(ns.inspector('output'),outputs,ifrs=inspect_ifrs,bookmark=False);
-      self._add_inspector(ns.inspector('output'),name='Inspect corrected data or residuals');
+      self.make_per_ifr_bookmarks(outputs,"Output visibilities",ifrs=inspect_ifrs);
       return outputs;
     # now apply the correction matrices
-    StdTrees.vis_inspector(ns.inspector('uncorr'),inputs,ifrs=inspect_ifrs,bookmark=False);
-    self._add_inspector(ns.inspector('uncorr'),name='Inspect uncorrected data/residuals');
     for p,q in ifrs:
       outputs(p,q) << Meq.MatrixMultiply(Jinv(p),inputs(p,q),Jtinv(q));
 
     # make an inspector for the results
-    StdTrees.vis_inspector(ns.inspector('output'),outputs,ifrs=inspect_ifrs,bookmark=False);
-    self._add_inspector(ns.inspector('output'),name='Inspect corrected data/residuals');
-
     return outputs;
 
   def close (self):

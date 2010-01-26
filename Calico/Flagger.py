@@ -480,7 +480,7 @@ class Flagger (Timba.dmi.verbosity):
               bf[subset] = (flag!=0);
             ms.putcol('FLAG',bf,row0,nrows);
     if progress_callback:
-      progress_callback(nrow_tot,nrow_tot);
+      progress_callback(99,100);
     stat0 = (stat_rows and stat_rows_nfl/float(stat_rows)) or 0;
     stat1 = (stat_pixels and stat_pixels_nfl/float(stat_pixels)) or 0;
     return stat0,stat1;
@@ -531,7 +531,7 @@ class Flagger (Timba.dmi.verbosity):
         ms.putcol('FLAG',(bf&flagmask).astype(Timba.array.dtype('bool')),row0,nrows);
         ms.putcol('FLAG_ROW',(bfr&flagmask).astype(Timba.array.dtype('bool')),row0,nrows);
     if progress_callback:
-      progress_callback(nrow_tot,nrow_tot);
+      progress_callback(99,100);
       
   def clear_legacy_flags (self,progress_callback=None,purr=True):
     """Clears the legacy FLAG/FLAG_ROW columns.
@@ -564,7 +564,7 @@ class Flagger (Timba.dmi.verbosity):
         ms.putcol('FLAG',fl,row0,nrows);
         ms.putcol('FLAG_ROW',Timba.array.zeros((nrows,),dtype='bool'),row0,nrows);
     if progress_callback:
-      progress_callback(nrow_tot,nrow_tot);
+      progress_callback(99,100);
   
   def autoflagger (self,*args,**kw):
     return Flagger.AutoFlagger(self,*args,**kw);

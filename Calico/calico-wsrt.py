@@ -148,17 +148,46 @@ output_option = TDLCompileOption('do_output',"Output visibilities",
   tables.</i></P>
 
   """);
-flag_options = TDLCompileMenu("Flag out-of-bounds Jones terms",toggle='do_correct_flag',doc="""If selected,
-      your tree will flag visiblity points where the norm of a Jones term is above or below a threshold.""",
+
+flag_jones_opt = TDLMenu("Flag on out-of-bounds Jones terms",toggle='flag_jones',
+    doc="""<P>If selected, your tree will flag visibility points where the norm of the
+    overall Jones term (i.e. the product of all Jones terms in the M.E.) is above or below 
+    a threshold. The norm of a Jones term is defined as </P>
+
+    <P align="center"><BIG><I>&#x2225;J&#x2225; = </I>tr<I>(JJ<sup>&dagger;</sup>)<sup>&frac12;</sup>,</I></BIG></P>
+
+    <P>where <I><BIG>J<sup>&dagger;</sup></BIG></I> is the conjugate transpose, and </I>tr()</I> is the trace 
+    operator.</P>
+    """,
     *(
-            TDLOption('correct_flag_jmax',"Flag if |J|>",[None,10,100],more=float),
-            TDLOption('correct_flag_jmin',"Flag if |J|<",[None,.1,.01],more=float)
+            TDLOption('flag_jones_max',"Flag if |J|>",[None,10,100],more=float),
+            TDLOption('flag_jones_min',"Flag if |J|<",[None,.1,.01],more=float)
     ));
+flag_res_opt = TDLOption("flag_res","Flag on residual amplitudes >",[None],more=float,
+    doc="""<P>If selected, your tree will flag visibility points where the residual
+    complex amplitude exceeds the given value.</P>
+    """);
+flag_meanres_opt = TDLOption("flag_mean_res","Flag on mean residual amplitudes over all IFRs >",[None],more=float,
+    doc="""<P>If selected, your tree will flag visibility points where the mean residual
+    complex amplitude over all IFRs exceeds the given value.</P>
+    """);
+
+flag_menu = TDLCompileMenu("Flag output visibilities",flag_jones_opt,flag_res_opt,flag_meanres_opt,toggle="flag_enable");
 
 do_correct_sky = False;
 # correct_sky_options = TDLCompileOption('do_correct_sky',"...include sky-Jones correction for first source in model",False));
 # output_option.when_changed(lambda output:correct_sky_options.show(output in [CORRECTED_RESIDUALS,CORRECTED_DATA]));
-output_option.when_changed(lambda output:flag_options.show(output in [CORRECTED_RESIDUALS,CORRECTED_DATA]));
+
+def _select_output (output):
+  if output in [RESIDUALS,CORRECTED_RESIDUALS,CORRECTED_DATA]:
+    flag_menu.show(True);
+    flag_jones_opt.show(output in [CORRECTED_RESIDUALS,CORRECTED_DATA]);
+    flag_res_opt.show(output in [RESIDUALS,CORRECTED_RESIDUALS]);
+    flag_meanres_opt.show(output in [RESIDUALS,CORRECTED_RESIDUALS]);
+  else:
+    flag_menu.show(False);
+
+output_option.when_changed(_select_output);
 
 # now load optional modules for the ME maker
 from Meow import MeqMaker
@@ -168,7 +197,7 @@ meqmaker = MeqMaker.MeqMaker(solvable=True,
                             use_decomposition=False
 );
 
-flag_options.when_changed(mssel.enable_write_flags);
+flag_menu.when_changed(mssel.enable_write_flags);
 
 # specify available sky models
 # these will show up in the menu automatically
@@ -230,20 +259,12 @@ def _define_forest(ns,parent=None,**kw):
   # setup contexts from MS
   mssel.setup_observation_context(ns);
   array = Meow.Context.array;
-
-  # all inspector nodes will be added to this list
-  inspectors = [];
+  
   # make spigot nodes for data
   if do_solve or do_output not in [CORRUPTED_MODEL]:
     mssel.enable_input_column(True);
     spigots = spigots0 = outputs = array.spigots(corr=mssel.get_corr_index());
-
-    # ...and an inspector for them
-    StdTrees.vis_inspector(ns.inspector('data'),spigots,
-                                bookmark="Inspect data visibilities");
-    inspectors += [ ns.inspector('data') ];
-    Bookmarks.make_node_folder("Data visibilities by baseline",
-      [ spigots(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
+    meqmaker.make_per_ifr_bookmarks(spigots,"Input visibilities");
   else:
     mssel.enable_input_column(False);
     spigots = spigots0 = None;
@@ -253,17 +274,11 @@ def _define_forest(ns,parent=None,**kw):
   if read_ms_model:
     mssel.enable_model_column(True);
     model_spigots = array.spigots(column="PREDICT",corr=mssel.get_corr_index());
-    # ...and an inspector for them
-    StdTrees.vis_inspector(ns.inspector('model'),model_spigots,
-                                bookmark="Inspect model visibilities");
-    inspectors += [ ns.inspector('model') ];
-    Bookmarks.make_node_folder("Model visibilities by baseline",
-      [ model_spigots(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
+    meqmaker.make_per_ifr_bookmarks(model_spigots,"UV-model visibilities");
     # if calibrating on (input-corrupt model), make corrupt model
     if do_solve and cal_type == CAL.DIFF:
       corrupt_uvdata = meqmaker.corrupt_uv_data(ns,model_spigots);
 
-  inspect_ifrs = array.ifrs();
   # if needed, then make a predict tree using the MeqMaker
   if do_solve or do_output != CORRECTED_DATA:
     if model_spigots and not corrupt_uvdata:
@@ -293,6 +308,7 @@ def _define_forest(ns,parent=None,**kw):
         residuals(p,q) << Meq.Subtract(spigots(p,q),corrupt_uvdata(p,q),predict(p,q));
       else:
         residuals(p,q) << spigots(p,q) - predict(p,q);
+    meqmaker.make_per_ifr_bookmarks(residuals,"Uncorrected residuals");
     outputs = residuals;
 
   # and now we may need to correct the outputs
@@ -302,18 +318,48 @@ def _define_forest(ns,parent=None,**kw):
       sky_correct = srcs and srcs[0];
     else:
       sky_correct = None;
-    global do_correct_flag;
-    if do_correct_flag and correct_flag_jmin is None and correct_flag_jmax is None:
-      do_correct_flag = False;
+    global flag_jones;
+    if flag_enable and flag_jones and not (flag_jones_min is None and flag_jones_max is None):
+      flag_jones_minmax = (flag_jones_min,flag_jones_max);
+    else:
+      flag_jones_minmax = None;
     outputs = meqmaker.correct_uv_data(ns,outputs,sky_correct=sky_correct,
-                                      flag_jones_minmax=do_correct_flag and (correct_flag_jmin,correct_flag_jmax),
-                                      inspect_ifrs=inspect_ifrs);
+                                      flag_jones_minmax=flag_jones and (flag_jones_min,flag_jones_max));
+    output_title = "Corrected data" if do_output is CORRECTED_DATA else "Corrected residuals";
   elif do_output == CORRUPTED_MODEL:
     outputs = predict;
+    output_title = "Predict";
   elif do_output == CORRUPTED_MODEL_ADD:
     outputs = ns.output;
     for p,q in array.ifrs():
       outputs(p,q) << spigots(p,q) + predict(p,q);
+    output_title = "Data+predict";
+
+  # make residual flaggers
+  if flag_enable and do_output in [ RESIDUALS,CORRECTED_RESIDUALS ]:
+    flaggers = [];
+    # make flagger for residuals
+    if flag_res is not None:
+      for p,q in array.ifrs():
+        ns.flagres(p,q) << Meq.ZeroFlagger(Meq.Abs(outputs(p,q))-flag_res,oper='gt',flag_bit=Meow.MSUtils.FLAGMASK_OUTPUT);
+      flaggers.append(ns.flagres);
+      # ...and an inspector for them
+      meqmaker.make_per_ifr_bookmarks(ns.flagres,"Residual amplitude flags"); 
+    # make flagger for mean residuals
+    if flag_mean_res is not None:
+      ns.meanres << Meq.Mean(*[outputs(p,q) for p,q in array.ifrs()]);
+      ns.flagmeanres << Meq.ZeroFlagger(Meq.Abs(ns.meanres)-flag_mean_res,oper='gt',flag_bit=Meow.MSUtils.FLAGMASK_OUTPUT);
+      Meow.Bookmarks.Page("Mean residual amplitude flags").add(ns.flagmeanres,viewer="Result Plotter");
+      flaggers.append(lambda p,q:ns.flagmeanres);
+
+    # merge flags into output
+    if flaggers:
+      meqmaker.make_per_ifr_bookmarks(outputs,output_title+" (unflagged)");
+      for p,q in array.ifrs():
+        ns.flagged(p,q) << Meq.MergeFlags(outputs(p,q),*[f(p,q) for f in flaggers]);
+      outputs = ns.flagged;
+
+  meqmaker.make_per_ifr_bookmarks(outputs,output_title);
 
   # make solve trees
   if do_solve:
@@ -355,16 +401,11 @@ def _define_forest(ns,parent=None,**kw):
     # according to what has been set above
     outputs = solve_tree.sequencers(inputs=rhs,outputs=outputs);
 
-  # make sinks and vdm.
-  # The list of inspectors must be supplied here
-  inspectors += meqmaker.get_inspectors() or [];
-  StdTrees.make_sinks(ns,outputs,spigots=spigots0,post=inspectors);
-  Bookmarks.make_node_folder("Corrected/residual visibilities by baseline",
-    [ outputs(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
+  StdTrees.make_sinks(ns,outputs,spigots=spigots0,post=meqmaker.get_inspectors() or []);
 
   if not do_solve:
-    name = "Generate "+do_output;
-    comment = "Generated "+do_output;
+    name = "Generate "+output_title.lower();
+    comment = "Generated "+output_title.lower();
     if name:
       # make a TDL job to run the tree
       def run_tree (mqs,parent,wait=False,**kw):

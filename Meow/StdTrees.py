@@ -267,7 +267,7 @@ def vis_inspector (outnode,visnodes,ifrs=None,array=None,bookmark=True):
          for p,q in ifrs ]
     );
   if bookmark is True:
-    bookmark = outnode.name;
+    bookmark = outnode.name.replace("_"," ");
   if bookmark:
     Bookmarks.Page(bookmark).add(outnode,viewer="Collections Plotter");
   return outnode;

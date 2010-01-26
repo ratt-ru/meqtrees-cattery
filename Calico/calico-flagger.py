@@ -240,11 +240,14 @@ def flag_ms (mqs,parent,**kw):
   init_progress_dialog(parent,"Flagging");
   try:
     # execute flagging
-    flagger.flag(progress_callback=progress_callback,**arg);
+    stats = flagger.flag(progress_callback=progress_callback,**arg);
     flagger.close();
   finally:
     progress_callback(100,100);
     progress_dialog.hide();
+  GUI.info_box("Flag statistics",
+    """<P>%.4f%% of rows are flagged.</P>
+      <P>%.4f%% of individual correlations are flagged.</P>"""%(stats[0]*100,stats[1]*100));
     
 # The transfer_legacy_flags job uses Calico.Flagger to transfer legacy flags into a bitflag
 stat_msgbox = None;
@@ -261,9 +264,10 @@ def transfer_legacy_flags (mqs,parent,**kw):
     flagger.close();
   finally:
     progress_callback(100,100);
+    progress_dialog.hide();
   GUI.info_box("Flag statistics",
-    """<P>%.2f%% of rows are flagged.</P>
-      <P>%.2f%% of individual correlations are flagged.</P>"""%(stats[0]*100,stats[1]*100));
+    """<P>%.4f%% of rows are flagged.</P>
+      <P>%.4f%% of individual correlations are flagged.</P>"""%(stats[0]*100,stats[1]*100));
   
 # The get_flag_stats job uses Calico.Flagger to get flag statistics and display them
 def get_flag_stats (mqs,parent,**kw):
@@ -279,9 +283,10 @@ def get_flag_stats (mqs,parent,**kw):
     flagger.close();
   finally:
     progress_callback(100,100);
+    progress_dialog.hide();
   GUI.info_box("Flag statistics",
-      """<P>%.2f%% of rows are flagged.</P>
-      <P>%.2f%% of individual correlations are flagged.</P>"""%(stats[0]*100,stats[1]*100));
+      """<P>%.4f%% of rows are flagged.</P>
+      <P>%.4f%% of individual correlations are flagged.</P>"""%(stats[0]*100,stats[1]*100));
 
 # The fill_legacy_flags job uses Calico.Flagger to fill legacy flags from bitflags
 def fill_legacy_flags (mqs,parent,**kw):
@@ -296,6 +301,7 @@ def fill_legacy_flags (mqs,parent,**kw):
     flagger.close();
   finally:
     progress_callback(100,100);
+    progress_dialog.hide();
 
 def clear_flagset (mqs,parent,**kw):
   if not flagger:
@@ -314,6 +320,7 @@ def clear_flagset (mqs,parent,**kw):
     flagger.close();
   finally:
     progress_callback(100,100);
+    progress_dialog.hide();
 
 def clear_bitflags (mqs,parent,**kw):
   if not flagger:
@@ -332,6 +339,7 @@ def clear_bitflags (mqs,parent,**kw):
     flagger.close();
   finally:
     progress_callback(100,100);
+    progress_dialog.hide();
 
 def clear_legacy_flags (mqs,parent,**kw):
   if not flagger:
@@ -368,6 +376,7 @@ def remove_flagset (mqs,parent,**kw):
     flagger.close();
   finally:
     progress_callback(100,100);
+    progress_dialog.hide();
 
 view_ms_opt         = TDLRuntimeJob(view_ms,"View MS data & flags",job_id="view_ms");
 add_bitflag_opt     = TDLRuntimeJob(add_bitflags,"Initialize bitflag columns in this MS",

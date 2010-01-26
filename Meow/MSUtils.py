@@ -607,8 +607,12 @@ class MSSelector (object):
         *( self.write_flag_selector.option_list() +
            [ TDLOption("ms_write_flag_policy",
                     "Output flagset policy",[FLAG_ADD,FLAG_REPLACE],namespace=self,
-                    doc="""Flags generated within the tree may be added to an existing flagset, or may
-                    replace a flagset.""")]
+                    doc="""<P>Flags generated within the tree may be added to an existing flagset, or may
+                    replace a flagset.</P>"""),
+             TDLOption("ms_fill_legacy_flags","Update legacy FLAG/FLAG_ROW columns",True,namespace=self,
+                    doc="""<P>If set, then the leagcy FLAG/FLAG_ROW columns will be updated on-the-fly,
+                    using the flagsets read in, plus the flagset generated here.</P>""")
+           ]
          )
         );
       self._opts.append(self.write_flags_opt);
@@ -917,6 +921,11 @@ class MSSelector (object):
         rec.ms_flag_mask = FLAG_FULL;
       elif self.ms_write_flag_policy == FLAG_REPLACE:
         rec.ms_flag_mask = FLAG_FULL & ~rec.tile_bitflag;
+      if self.ms_fill_legacy_flags:
+        rec.write_legacy_flags = True;
+        rec.legacy_flag_mask = rec.tile_bitflag;
+        if self.ms_read_flags:
+          rec.legacy_flag_mask |= self.read_flag_selector.get_flagmask();
     if self.ms_has_output and self.output_column:
       rec.data_column = self.output_column;
     return record(ms=rec,mt_queue_size=ms_queue_size);
@@ -1266,8 +1275,7 @@ class ImagingSelector (object):
     if self.imaging_ifrs.strip().upper() not in ["","*","ALL"]:
       if not self.mssel.ms_ifrset:
         raise RuntimeError,"Can't select baselines since we don't appear to have read the MS!";
-      subset = self.mssel.ms_ifrset.subset(self.imaging_ifrs,strict=False).ifr_index();
-      taql = "||".join(["(ANTENNA1==%d&&ANTENNA2==%d)"%(ip,iq) for (ip,p),(iq,q) in subset ]);
+      taql = self.mssel.ms_ifrset.subset(self.imaging_ifrs,strict=False).taql_string();
       taqls.append("(%s)"%taql);
     if taqls:
       args.append("select=(%s)"%"&&".join(taqls));
