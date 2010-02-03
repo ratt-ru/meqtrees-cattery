@@ -546,6 +546,26 @@ class MeqMaker (object):
       mqs.execute(visnode_sq.name,request);
     self._runtime_vis_options.append(TDLJob(visualize_node,"Visualize %s (%s)"%(label,name)));
 
+  def get_uvjones_nodes (self,label):
+    """Returns the Jones nodes associated with the given Jones label. 
+    Returns unqualified node that should be qualified with a station index.
+    If this Jones term is not yet initialized, or is disabled via compile-time 
+    options, returns None. If Jones term is not found, raises KeyError.""";
+    for jt in self._uv_jones_list:
+      if jt.label == label:
+        return jt.base_node;
+    raise KeyError,"uv-Jones term %s not defined"%label;
+
+  def get_skyjones_nodes (self,label):
+    """Returns the Jones nodes associated with the given Jones label. 
+    Returns unqualified node that should be qualified with a source and station index.
+    If this Jones term is not yet initialized, or is disabled via compile-time 
+    options, returns None. If Jones term is not found, raises KeyError.""";
+    for jt in self._sky_jones_list:
+      if jt.label == label:
+        return jt.base_node;
+    raise KeyError,"sky-Jones term %s not defined"%label;
+
   def _get_jones_nodes (self,ns,jt,stations,sources=None,solvable_sources=set()):
     """Returns the Jones nodes associated with the given JonesTerm ('jt'). If
     the term has been disabled (through compile-time options), returns None.
@@ -847,7 +867,7 @@ class MeqMaker (object):
         inspectors = [];
         nodes = vis(vpm.label);
         if module.process_visibilities(nodes,vis,ns=getattr(ns,vpm.label).Subscope(),
-              ifrs=ifrs,
+              ifrs=ifrs,meqmaker=self,
               tags=vpm.label,label=vpm.label,inspectors=inspectors) is not None:
           # add inspectors to internal list
           for insp in inspectors:
@@ -900,7 +920,7 @@ class MeqMaker (object):
         inspectors = [];
         nodes = inputs(vpm.label);
         if module.correct_visibilities(nodes,inputs,ns=getattr(ns,vpm.label).Subscope(),
-             tags=vpm.label,label=vpm.label,inspectors=inspectors) is not None:
+             tags=vpm.label,label=vpm.label,inspectors=inspectors,meqmaker=self) is not None:
           # add inspectors to internal list
           for insp in inspectors:
             self.add_inspector_nodes(insp);
