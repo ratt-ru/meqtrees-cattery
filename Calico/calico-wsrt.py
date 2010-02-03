@@ -34,13 +34,8 @@ from Meow import ParmGroup,Bookmarks,StdTrees
 
 # This defines some ifr subsets that are commonly used for WSRT data,
 # to be offered as defaults in the GUI wherever ifrs are selected.
-STD_IFR_SUBSETS = [
-    "-45 -56 -67",
-    "-45 -56 -67 -9A -AB -CD",
-    "-45 -46 -56 -67 -68 -9A -AB -CD",
-    "FM",
-    "FM -9A -9B",
-];
+# MSUtils already has this for WSRT, so reuse it here.
+STD_IFR_SUBSETS = Meow.MSUtils.STD_IFR_SUBSETS["WSRT"];
 
 TDLCompileOptionSeparator("MS selection");
 # MS options first
@@ -167,7 +162,7 @@ flag_res_opt = TDLOption("flag_res","Flag on residual amplitudes >",[None],more=
     doc="""<P>If selected, your tree will flag visibility points where the residual
     complex amplitude exceeds the given value.</P>
     """);
-flag_meanres_opt = TDLOption("flag_mean_res","Flag on mean residual amplitudes over all IFRs >",[None],more=float,
+flag_meanres_opt = TDLOption("flag_mean_res","Flag on mean residual amplitudes (over all IFRs) >",[None],more=float,
     doc="""<P>If selected, your tree will flag visibility points where the mean residual
     complex amplitude over all IFRs exceeds the given value.</P>
     """);
@@ -299,6 +294,7 @@ def _define_forest(ns,parent=None,**kw):
         ParmGroup.SolveJob("cal_source","Calibrate source model",pg_src);
   else:
     predict = None;
+  output_title = "Uncorrected residuals";
 
   # make nodes to compute residuals
   if do_output in [CORRECTED_RESIDUALS,RESIDUALS]:
@@ -335,20 +331,23 @@ def _define_forest(ns,parent=None,**kw):
       outputs(p,q) << spigots(p,q) + predict(p,q);
     output_title = "Data+predict";
 
-  # make residual flaggers
-  if flag_enable and do_output in [ RESIDUALS,CORRECTED_RESIDUALS ]:
+  # make flaggers
+  if flag_enable and do_output in [ CORRECTED_DATA,RESIDUALS,CORRECTED_RESIDUALS ]:
     flaggers = [];
+    if flag_res is not None or flag_mean_res is not None:
+      for p,q in array.ifrs():
+        ns.absres(p,q) << Meq.Abs(outputs(p,q));
     # make flagger for residuals
     if flag_res is not None:
       for p,q in array.ifrs():
-        ns.flagres(p,q) << Meq.ZeroFlagger(Meq.Abs(outputs(p,q))-flag_res,oper='gt',flag_bit=Meow.MSUtils.FLAGMASK_OUTPUT);
+        ns.flagres(p,q) << Meq.ZeroFlagger(ns.absres(p,q)-flag_res,oper='gt',flag_bit=Meow.MSUtils.FLAGMASK_OUTPUT);
       flaggers.append(ns.flagres);
       # ...and an inspector for them
       meqmaker.make_per_ifr_bookmarks(ns.flagres,"Residual amplitude flags"); 
     # make flagger for mean residuals
     if flag_mean_res is not None:
-      ns.meanres << Meq.Mean(*[outputs(p,q) for p,q in array.ifrs()]);
-      ns.flagmeanres << Meq.ZeroFlagger(Meq.Abs(ns.meanres)-flag_mean_res,oper='gt',flag_bit=Meow.MSUtils.FLAGMASK_OUTPUT);
+      ns.meanabsres << Meq.Mean(*[ns.absres(p,q) for p,q in array.ifrs()]);
+      ns.flagmeanres << Meq.ZeroFlagger(ns.meanabsres-flag_mean_res,oper='gt',flag_bit=Meow.MSUtils.FLAGMASK_OUTPUT);
       Meow.Bookmarks.Page("Mean residual amplitude flags").add(ns.flagmeanres,viewer="Result Plotter");
       flaggers.append(lambda p,q:ns.flagmeanres);
 
