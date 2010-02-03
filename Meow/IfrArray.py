@@ -93,7 +93,7 @@ class IfrArray (object):
       self.ifrset = station_list;
     else:
       if station_index:
-        stataion_list = zip(station_index,station_list);
+        station_list = zip(station_index,station_list);
       self.ifrset = IfrArray.IfrSet(station_list,positions=positions,observatory=observatory);
     # expose some methods of IfrSet directly via our object
     for method in ('stations','ifrs','station_index','ifr_index','subset',

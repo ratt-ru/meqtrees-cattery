@@ -117,12 +117,11 @@ class IfrSet (object):
     self._ifr_labels = dict([((ip,iq),p+self.label_sep+q) for (ip,p),(iq,q) in self._ifr_index ]);
     # fill in dictionary of aliases for baseline specifications
     if parent:
+      # if we're a subset of parent, make copy of parent dict (need copy since "*" item is different)
       self._ifr_spec_aliases = parent._ifr_spec_aliases;
       self.subset_doc = parent.subset_doc;
     else:
       self._ifr_spec_aliases = dict();
-      # '*' or 'all' selects all baselines
-      self._ifr_spec_aliases['*'] = self._ifr_spec_aliases['ALL'] = set(self._ifr_index);
       # form up doc string
       self.subset_doc = ifr_spec_syntax;
       # special aliases for WSRT
@@ -151,6 +150,8 @@ class IfrSet (object):
 
           <P>"S83": same as above, minus also 46 and 68.</P>
         """;
+      # '*' or 'all' selects all baselines in the ifr set
+      self._ifr_spec_aliases['*'] = self._ifr_spec_aliases['ALL'] = set(self._ifr_index);
 
   def stations (self):
     """Returns list of station names.""";
@@ -244,7 +245,7 @@ class IfrSet (object):
         spec = spec[1:];
       # check for named aliases
       named_set = self._ifr_spec_aliases.get(spec.upper(),None);
-      if named_set:  
+      if named_set:
         add_or_remove(named_set);
         continue;
       # now check for baseline length specification
@@ -278,8 +279,8 @@ class IfrSet (object):
       # first token must be a valid antenna
       if ip is None:
         if strict:
-          raise ValueError,"invalid ifr specification '%s' (station '%s' not known)"%(spec,p);
-        print "Ignoring invalid ifr specification '%s' (station '%s' not known)"%(spec,p);
+          raise ValueError,"invalid ifr specification '%s' (station '%s' not found)"%(spec,p);
+        print "Ignoring invalid ifr specification '%s' (station '%s' not found)"%(spec,p);
         traceback.print_stack();
         continue;
       # second token may be a wildcard
@@ -287,14 +288,16 @@ class IfrSet (object):
         add_or_remove([(px,qx) for px,qx in self._ifr_index if px[0]==ip or qx[0]==ip ]);
       elif iq is None:
         if strict:
-          raise ValueError,"invalid ifr specification '%s' (station '%s' not known)"%(spec,q);
-        print "Ignoring invalid ifr specification '%s' (station '%s' not known)"%(spec,q);
+          raise ValueError,"invalid ifr specification '%s' (station '%s' not found)"%(spec,q);
+        print "Ignoring invalid ifr specification '%s' (station '%s' not found)"%(spec,q);
         traceback.print_stack();
       elif ip<iq:
         add_or_remove([(px,qx) for px,qx in self._ifr_index if (px[0],qx[0])==(ip,iq)]);
       elif ip>iq:
         add_or_remove([(px,qx) for px,qx in self._ifr_index if (px[0],qx[0])==(iq,ip)]);
-    return result;
+    # intersect final result with our own set of IFRs: if we're already a subset of some parent set, then the spec
+    # string may refer to ifrs from our parent set that are not members of our set. These must be trimmed.
+    return result.intersection(self._ifr_index);
 
 def from_ms (ms):
   # import table class

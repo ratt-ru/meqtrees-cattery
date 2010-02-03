@@ -365,7 +365,7 @@ def _define_forest(ns,parent=None,**kw):
     # parse ifr specification
     solve_ifrs  = array.subset(calibrate_ifrs,strict=False).ifrs();
     if not solve_ifrs:
-      raise RuntimeError,"No interferometers selected for calibration. Check your ifr specification under calibration options.";
+      raise RuntimeError,"No interferometers selected for calibration. Check your ifr specification (under calibration options).";
     # inputs to the solver are based on calibration type
     if corrupt_uvdata:
       [ ns.diff(p,q) << spigots(p,q) - corrupt_uvdata(p,q) for p,q in solve_ifrs ];
