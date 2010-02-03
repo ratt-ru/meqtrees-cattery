@@ -38,7 +38,8 @@ import Meow.StdTrees
 import Calico.Flagger
 
 # MS options first
-mssel = Context.mssel = Meow.MSUtils.MSSelector(has_input=True,read_flags=True,has_output=False,tile_sizes=[10,100,200]);
+mssel = Context.mssel = Meow.MSUtils.MSSelector(has_input=True,read_flags=True,write_flags=True,has_output=False,tile_sizes=[10,100,200]);\
+mssel.enable_write_flags(False);  # enabled in define_forest() if needed
 # MS compile-time options
 TDLCompileOptions(*mssel.compile_options());
 TDLCompileOption("run_purr","Start Purr on this MS",True);
@@ -46,11 +47,29 @@ TDLCompileOption("run_purr","Start Purr on this MS",True);
 # add a subset selector for the "flag subset" option
 flag_subset = mssel.make_subset_selector('mssel_flag');
 
+TDLCompileMenu("Enable in-tree flaggers",
+  TDLOption("tree_flag_norm","Use matrix norm rather than element amplitudes",False),
+  TDLOption("tree_flag_ampl","Flag on amplitudes >",[None],more=float,
+      doc="""<P>If selected, your tree will flag visibility points where the complex amplitude exceeds the given value.</P>
+      """),
+  TDLOption("tree_flag_mean_ampl","Flag on mean amplitudes (over all IFRs) >",[None],more=float,
+      doc="""<P>If selected, your tree will flag visibility points where the mean complex amplitude over all IFRs exceeds the given value.</P>
+      """),
+  TDLOption("tree_flag_mean_freq_ampl","Flag on mean amplitudes (over all IFRs and freqs) >",[None],more=float,
+      doc="""<P>If selected, your tree will flag visibility points where the mean complex amplitude over all IFRs and frequencies exceeds the given value.</P>
+      """),
+  toggle='tree_flag_enable',
+);
 
-# The view_ms job simply cycles through the measurement set
-def view_ms (mqs,parent,**kw):
+# The view_ms job simply cycles through the measurement set, without writing flags
+def view_ms_job (mqs,parent,wait=False,**kw):
+  req = mssel.create_io_request(write_flags=False);
+  mqs.execute('VisDataMux',req,wait=wait);
+
+# The flag_ms job cycles through the measurement set and generates flags
+def treeflag_ms_job (mqs,parent,wait=False,**kw):
   req = mssel.create_io_request();
-  mqs.execute('VisDataMux',req,wait=False);
+  mqs.execute('VisDataMux',req,wait=wait);
 
 # Handle SIGCHLD signals (to manage external autoflag processes)
 old_sigchld_handler = None;
@@ -378,7 +397,8 @@ def remove_flagset (mqs,parent,**kw):
     progress_callback(100,100);
     progress_dialog.hide();
 
-view_ms_opt         = TDLRuntimeJob(view_ms,"View MS data & flags",job_id="view_ms");
+view_ms_opt         = TDLRuntimeJob(view_ms_job,"View MS visibilities and flags",job_id="view_ms");
+treeflag_ms_opt     = TDLRuntimeJob(treeflag_ms_job,"Flag MS using the in-tree flaggers",job_id="treeflag_ms");
 add_bitflag_opt     = TDLRuntimeJob(add_bitflags,"Initialize bitflag columns in this MS",
   doc="""This MS does not contain any bitflag columns. Once you have initialized
   these columns, advanced flagging options will become available.""",job_id="add_bitflags");
@@ -395,12 +415,14 @@ clear_legacy_opt    = TDLRuntimeJob(clear_legacy_flags,"Clear flags from FLAG/FL
 remove_fs_opt       = TDLRuntimeJob(remove_flagset,"Remove selected flagset(s)",
   doc="""Completely removes the selected flagsets.""",job_id="remove_flagsets");
 
-ms_job_options = [ view_ms_opt,run_autoflagger_opt,flag_ms_opt,transfer_opt,clear_legacy_opt,
+ms_job_options = [ view_ms_opt,treeflag_ms_opt,run_autoflagger_opt,flag_ms_opt,transfer_opt,clear_legacy_opt,
                    get_stat_opt,clear_bf_opt,clear_fs_opt,remove_fs_opt,add_bitflag_opt ];
 
-TDLRuntimeMenu("View MS data & flags",
+TDLRuntimeMenu("View or flag MS visibilities",
   *( mssel.runtime_options() +
-     [ view_ms_opt ]));
+     [ view_ms_opt,treeflag_ms_opt ]));
+treeflag_ms_opt.show(False);          # will be shown by define_forest() if needed
+
 
 flag_flag_selector = mssel.make_write_flag_selector(namespace='flag_fl');
 flag_menu = TDLRuntimeMenu("Flag or unflag a subset of the data",
@@ -539,24 +561,75 @@ def _define_forest(ns,parent=None,**kw):
   if run_purr:
     Timba.TDL.GUI.log_message("starting purr");
     Timba.TDL.GUI.purr(mssel.msname+".purrlog",[mssel.msname,'.']);
-  
-  ANTENNAS = mssel.get_antenna_set(range(15));
-  array = Meow.IfrArray(ns,ANTENNAS,mirror_uvw=False);
-  observation = Meow.Observation(ns);
-  Meow.Context.set(array,observation);
-  stas = array.stations();
+
+  mssel.setup_observation_context(ns);
+  array = Meow.Context.array;
 
   # make spigot nodes
-  spigots = spigots0 = array.spigots(corr=mssel.get_corr_index());
+  outputs = spigots = array.spigots(corr=mssel.get_corr_index());
   
   # ...and an inspector for them
   Meow.StdTrees.vis_inspector(ns.inspector('input'),spigots,
                               bookmark="Inspect input visibilities");
-  inspector = ns.inspector('input');
+  inspectors = [ ns.inspector('input') ];
   Bookmarks.make_node_folder("Input visibilities by baseline",
     [ spigots(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
 
-  ns.VisDataMux << Meq.VisDataMux(post=inspector);
+  # add in-tree flaggers, if appropriate
+  if tree_flag_enable:
+    flaggers = [];
+    # make nodes to take complex amplitude, if any flaggers are going to use them
+    if tree_flag_ampl is not None or tree_flag_mean_ampl is not None or tree_flag_mean_freq_ampl is not None:
+      # use matrix norm
+      if tree_flag_norm:
+        for p,q in array.ifrs():
+          node = outputs(p,q);
+          nsq = node('sq') << Meq.MatrixMultiply(node,node('conj') << Meq.ConjTranspose(node));
+          nsqtr = nsq('tr') << (nsq(11) << Meq.Selector(nsq,index=0)) + (nsq(22) << Meq.Selector(nsq,index=3));
+          ns.ampl(p,q) << Meq.Sqrt(nsqtr('abs') << Meq.Abs(nsqtr));
+      # use per-element amplitudes
+      else:
+        for p,q in array.ifrs():
+          ns.ampl(p,q) << Meq.Abs(outputs(p,q));
+      # ...and an inspector for them
+      Meow.StdTrees.vis_inspector(ns.inspector('ampl'),ns.ampl,bookmark="Inspect mean-freq visibility amplitudes");
+      inspectors.append(ns.inspector('ampl'));
+    # make flagger for amplitudes
+    if tree_flag_ampl is not None:
+      for p,q in array.ifrs():
+        ns.flagampl(p,q) << Meq.ZeroFlagger(ns.ampl(p,q)-tree_flag_ampl,oper='gt',flag_bit=Meow.MSUtils.FLAGMASK_OUTPUT);
+      flaggers.append(ns.flagampl);
+    # make flagger for mean-ifr amplitudes
+    if tree_flag_mean_ampl is not None:
+      ns.meanampl << Meq.Mean(*[ns.ampl(p,q) for p,q in array.ifrs()]);
+      ns.flagmeanampl << Meq.ZeroFlagger(ns.meanampl-tree_flag_mean_ampl,oper='gt',flag_bit=Meow.MSUtils.FLAGMASK_OUTPUT);
+      Meow.Bookmarks.Page("Mean-ifr visibility amplitudes").add(ns.meanampl,viewer="Result Plotter");
+      flaggers.append(lambda p,q:ns.flagmeanampl);
+    # make flagger for mean-fr-freq amplitudes
+    if tree_flag_mean_freq_ampl is not None:
+      ns.meanampl ** Meq.Mean(*[ns.ampl(p,q) for p,q in array.ifrs()]);
+      ns.meanfreqampl << Meq.Mean(ns.meanampl,reduction_axes="freq");
+      ns.flagmeanfreqampl << Meq.ZeroFlagger(ns.meanfreqampl-tree_flag_mean_freq_ampl,oper='gt',flag_bit=Meow.MSUtils.FLAGMASK_OUTPUT);
+      Meow.Bookmarks.Page("Mean-ifr-freq visibility amplitudes").add(ns.meanfreqampl,viewer="Collections Plotter");
+      flaggers.append(lambda p,q:ns.flagmeanfreqampl);
+    
+    # now merge all flaggers  
+    if flaggers:
+      for p,q in array.ifrs():
+        ns.flagged(p,q) << Meq.MergeFlags(outputs(p,q),*[fl(p,q) for fl in flaggers]);
+      outputs = ns.flagged;
+      Meow.StdTrees.vis_inspector(ns.inspector('flagged'),outputs,
+                                  bookmark="Inspect flagged visibilities");
+      inspectors.append(ns.inspector('flagged'));
+      Bookmarks.make_node_folder("Flagged visibilities by baseline",
+        [ outputs(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
+      mssel.enable_write_flags(True);
+      treeflag_ms_opt.show(True);
+
+  if outputs is spigots:
+    ns.VisDataMux << Meq.VisDataMux(post=(inspectors[0] if len(inspectors)<2 else Meq.ReqMux(*inspectors)));
+  else:
+    Meow.StdTrees.make_sinks(ns,outputs,spigots=spigots,post=inspectors);
   
   # add imaging options
   imsel = mssel.imaging_selector(npix=512,arcmin=120);
