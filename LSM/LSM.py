@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# -*- coding: utf-8 -*-
 #
 # The Local Sky Model (LSM)
 #
@@ -1668,14 +1669,16 @@ class LSM:
        # log.write('%d: l=%.14f m=%.14f r=%.14f\n'%(id,ll,mm,math.sqrt(ll*ll+mm*mm)));
 
        ### Q fraction
-       sQ=struct.unpack('f',mdl[16:20])
-       sQ=sQ[0]*sI/100
+       ## OMS 25/01/2010: is this a boo-boo? This used to divide by 100, as if the number was a percentage.
+       ## But MDL.DSC says only "Q (fraction of I)".
+       sQ=struct.unpack('f',mdl[16:20]) 
+       sQ=sQ[0]*sI; #/100
        ### U fraction
        sU=struct.unpack('f',mdl[20:24])
-       sU=sU[0]*sI/100
+       sU=sU[0]*sI; #/100
        ### V fraction
        sV=struct.unpack('f',mdl[24:28])
-       sV=sV[0]*sI/100
+       sV=sV[0]*sI; #/100
 
        ### extended source params: in arcsec, so multiply by ???
        eX=struct.unpack('f',mdl[28:32])
@@ -1797,7 +1800,7 @@ class LSM:
           # add all sources
           # NEWSTAR MDL lists might have same source twice if they are 
           # clean components, so make a unique name for them
-          bname='NEWS'+str(id);
+          bname = ('NEWS' if bit2 else 'NEWS')+str(id);
           if unamedict.has_key(bname):
             uniqname=bname+'_'+str(unamedict[bname])
             unamedict[bname]=unamedict[bname]+1
