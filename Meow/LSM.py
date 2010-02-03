@@ -86,21 +86,21 @@ class MeowLSM (object):
           "cos(min(65*fq*r,1.0881))**6   # WSRT",
           "max(cos(65*fq*r)**6,.01)      # NEWSTAR",
         ],more=str,namespace=self,
-        doc="""This is the primary power beam expression used to convert I flux 
-        as given by the LSM (i.e. intrinsic) to apparent I. If specified, then LSM sources 
-        will be sorted by apparent rather than intrinsic flux. The sort order is important
-        for the "LSM subset" option below.
+        doc="""<P>This is the primary power beam expression used to convert intrinsic <i>I</i> flux 
+        as given by the LSM to apparent flux <b>for purposes of sorting only</b>.
+        If not specified, LSM sources will be sorted by intrinsic <i>I</i> flux. The order of the sources is 
+        relevant to the "LSM subset" option below.</P>
         
-        Note that this "beam correction" only affects sorting of the sources. The actual 
-        source fluxes used in your tree will always be taken directly from the LSM (since 
-        trees can incorporate primary beam terms of their own.)
+        <P>Note again that this beam expression only affects the sort order of the sources. The actual 
+        source fluxes used in your tree will always be as per the LSM itself -- it is up to the tree to
+        incorporate a proper primary beam model as required.</P>
         
-        The beam expression can be any valid Python expression (all functions from the 
+        <P>The beam expression can be any valid Python expression (all functions from the 
         math module are available). The variables 'r' and 'fq' refer to the source distance 
-        from field centre (in radians) and reference frequency (in GHz), respectively.
+        from field centre (in radians) and reference frequency (in GHz), respectively.</P>
         
-        If your LSM already contains apparent fluxes, or you're not interested in sorting 
-        the sources, set this option to 'None'.""");
+        <P>If your LSM uses apparent rather than intrinsic fluxes, or you don't need to sort
+        the sources by apparent flux, set this option to 'None'.</P>""");
       self._compile_opts.append(beam_opt);
 
       subset_doc = """<P>Selects a subset of sources from the
