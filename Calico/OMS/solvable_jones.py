@@ -70,8 +70,8 @@ class FullRealImag (object):
   def __init__ (self,label):
     self.tdloption_namespace = label+".fullrealimag";
     self.options = [
-      TDLOption("init_diag","Initial value, diagonal",[0,1],default=1,more=float,namespace=self),
-      TDLOption("init_offdiag","Initial value, off-diagonal",[0,1],default=0,more=float,namespace=self),
+      TDLOption("init_diag","Initial value, diagonal",[0,1],default=1,more=complex,namespace=self),
+      TDLOption("init_offdiag","Initial value, off-diagonal",[0,1],default=0,more=complex,namespace=self),
     ];
     self._offdiag = True;
 
@@ -90,10 +90,10 @@ class FullRealImag (object):
     ixx,ixy,iyx,iyy = [ q+":i" for q in xx,xy,yx,yy ];
     # create parm definitions for each jones element
     tags = NodeTags(tags) + "solvable";
-    diag_real = Meq.Parm(1,tags=tags+"diag real");
-    diag_imag = Meq.Parm(0,tags=tags+"diag imag");
-    offdiag_real = Meq.Parm(0,tags=tags+"offdiag real");
-    offdiag_imag = Meq.Parm(0,tags=tags+"offdiag imag");
+    diag_real = Meq.Parm(complex(self.init_diag).real,tags=tags+"diag real");
+    diag_imag = Meq.Parm(complex(self.init_diag).imag,tags=tags+"diag imag");
+    offdiag_real = Meq.Parm(complex(self.init_offdiag).real,tags=tags+"offdiag real");
+    offdiag_imag = Meq.Parm(complex(self.init_offdiag).imag,tags=tags+"offdiag imag");
     # now loop to create nodes
     for p in stations:
       jones(p) << Meq.Matrix22(
@@ -164,7 +164,7 @@ class DiagRealImag (FullRealImag):
   def __init__ (self,label):
     self.tdloption_namespace = label+".diagrealimag";
     self.options = [
-      TDLOption("init_diag","Initial value",[0,1],default=1,more=float,namespace=self),
+      TDLOption("init_diag","Initial value",[0,1],default=1,more=complex,namespace=self),
     ];
     self._offdiag = False;
     self.init_offdiag = 0;
