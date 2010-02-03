@@ -90,9 +90,9 @@ _image_viewers.append("none");
 
 # This defines some standard IFR subsets for some observatories.
 STD_IFR_SUBSETS = dict(
-  WSRT=[ "all -45 -56 -67",
-         "all -45 -56 -67 -9A -AB -CD",
-         "all -45 -46 -56 -67 -68 -9A -AB -CD",
+  WSRT=[ "-45 -56 -67",
+         "S83",
+         "S85",
          "FM",
          "FM -9A -9B"
   ]
@@ -909,11 +909,11 @@ class MSSelector (object):
     iorec.mt_queue_size = ms_queue_size;
     return iorec;
 
-  def create_outputrec (self):
-    """Creates an output record with the selected options""";
+  def create_outputrec (self,write_flags=True):
+    """Creates an output record with the selected options. Use write_flags=False to suppress flag output even if selecred""";
     rec = record();
-    rec.write_bitflag = self.ms_write_flags;
-    if self.ms_write_flags:
+    rec.write_bitflag = self.ms_write_flags and write_flags;
+    if self.ms_write_flags and write_flags:
       # output masks
       rec.tile_bitflag = self.get_output_bitflag();
       rec.tile_flag_mask = FLAG_FULL & ~(FLAGMASK_INPUT|FLAGMASK_LEGACY); # bitflags 1|2 = input flags
@@ -930,13 +930,13 @@ class MSSelector (object):
       rec.data_column = self.output_column;
     return record(ms=rec,mt_queue_size=ms_queue_size);
 
-  def create_io_request (self,tiling=None):
+  def create_io_request (self,tiling=None,write_flags=True):
     """Creates an i/o record with the selected options, suitable for
     passing to a VisDataMux""";
     req = meq.request();
     req.input = self.create_inputrec(tiling);
-    if self.ms_write_flags or self.output_column is not None:
-      req.output = self.create_outputrec();
+    if (self.ms_write_flags and write_flags) or self.output_column is not None:
+      req.output = self.create_outputrec(write_flags=write_flags);
     return req;
 
   def run_solve_job (self,mqs,solvables,tiling=None,
