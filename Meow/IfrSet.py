@@ -25,11 +25,12 @@
 #
 import re
 import math
+import traceback
 
 ifr_spec_syntax = """<P>Specify interferometers as a list of tokens, separated by commas or spaces. 
   The format of each token is as follows:</P>
 
-  <P>"*" or "all": selects all ifrs.</P>
+  <P>"*" or "all" or "ALL": selects all ifrs.</P>
 
   <P>"&lt;=N", "&lt;N", "&gt;=N", "&gt;N": selects by baseline length.</P>
 
@@ -40,7 +41,7 @@ ifr_spec_syntax = """<P>Specify interferometers as a list of tokens, separated b
   <P>"-xxx": excludes baselines specified by token xxx. E.g. "all -4* -&lt;144 0-1 AB" selects all 
   baselines, then throws out those with antenna 4 and those shorter than 144m, then adds 0-1 
   and A-B. Note also that as a shortcut, if the first token in the list is negated, then a "*" 
-  is implicitly prepended. That is, a "-AB" at the start is equivalent to "all -AB".</P>
+  is implicitly prepended. That is, a leading "-AB" is equivalent to "all -AB".</P>
   """;
 
 
@@ -49,7 +50,7 @@ class IfrSet (object):
   """
   ifr_spec_syntax = ifr_spec_syntax;
   def __init__ (self,station_list=None,ifr_index=None,
-                positions=None,observatory=None,label_sep=None):
+                positions=None,observatory=None,label_sep=None,parent=None):
     """Creates a set of interferometers from either 
       * 'station_list': a list of station IDs
       * 'station_list': a list of (ip,p): station numbers and ID tuples.
@@ -62,8 +63,14 @@ class IfrSet (object):
           subset() (e.g. "FM" for WSRT fixed-movable set.)
       'label_sep' is a separator string for IFR labels. If None, then the default
           is to use "-", or "" if all station names are single-character.
+      'parent' is a parent IfrSet object. If set, then information such as the above 
+      (position, observatory, etc.) is copied over.
     """
-    self.observatory = observatory;
+    # init these from args or from parent IfrSet
+    self.positions = positions = positions if not parent else parent.positions;
+    self.observatory = observatory = observatory if not parent else parent.observatory;
+    self.label_sep = label_sep = label_sep if not parent else parent.label_sep;
+    # init station list
     if station_list:
       # make _station_index: list of (ip,p) pairs.
       if isinstance(station_list[0],(list,tuple)):
@@ -87,14 +94,17 @@ class IfrSet (object):
     # make a dict of positions and baseline lengths
     # _positions[ip] gives the position of antenna #ip
     # _baselines[ip,iq] gives the baseline length for ip,iq
-    self.positions = positions;
-    if positions is not None:
+    if self.positions is not None:
+      self._baseline_vectors = dict([
+        ((ip,iq),(self.positions[ip,:]-self.positions[iq,:]))
+        for ip,p in self._station_index for iq,q in self._station_index
+      ]);
       self._baselines = dict([
-        ((ip,iq),math.sqrt(((positions[ip,:]-positions[iq,:])**2).sum()))
+        ((ip,iq),math.sqrt((self._baseline_vectors[ip,iq]**2).sum()))
         for ip,p in self._station_index for iq,q in self._station_index
       ]);
     else:
-      self._baselines = None;
+      self._baselines = self._baseline_vectors = None;
     # make a few more useful lists
     # _stations is just a list of all station anmes
     self._stations = [ p for ip,p in self._station_index ];
@@ -102,32 +112,45 @@ class IfrSet (object):
     self._ifrs = [ (px[1],qx[1]) for px,qx in self._ifr_index ];
     # _ifr_labels is a dict of ip,iq -> IFR labels
     # default label separator is "-", or "" for single-char stations
-    if label_sep is None:
-      label_sep = "-" if max(map(len,self._stations))>1 else "";
-    self._label_sep = label_sep;
-    self._ifr_labels = dict([((ip,iq),p+label_sep+q) for (ip,p),(iq,q) in self._ifr_index ]);
+    if self.label_sep is None:
+      self.label_sep = "-" if max(map(len,self._stations))>1 else "";
+    self._ifr_labels = dict([((ip,iq),p+self.label_sep+q) for (ip,p),(iq,q) in self._ifr_index ]);
     # fill in dictionary of aliases for baseline specifications
-    self._ifr_spec_aliases = dict();
-    # '*' or 'all' selects all baselines
-    self._ifr_spec_aliases['*'] = self._ifr_spec_aliases['ALL'] = set(self._ifr_index);
-    # form up doc string
-    self.subset_doc = ifr_spec_syntax;
-    # special aliases for WSRT
-    if observatory and observatory.upper() == "WSRT":
-      fixed = set([ (ip,p) for ip,p in self._station_index if ip < 10 ]);
-      movable = set([ (ip,p) for ip,p in self._station_index if ip >= 10 ]);
-      self._ifr_spec_aliases["FF"] = self._ifr_spec_aliases["F-F"] = \
-        set([(px,qx) for px,qx in self._ifr_index if px in fixed and qx in fixed]);
-      self._ifr_spec_aliases["FM"] = self._ifr_spec_aliases["F-M"] = \
-        set([(px,qx) for px,qx in self._ifr_index if px in fixed and qx in movable]);
-      self._ifr_spec_aliases["MM"] = self._ifr_spec_aliases["M-M"] = \
-        set([(px,qx) for px,qx in self._ifr_index if px in movable and qx in movable]);
-      self.subset_doc += """
-        <P>"FF", "FM", "MM" (or "F-F", "F-M", "M-M"): selects the stadard WSRT sets
-        of fixed-fixed, fixed-movable and movable-movable baselines. Can also be negated,
-        so "* -MM" selects all baselines except the movable-movable ones.
-        </P>
-      """;
+    if parent:
+      self._ifr_spec_aliases = parent._ifr_spec_aliases;
+      self.subset_doc = parent.subset_doc;
+    else:
+      self._ifr_spec_aliases = dict();
+      # '*' or 'all' selects all baselines
+      self._ifr_spec_aliases['*'] = self._ifr_spec_aliases['ALL'] = set(self._ifr_index);
+      # form up doc string
+      self.subset_doc = ifr_spec_syntax;
+      # special aliases for WSRT
+      if self.observatory and self.observatory.upper() == "WSRT":
+        fixed = set([ (ip,p) for ip,p in self._station_index if ip < 10 ]);
+        movable = set([ (ip,p) for ip,p in self._station_index if ip >= 10 ]);
+        self._ifr_spec_aliases["FF"] = self._ifr_spec_aliases["F-F"] = \
+          set([(px,qx) for px,qx in self._ifr_index if px in fixed and qx in fixed]);
+        self._ifr_spec_aliases["FM"] = self._ifr_spec_aliases["F-M"] = \
+          set([(px,qx) for px,qx in self._ifr_index if px in fixed and qx in movable]);
+        self._ifr_spec_aliases["MM"] = self._ifr_spec_aliases["M-M"] = \
+          set([(px,qx) for px,qx in self._ifr_index if px in movable and qx in movable]);
+        self._ifr_spec_aliases["S85"] = self.ifr_index_subset("-45 -56 -67 -9A -AB -CD");
+        self._ifr_spec_aliases["S83"] = self.ifr_index_subset("-45 -46 -56 -67 -68 -9A -AB -CD");
+        self.subset_doc += """
+          <P>You appear to have an WSRT MS, so in addition to the above, the following standard
+          designations are recognized:</P>
+
+          <P>"FF", "FM", "MM" (or "F-F", "F-M", "M-M"): selects the stadard WSRT sets
+          of fixed-fixed, fixed-movable and movable-movable baselines. Can also be negated,
+          so "* -MM" selects all baselines except the movable-movable ones.
+          </P>
+
+          <P>"S85": standard set of 85 baselines, i.e. all except the three shortest spacings
+          (9A, AB, CD), and the oft-contaminated 45, 56 and 67.</P>
+
+          <P>"S83": same as above, minus also 46 and 68.</P>
+        """;
 
   def stations (self):
     """Returns list of station names.""";
@@ -172,10 +195,13 @@ class IfrSet (object):
     """Returns (x,y,z) baseline for ifr number ip,iq.""";
     return self._baselines[ip,iq] if self._baselines else 0.;
 
+  def baseline_vector (self,ip,iq):
+    """Returns (x,y,z) baseline for ifr number ip,iq.""";
+    return self._baseline_vectors[ip,iq] if self._baselines else 0.;
+
   def taql_string (self):
     """Returns TaQL string representing this set of baselines.""";
     return "||".join(["(ANTENNA1==%d&&ANTENNA2==%d)"%(ip,iq) for (ip,p),(iq,q) in self._ifr_index ]);
-
 
   _comparison_predicates = {
     '<':  (lambda a,b: a<b),
@@ -192,6 +218,17 @@ class IfrSet (object):
     %s
     
     Returns a new IfrSet object.
+    """%ifr_spec_syntax;
+    return IfrSet(ifr_index=self.ifr_index_subset(specstr,strict=strict),parent=self);
+
+  def ifr_index_subset (self,specstr,strict=False):
+    """Parses an interferometer subset specification string, and returns a set of ifr indices
+    for interferometers found in the string. If strict is False, ignores any errors in the string, 
+    if true then throws an exception on error.
+    
+    %s
+    
+    Returns a set of ((ip,p),(iq,q)) tuples.
     """%ifr_spec_syntax;
     result = set();
     for ispec,spec in enumerate(re.split("[\s,]+",specstr.strip())):
@@ -233,6 +270,9 @@ class IfrSet (object):
         p,q = spec;
       else:
         p,q = re.split("[-:]",spec,1);
+      # if first is wildcard, change them around, so X* becomes *X
+      if p == "*":
+        p,q = q,p;
       ip = self._name_to_number.get(p.upper(),None);
       iq = self._name_to_number.get(q.upper(),None);
       # first token must be a valid antenna
@@ -240,6 +280,7 @@ class IfrSet (object):
         if strict:
           raise ValueError,"invalid ifr specification '%s' (station '%s' not known)"%(spec,p);
         print "Ignoring invalid ifr specification '%s' (station '%s' not known)"%(spec,p);
+        traceback.print_stack();
         continue;
       # second token may be a wildcard
       if q == "*":
@@ -248,12 +289,12 @@ class IfrSet (object):
         if strict:
           raise ValueError,"invalid ifr specification '%s' (station '%s' not known)"%(spec,q);
         print "Ignoring invalid ifr specification '%s' (station '%s' not known)"%(spec,q);
+        traceback.print_stack();
       elif ip<iq:
         add_or_remove([(px,qx) for px,qx in self._ifr_index if (px[0],qx[0])==(ip,iq)]);
       elif ip>iq:
         add_or_remove([(px,qx) for px,qx in self._ifr_index if (px[0],qx[0])==(iq,ip)]);
-
-    return IfrSet(ifr_index=result,observatory=self.observatory,positions=self.positions,label_sep=self._label_sep);
+    return result;
 
 def from_ms (ms):
   # import table class
