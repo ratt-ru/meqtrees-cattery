@@ -167,7 +167,7 @@ def _define_forest(ns,parent=None,**kw):
 
   # make a predict tree using the MeqMaker
   if do_solve or do_subtract:
-    predict = meqmaker.make_tree(ns);
+    predict = meqmaker.make_predict_tree(ns);
     # make a ParmGroup and solve jobs for source parameters, if we have any
     if do_solve:
       parms = {};
