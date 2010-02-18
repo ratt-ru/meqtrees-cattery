@@ -113,7 +113,7 @@ class IfrSet (object):
     # _ifr_labels is a dict of ip,iq -> IFR labels
     # default label separator is "-", or "" for single-char stations
     if self.label_sep is None:
-      self.label_sep = "-" if max(map(len,self._stations))>1 else "";
+      self.label_sep = "-" if max(map(len,map(str,self._stations)))>1 else "";
     self._ifr_labels = dict([((ip,iq),p+self.label_sep+q) for (ip,p),(iq,q) in self._ifr_index ]);
     # fill in dictionary of aliases for baseline specifications
     if parent:
