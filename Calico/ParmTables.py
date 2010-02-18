@@ -6,6 +6,8 @@ import sys
 import traceback
 import cPickle
 import copy
+import numpy
+import numpy.ma
 
 from Timba.parmtables import FastParmTable
 from Timba.Meq import meq
@@ -34,12 +36,11 @@ def cmp_qualified_names (a,b):
 def sort_qualified_names (inlist):
   """Sorts qualified names as follows: splits into fields at ':', and sorts according to fields.
   If field is a numbers, sorts in the numeric sense."""
-  outlist = list(inlist);
-  outlist.sort(cmp_qualified_names);
-  return outlist;
+  return sorted(inlist,cmp_qualified_names);
 
-class AxisStats (object):
-  """AxisStats represents information about one axis in the parmtable""";
+class _AxisStats (object):
+  """_AxisStats represents information about one axis in the parmtable. It is created internally
+  by ParmTab.""";
   def __init__ (self,name):
     self.name = str(name).lower();
     self.cells = {};
@@ -63,6 +64,257 @@ class AxisStats (object):
 
   def lookup_cell (self,x1,x2):
     return self.cell_index[(x1+x2)/2];
+
+class DomainSlicing (list):
+  """A DomainSlicing represents a slicing of the ParmTable domain.
+  Basically, it is a list of slice_index tuples, with each tuple corresponding to a slice through
+  the domain.
+  """;
+  def __init__ (self,slice_axes,domain_subset):
+    """The constructor makes a slicing from a list of axes to be incorporated in the slice.
+    All other axes will be iterated over.""";
+    list.__init__(self);
+    self.append([]);
+    for iaxis,axis_subset in enumerate(domain_subset):
+      if axis_subset is None or iaxis in slice_axes or mequtils.get_axis_id(iaxis) in slice_axes:
+        self[:] = [ sl + [None] for sl in self ];
+      else:
+        self[:] = [ sl + [i] for sl in self for i in axis_subset ];
+
+class FunkSlice (object):
+  """FunkSlice represents a slice of funklets from a parmtable."""
+  def __init__ (self,parmtab,name,funklist,index,iaxes,axes=None):
+    self.pt = parmtab;
+    self.name = name;
+    self.funklets = funklist;
+    self.slice_index = index;
+    self.slice_iaxes = iaxes;
+    self.slice_axes = axes or map(mequtils.get_axis_id,iaxes);
+    self.rank = len(iaxes);
+  def __len__ (self):
+    return len(self.funklets);
+  def __getitem__ (self,key):
+    return self.funklets[key];
+  def __iter__ (self):
+    return iter(self.funklets);
+  def array (self,coeff=0,fill_value=0,masked=True,collapse=True):
+    """Returns funklet coefficients arranged into a hypercube.
+    'coeff' is applied as an index into each funklet's coeff array, so coeff=0 or coeff=(0,0) selects 
+    c00, coeff=(0,1) selects c01, etc. IndexError is raised when a non-existing coeff is selected.
+    The return value is an array with the same dimensions as the slice. If funklets for some
+    domains are missing, the missing values will be set to fill_value. If masked=True, the return value 
+    will also be a masked array, with missing values masked. If masked=False, return value
+    if an ordinary array.
+    If 'collapse' is False, axes of the array will have a one-to-one correspondence with domain axes
+        (so e.g. a slice for time=0,freq=0,l=*,m=* will have shape [1,1,nl,nm]
+    If 'collapse' is True, axes not in this slice will be eliminated.  
+        (so e.g. the same slice will have shape [nl,nm]
+    """
+    # convert things like (0,0) into None
+    if not coeff or not any(coeff):
+      coeff = None; 
+    # initially array is of uncollapsed: one axis for each dimension (up to max_axies), with those not in the
+    # slice having a size of 1. Extra axrs will be trimmed later.
+    shape = [1]*mequtils.max_axis;
+    for iaxis in self.slice_iaxes:
+      shape[iaxis] = len(self.pt.axis_stats(iaxis).grid);
+    # init empty arrays. Mask is all True initially, cleared as filled
+    arr = numpy.zeros(shape,float);
+    arr[...] = fill_value;
+    mask = numpy.ones(shape,bool);
+    # index object: modified and used below
+    idx0 = [0]*mequtils.max_axis;
+    # now go through funklets and fill them in
+    for funk in self.funklets:
+      if numpy.isscalar(funk.coeff):
+        if coeff is not None:
+          raise IndexError,"invalid coeff index %s (funklet is scalar)"%coeff;
+        val = funk.coeff;
+      else:
+        try: 
+          val = funk.coeff[coeff];
+        except:
+          raise IndexError,"invalid coeff index %s (funklet coeffs are %s)"%(coeff,funk.coeff.shape);
+      # funk.slice_index is the global index of this funklet. We want to use just the axes
+      # found in our slice for assigning to the array
+      for iaxis in self.slice_iaxes:
+        idx0[iaxis] = funk.slice_index[iaxis];
+      idx = tuple(idx0);
+      try:
+        arr[idx] = val;
+        mask[idx] = False;
+      except:
+        raise;
+    # make masked array if needed
+    if masked:
+      arr = numpy.ma.masked_array(arr,mask,fill_value=fill_value);
+    # reshape
+    if collapse:
+      arr.shape = [ shape[iaxis] for iaxis in self.slice_iaxes ];
+    else:
+      arr.shape = shape[:(self.slice_iaxes[-1]+1)];
+    return arr;
+
+class FunkSet (object):
+  """FunkSet represents a set of funklets with the same name""";
+  def __init__ (self,parmtab,name):
+    self.pt = parmtab;
+    self.name = name;
+
+  def get_slice (self,*index,**axes):
+    """get_slice() returns a FunkSlice of all funklets matching a specified slice.
+    Slice can be specified in one of two ways: by a vector of axis indices, or by keywords.
+    E.g.:
+      get_slice(None,0) or get_slice(freq=0)
+    returns all funklets for 'name' and the first frequency (first form assumes freq is axis 1,
+    so time=None and freq=0)
+      get_slice(0) or get_slice(time=0)
+    returns all funklets for 'name' and the first timeslot (first form assumes time is axis 0),
+      get_slice(1,2) or get_slice(time=1,freq=2)
+    returns all funklets for 'name', timeslot 1, frequency 2.
+    """;
+    # make sure index is a vector of max_axes length
+    if len(index) < mequtils.max_axis:
+      index = list(index) + [None]*(mequtils.max_axis - len(index));
+    else:
+      index = list(index);
+    # set additional indices from keywords
+    for axis,num in axes.iteritems():
+      index[mequtils.get_axis_number(axis)] = num;
+    # build up list of full indices corresponding to specified slice
+    slice_iaxis = [];
+    indices = [[]];
+    for iaxis,axis_idx in enumerate(index):
+      stats = self.pt.axis_stats(iaxis);
+      # for empty axes, or axes specifed in our call, append number to all indices as is
+      if axis_idx is not None or stats.empty():
+        map(lambda idx:idx.append(axis_idx),indices);
+      # non-empty axes NOT specified in our call will be part of the slice
+      else:
+        slice_iaxis.append(iaxis);
+        indices = [ idx + [i] for idx in indices for i in range(len(stats.grid)) ];
+    # now make funklet list
+    funkslice = FunkSlice(self.pt,self.name,[],index,slice_iaxis);
+    for idx in indices:
+      idx = tuple(idx);
+      idom = self.pt._domain_reverse_index.get(idx,None);
+      if idom is not None:
+        funk = self.pt.parmtable().get_funklet(self.name,idom);
+        if funk:
+          funk.domain_index = idom;
+          funk.slice_index = idx;
+          funkslice.funklets.append(funk);
+    return funkslice;
+
+  def __call__ (self,*index,**axes):
+    """The () operator on a FunkSet is equivalent to get_slice()""";
+    return self.get_slice(*index,**axes);
+
+  def array (self,coeff=0,fill_value=0,masked=True,collapse=True):
+    """Makes array corresponding to whole FunkSet. This function will also maintain a disk cache
+    of the array, and read it in or regenerate it as needed (unlike FunkSlice.array(), which
+    always builds its arrays from scratch.)
+    \n\n""" + FunkSlice.array.__doc__;
+    # see if we have a cached array
+    cachefile = os.path.join(self.pt.filename,"array.%s.%s.cache"%(self.name,coeff));
+    arr = None;
+    if os.path.exists(cachefile) and os.path.getmtime(cachefile) >= self.pt.mtime:
+      try:
+        arr = cPickle.load(file(cachefile));
+        dprintf(2,"read cache %s\n"%cachefile);
+      except:
+        dprintf(0,"error reading cached array %s, will regenerate\n"%cachefile);
+        arr = None;
+    # regenerate array if not read
+    if arr is None:
+      dprintf(2,"filling array for %s.%s\n",self.name,coeff);
+      fullslice = self.get_slice();
+      # generate full, uncollapsed masked array
+      arr = fullslice.array(coeff,fill_value=0,masked=True,collapse=False);
+      # write to cache
+      try:
+        cPickle.dump(arr,file(cachefile,"w"));
+      except:
+        traceback.print_exc();
+        dprintf(0,"error writing cache array %s, but proceeding anyway\n"%cachefile);
+    # now apply the masked and fill_value properties
+    if not masked:
+      arr = arr.filled(fill_value);
+    else:
+      arr.fill_value = fill_value;
+    # and collapse axes if asked
+    if collapse:
+      arr.shape = [ n for i,n in enumerate(arr.shape) if not self.pt.axis_stats(i).empty() ];
+    return arr;
+
+  def apply (self,op_func,slicing=[],outtab=None,remove=False):
+    """For each funklet in the subset, takes all funklets along the designated slicing axis
+    (i.e. for each slice along the non-listed axes), creates a FunkSlice, and calls 
+    op_func(slice).
+    The return value of op_func() should be either None if no operation was performed, or a list of 
+    funklets to be written to the output table. This list may also contain strings, which are
+    interpreted as funklet names. The default name is the same as the current FunkSet name; a string at
+    any position in the funklet list applies to subsequent funklets.
+    if 'outtab' is None, a new output table is created. Otherwise set outtab to a filename, or a 
+    ParmTab, or a FastParmTable.
+    If 'remove' is True, input funklets will be removed if an output funklet is returned.
+    """;
+    # resolve tables
+    outtab = self.pt.resolve_output_table(outtab);
+    pt = self.pt.parmtable();
+    # resolve slicing
+    slicing = self.pt.make_slicing(slicing);
+    # loop over funklets and slices
+    num_infunk = num_outfunk = num_slices = 0;
+    for sl0 in slicing:
+      funklets = self.get_slice(*sl0);
+      # call reduction function if we find any
+      if funklets:
+        num_slices += 1;
+        num_infunk += len(funklets);
+        dprintf(4,"%s slice %s: %d funklets found\n",self.name,sl0,len(funklets));
+        dprint(6,"first funklet:",funklets[0]);
+        dprint(6,"last funklet:",funklets[-1]);
+        try:
+          outfunk = op_func(funklets);
+          dprint(6,"output funklets:",outfunk);
+        except:
+          if verbosity.get_verbose() > 0:
+            dprintf(1,"exception computing funklets for %s slice %s\n",self.name,sl0);
+            traceback.print_exc();
+            dprintf(1,"this slice will be ignored\n");
+          outfunk = None;
+        # if a new funklet was generated, write it to output
+        if outfunk:
+          # remove input funklets if successful
+          if remove:
+            dprintf(4,"%s slice %s: removing %d input funklets\n",self.name,sl0,len(funklist));
+            for funk in funklist:
+              try:
+                self.mtime = time.time();
+                self.parmtable(True).delete_funklet(self.name,funk.domain_index);
+              except:
+                dprintf(0,"error deleting funklet for %s slice %s\n",self.name,funk.slice_index);
+                traceback.print_exc();
+          dprintf(4,"%s slice %s: writing %d output funklets\n",self.name,sl0,len(outfunk));
+          name = self.name;
+          for ff in outfunk:
+            if isinstance(ff,str):
+              name = ff;
+            else:
+              num_outfunk += 1;
+              try:
+                outtab.mtime = time.time();
+                outtab.parmtable(True).put_funklet(name,ff);
+              except:
+                dprintf(0,"error saving funklet for %s slice %s\n",self.name,sl0);
+                traceback.print_exc();
+                dprintf(0,"this slice will be ignored\n");
+                funk = None;
+                break;
+    dprintf(3,"%s: %s() transformed %d input funklets over %d slices into %d output funklets\n",self.name,op_func.__name__,num_infunk,num_slices,num_outfunk); 
+
+
 
 class ParmTab (object):
   """A ParmTab is a wrapper around a FastParmTable providing high-level facilities
@@ -124,6 +376,7 @@ class ParmTab (object):
       try:
         for ifunk,(name,idom,domain) in enumerate(funklist):
           self._report_progress(ifunk);
+          self.mtime = time.time();
           pt.put_funklet(name,pt1.get_funklet(name,idom));
         dprintf(2,"elapsed time: %f seconds\n",time.time()-t0); t0 = time.time();
         pt1 = None;
@@ -168,7 +421,7 @@ class ParmTab (object):
   def envelope_cells (self,**num_cells):
     """Returns cells object which envelops all of the parmtable, and is regularly spaced. The number of points
     along each axis is equal to the number of subdomains along that axis, but the cells do not necessarily follow 
-    the structure of the subdomain when if the subdomains are overlapping, spaced out, or irregular.
+    the structure of the subdomain if the subdomains are overlapping, spaced out, or irregular.
     """
     dom = self.envelope_domain();
     kw = {};
@@ -191,7 +444,7 @@ class ParmTab (object):
     return cells;
 
   def axis_stats (self,iaxis):
-    """Returns AxisStats object for the specified parmtable.""";
+    """Returns _AxisStats object for the specified parmtable.""";
     return self._axis_stats[iaxis];
       
   def _make_axis_index (self):
@@ -199,8 +452,9 @@ class ParmTab (object):
     # check if cache is up-to-date
     cachepath = os.path.join(self.filename,'ParmTab.cache');
     funkpath = os.path.join(self.filename,'funklets');
+    self.mtime = os.path.getmtime(funkpath) if os.path.exists(funkpath) else time.time();
     try:
-      has_cache = os.path.getmtime(cachepath) >= os.path.getmtime(funkpath);
+      has_cache = os.path.getmtime(cachepath) >= self.mtime;
       if not has_cache:
         dprintf(2,"cache is out of date, will regenerate\n");
     except:
@@ -222,7 +476,7 @@ class ParmTab (object):
         has_cache = False;
     # no cache, so regenerate everything
     if not has_cache:
-      self._axis_stats = [ AxisStats(mequtils.get_axis_id(i)) for i in range(mequtils.max_axis) ];
+      self._axis_stats = [ _AxisStats(mequtils.get_axis_id(i)) for i in range(mequtils.max_axis) ];
       pt = self.parmtable();
       dprintf(2,"loading domain list\n");
       self._domain_list = pt.domain_list();
@@ -298,169 +552,17 @@ class ParmTab (object):
       name,ext = os.path.splitext(self.filename);
       return ParmTab(name+"_out"+ext,write=True,new=new);
 
-  class DomainSlicing (list):
-    """A DomainSlicing represents a slicing of the ParmTable domain.
-    Basically, it is a list of slice_index tuples, with each tuple corresponding to a slice through
-    the domain.
-    """;
-    def __init__ (self,slice_axes,domain_subset):
-      """The constructor makes a slicing from a list of axes to be incorporated in the slice.
-      All other axes will be iterated over.""";
-      list.__init__(self);
-      self.append([]);
-      for iaxis,axis_subset in enumerate(domain_subset):
-        if axis_subset is None or iaxis in slice_axes or mequtils.get_axis_id(iaxis) in slice_axes:
-          self[:] = [ sl + [None] for sl in self ];
-        else:
-          self[:] = [ sl + [i] for sl in self for i in axis_subset ];
-
   def make_slicing (self,slicing):
     if not slicing:
-      return ParmTab.DomainSlicing([],self._domain_fullset);
-    elif isinstance(slicing,ParmTab.DomainSlicing):
+      return DomainSlicing([],self._domain_fullset);
+    elif isinstance(slicing,DomainSlicing):
       return slicing;
     elif isinstance(slicing,(str,int)):
       slicing = [slicing];
-    return ParmTab.DomainSlicing(slicing,self._domain_fullset);
-
-
-  class FunkSlice (object):
-    """FunkSlice represents a slice of funklets from the table."""
-    def __init__ (self,name,funklist,index,iaxes,axes=None):
-      self.name = name;
-      self.funklets = funklist;
-      self.slice_index = index;
-      self.slice_iaxes = iaxes;
-      self.slice_axes = axes or map(mequtils.get_axis_id,iaxes);
-      self.rank = len(iaxes);
-    def __len__ (self):
-      return len(self.funklets);
-    def __getitem__ (self,key):
-      return self.funklets[key];
-    def __iter__ (self):
-      return iter(self.funklets);
-
-  class FunkSet (object):
-    """FunkSet represents a set of funklets with the same name""";
-    def __init__ (self,parmtab,name):
-      self.pt = parmtab;
-      self.name = name;
-
-    def get_slice (self,*index,**axes):
-      """get_slice() returns a FunkSlice of all funklets matching a specified slice.
-      Slice can be specified in one of two ways: by a vector of axis indices, or by keywords.
-      E.g.:
-        get_slice(None,0) or get_slice(freq=0)
-      returns all funklets for 'name' and the first frequency (first call assumes freq is axis 1)
-        get_slice(0) or get_slice(time=0)
-      returns all funklets for 'name' and the first timeslot (first call assumes time is axis 0),
-        get_slice(1,2) or get_slice(time=1,freq=2)
-      returns all funklets for 'name', timeslot 1, frequency 2.
-      """;
-      # make sure index is a vector of max_axes length
-      if len(index) < mequtils.max_axis:
-        index = list(index) + [None]*(mequtils.max_axis - len(index));
-      else:
-        index = list(index);
-      # set additional indices from keywords
-      for axis,num in axes.iteritems():
-        index[mequtils.get_axis_number(axis)] = num;
-      # build up list of full indices corresponding to specified slice
-      slice_iaxis = [];
-      indices = [[]];
-      for iaxis,axis_idx in enumerate(index):
-        stats = self.pt.axis_stats(iaxis);
-        # for empty axes, or axes specifed in our call, append number to all indices as is
-        if axis_idx is not None or stats.empty():
-          map(lambda idx:idx.append(axis_idx),indices);
-        # non-empty axes NOT specified in our call will be part of the slice
-        else:
-          slice_iaxis.append(iaxis);
-          indices = [ idx + [i] for idx in indices for i in range(len(stats.grid)) ];
-      # now make funklet list
-      funkslice = ParmTab.FunkSlice(self.name,[],index,slice_iaxis);
-      for idx in indices:
-        idx = tuple(idx);
-        idom = self.pt._domain_reverse_index.get(idx,None);
-        if idom is not None:
-          funk = self.pt.parmtable().get_funklet(self.name,idom);
-          if funk:
-            funk.domain_index = idom;
-            funk.slice_index = idx;
-            funkslice.funklets.append(funk);
-      return funkslice;
-
-    def __call__ (self,*index,**axes):
-      """The () operator on a FunkSet is equivalent to get_slice()""";
-      return self.get_slice(*index,**axes);
-
-    def apply (self,op_func,slicing=[],outtab=None,remove=False):
-      """For each funklet in the subset, takes all funklets along the designated slicing axis
-      (i.e. for each slice along the non-listed axes), creates a FunkSlice, and calls 
-      op_func(slice).
-      The return value of op_func() should be either None if no operation was performed, or a list of 
-      funklets to be written to the output table. This list may also contain strings, which are
-      interpreted as funklet names. The default name is the same as the current FunkSet name; a string at
-      any position in the funklet list applies to subsequent funklets.
-      if 'outtab' is None, a new output table is created. Otherwise set outtab to a filename, or a 
-      ParmTab, or a FastParmTable.
-      If 'remove' is True, input funklets will be removed if an output funklet is returned.
-      """;
-      # resolve tables
-      outtab = self.pt.resolve_output_table(outtab);
-      pt = self.pt.parmtable();
-      # resolve slicing
-      slicing = self.pt.make_slicing(slicing);
-      # loop over funklets and slices
-      num_infunk = num_outfunk = num_slices = 0;
-      for sl0 in slicing:
-        funklets = self.get_slice(*sl0);
-        # call reduction function if we find any
-        if funklets:
-          num_slices += 1;
-          num_infunk += len(funklets);
-          dprintf(4,"%s slice %s: %d funklets found\n",self.name,sl0,len(funklets));
-          dprint(6,"first funklet:",funklets[0]);
-          dprint(6,"last funklet:",funklets[-1]);
-          try:
-            outfunk = op_func(funklets);
-            dprint(6,"output funklets:",outfunk);
-          except:
-            if verbosity.get_verbose() > 0:
-              dprintf(1,"exception computing funklets for %s slice %s\n",self.name,sl0);
-              traceback.print_exc();
-              dprintf(1,"this slice will be ignored\n");
-            outfunk = None;
-          # if a new funklet was generated, write it to output
-          if outfunk:
-            # remove input funklets if successful
-            if remove:
-              dprintf(4,"%s slice %s: removing %d input funklets\n",self.name,sl0,len(funklist));
-              for funk in funklist:
-                try:
-                  self.parmtable(True).delete_funklet(self.name,funk.domain_index);
-                except:
-                  dprintf(0,"error deleting funklet for %s slice %s\n",self.name,funk.slice_index);
-                  traceback.print_exc();
-            dprintf(4,"%s slice %s: writing %d output funklets\n",self.name,sl0,len(outfunk));
-            name = self.name;
-            for ff in outfunk:
-              if isinstance(ff,str):
-                name = ff;
-              else:
-                num_outfunk += 1;
-                try:
-                  outtab.parmtable(True).put_funklet(name,ff);
-                except:
-                  dprintf(0,"error saving funklet for %s slice %s\n",self.name,sl0);
-                  traceback.print_exc();
-                  dprintf(0,"this slice will be ignored\n");
-                  funk = None;
-                  break;
-      dprintf(3,"%s: %s() transformed %d input funklets over %d slices into %d output funklets\n",self.name,op_func.__name__,num_infunk,num_slices,num_outfunk); 
+    return DomainSlicing(slicing,self._domain_fullset);
 
   def funkset (self,name):
-    return ParmTab.FunkSet(self,name);
+    return FunkSet(self,name);
 
   def apply (self,op_func,slicing,outtab=None,remove=False,newtab=False):
     """For each funklet in our table, takes all funklets along the designated slicing axis
@@ -490,6 +592,15 @@ class ParmTab (object):
       dprintf(2,"elapsed time: %f seconds\n",time.time()-t0); t0 = time.time();
       self._end_progress(False);
       self.close();
+
+
+def open (*args,**kw):
+  """Opens a ParmTab. Arguments are passed to ParmTab constructor:
+
+  """+ParmTab.__init__.__doc__;
+  return ParmTab(*args,**kw);
+
+
 
 if __name__ == '__main__':
   import sys
