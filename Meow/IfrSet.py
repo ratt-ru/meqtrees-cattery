@@ -27,6 +27,8 @@ import re
 import math
 import traceback
 
+from Timba.array import array
+
 ifr_spec_syntax = """<P>Specify interferometers as a list of tokens, separated by commas or spaces. 
   The format of each token is as follows:</P>
 
