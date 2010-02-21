@@ -41,23 +41,23 @@ import math
 try:
   import pyrap_tables
   TABLE = pyrap_tables.table
-  print "Meow.MSUtils: using the pyrap_tables module"
+  Meow.dprint("  (Meow.MSUtils: using the pyrap_tables module)");
 except:
   try:
     import pyrap.tables
     TABLE = pyrap.tables.table
-    print "Meow.MSUtils: using the pyrap.tables module"
+    Meow.dprint("  (Meow.MSUtils: using the pyrap.tables module)");
   except:
     # else try the old pycasatable/aips++ thing
     try:
       import pycasatable
       TABLE = pycasatable.table
-      print "Meow.MSUtils: using the pycasatable module. WARNING: this is deprecated."
-      print "Please install pyrap and casacore!"
+      Meow.dprint("  (Meow.MSUtils: using the pycasatable module. WARNING: this is deprecated.)");
+      Meow.dprint("  (Please install pyrap and casacore!)");
     except:
       TABLE = None;
-      print "Meow.MSUtils: no tables module found, GUI functionality will be reduced"
-      print "Please install pyrap and casacore!"
+      Meow.dprint("  (Meow.MSUtils: no tables module found, GUI functionality will be reduced.)");
+      Meow.dprint("  (Please install pyrap and casacore!)");
 
 def find_exec (execname):
   path = os.environ.get('PATH') or os.defpath;
@@ -70,21 +70,21 @@ def find_exec (execname):
 # figure out if we have an imager
 _lwimager = find_exec('lwimager');
 if _lwimager:
-  print "Meow.MSUtils: found %s, can use it for imaging"%_lwimager;
+  Meow.dprint("  (Meow.MSUtils: found %s, can use it for imaging.)"%_lwimager);
 
 _glish = find_exec('glish');
 if _glish:
-  print "Meow.MSUtils: found %s, can use AIPS++ imager"%_glish;
+  Meow.dprint("  (Meow.MSUtils: found %s, can use AIPS++ imager.)"%_glish);
 
 if not _lwimager and not _glish:
-  print "Meow.MSUtils: no imager found. Please install the casarest package.";
+  Meow.dprint("  (Meow.MSUtils: no imager found. Please install the casarest package.)")
 
 # figure out if we have a visualizer
 _image_viewers = [];
 for viewer in [ "kvis","ds9" ]:
   vpath = find_exec(viewer);
   if find_exec(viewer):
-    print "Meow.MSUtils: found image viewer %s"%vpath;
+    Meow.dprint("  (Meow.MSUtils: found image viewer %s)"%vpath);
     _image_viewers.append(viewer);
 _image_viewers.append("none");
 
@@ -796,7 +796,7 @@ class MSSelector (object):
       antnames = anttable.getcol('NAME');
       # if NAME column is missing, use indices
       if not antnames:
-        print "Warning! This MS does not define ANTENNA names. Using antenna indices instead.";
+        Meow.dprint("Warning! This MS does not define ANTENNA names. Using antenna indices instead.")
         self.ms_antenna_names = map(str,range(anttable.nrows()));
       # else use name, but trim off longest common prefix (so that RT0,RT1,..RTD become 0,1,...,D
       else:
@@ -804,7 +804,7 @@ class MSSelector (object):
         self.ms_antenna_names = [ name[prefix:] for name in antnames ];
         # some broken MSs do not have unique antenna names -- replace them with indices if so
         if len(set(self.ms_antenna_names)) < len(self.ms_antenna_names):
-          print "Warning! This MS does not define unique ANTENNA names. Using antenna indices instead.";
+          Meow.dprint("Warning! This MS does not define unique ANTENNA names. Using antenna indices instead.")
           self.ms_antenna_names = [ str(i) for i in range(len(self.ms_antenna_names)) ];
       # observatory is first station
       self.ms_observatory = anttable.getcol("STATION")[0];

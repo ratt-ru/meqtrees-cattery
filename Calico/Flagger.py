@@ -5,42 +5,21 @@ import re
 import tempfile
 import os
 
-from Meow import MSUtils
+import Meow
+import Meow.MSUtils
 import Purr.Pipe
 
-# figure out which table implementation to use -- try pyrap/casacore first
-try:
-  # first try current pyrap.tables module
-  import pyrap.tables
-  TABLE = pyrap.tables.table
-  print "Calico flagger: using the pyrap.tables module"
-except:
-  try:
-    # try old pyrap_tables module
-    import pyrap_tables
-    TABLE = pyrap_tables.table
-    print "Calico flagger: using the pyrap_tables module. WARNING: this is depreciated."
-  except:
-    # else try the old pycasatable/aips++ thing
-    try:
-      import pycasatable
-      TABLE = pycasatable.table
-      print "Calico flagger: using the pycasatable module. WARNING: this is deprecated."
-      print "Please install pyrap and casacore!"
-    except:
-      TABLE = None;
-      print "Calico flagger: no tables module found"
-      print "Please install pyrap and casacore!"
+from Meow.MSUtils import TABLE
     
-_gli = MSUtils.find_exec('glish');
+_gli = Meow.MSUtils.find_exec('glish');
 if _gli:
   _GLISH = 'glish';
-  print "Calico flagger: found %s, autoflag should be available"%_gli;
+  Meow.dprint("Calico flagger: found %s, autoflag should be available"%_gli);
 else:
   _GLISH = None;
-  print "Calico flagger: glish not found, autoflag will not be available";
+  meow.dprint("Calico flagger: glish not found, autoflag will not be available");
 
-_addbitflagcol = MSUtils.find_exec('addbitflagcol');
+_addbitflagcol = Meow.MSUtils.find_exec('addbitflagcol');
 
 # Various argument-formatting methods to use with the Flagger.AutoFlagger class
 # below. These really should be static methods of the class, but that doesn't work
@@ -148,7 +127,7 @@ class Flagger (Timba.dmi.verbosity):
       self.ms = ms = TABLE(self.msname,readonly=False);
       self.dprintf(1,"opened MS %s, %d rows\n",ms.name(),ms.nrows());
       self.has_bitflags = 'BITFLAG' in ms.colnames();
-      self.flagsets = MSUtils.get_flagsets(ms);
+      self.flagsets = Meow.MSUtils.get_flagsets(ms);
       self.dprintf(1,"flagsets are %s\n",self.flagsets.names());
       self.purrpipe = Purr.Pipe.Pipe(self.msname);
     return self.ms;
@@ -240,33 +219,49 @@ class Flagger (Timba.dmi.verbosity):
         shape = ms.getcol('DATA',row0,nrows).shape;
       return numpy.zeros(shape,dtype=numpy.int32);
   
-  def _get_submss (self,ms):
+  def _get_submss (self,ms,ddids=None):
     """Helper method. Splits MS into subsets by DATA_DESC_ID. 
     Returns list of (ddid,nrows,subms) tuples, where subms is a subset of the MS with the given DDID,
     and nrows is the number of rows in preceding submss (which is needed for progress stats)
     """;
-    nddids = TABLE(os.path.join(ms.name(),'DATA_DESCRIPTION'),readonly=True).nrows();
     # build up list of (ddid,nrows,subms) pairs.
     # subms is a subset of the MS with the given DDID
     # nrows is the number of rows in preceding submss (need for progress stats)
     sub_mss = [];
     nrows = 0;
-    for ddid in range(nddids):
+    if ddids is None:
+      ddids = range(TABLE(ms.getkeyword('DATA_DESCRIPTION').nrows()));
+    for ddid in ddids:
       subms = ms.query("DATA_DESC_ID==%d"%ddid);
       sub_mss.append((ddid,nrows,subms));
       nrows += subms.nrows();
     return sub_mss;
 
-  def _flag (self,flag=1,unflag=0,create=False,transfer=False,
-          get_stats=False,include_legacy_stats=False,
-          ddid=None,fieldid=None,
-          channels=None,multichan=None,corrs=None,
-          antennas=None,
-          baselines=None,
-          time=None,reltime=None,
-          taql=None,
-          progress_callback=None,
-          purr=False
+  def _flag (self,
+          flag=1,                         # set this flagmask (or flagset name) or
+          unflag=0,                       # clear this flagmask (or flagset name)
+          create=False,                   # if True and 'flag' is a string, creates new flagset as needed
+          fill_legacy=None,               # if not None, legacy flags will be filled using the specified flagmask            
+          transfer=False,                 # if True: sets transfer mode. In transfer mode, legacy flags (within 
+                                          #     the specified subset) are transferred to the given bitflag 
+          get_stats=False,                # if True: sets "get stats" mode. Instead of flagging, counts and
+                                          #     returns a count of raised flags (matching the flagmask) in the subset
+          include_legacy_stats=False,     # if True and get_stats=True, includes legacy flags in the stats
+            # the following options restrict the subset to be flagged. Effect is cumulative.
+          ddid=None,fieldid=None,         # DATA_DESC_ID or FIELD_ID, single int or list
+          channels=None,                  # channel subset (index, list of indices, or slice object)
+          multichan=None,                 # list of channel subsets (as an alternative to specifying just one)
+          corrs=None,                     # correlation subset (index, list of indices, or slice object)  
+          antennas=None,                  # list of antennas
+          baselines=None,                 # list of baselines (as ip,iq pairs)
+          time=None,                      # time range as (min,max) pair (can use None for either min or max)
+          reltime=None,                   # relative time (rel. to start of MS) range as (min,max) pair 
+          taql=None,                      # additional TaQL string
+          clip_above=None,                # restrict flagged subset to abs(data)>clip_above
+          clip_below=None,                #                        and abs(data)<clip_below
+          clip_column='CORRECTED_DATA',   # data column for clip_above and clip_below
+          progress_callback=None,         # callback, called with (n,nmax) to report progress
+          purr=False                      # if True, writes comments to purrpipe
           ):
     """Internal _flag method does the actual work.""";
     ms = self._reopen();
@@ -294,19 +289,30 @@ class Flagger (Timba.dmi.verbosity):
         self.dprintf(2,"unflagging with bitmask 0x%x\n",unflag);
     else:
       self.dprintf(2,"no bitflags in MS, using legacy FLAG/FLAG_ROW columns\n",unflag);
+ 
+    # get DDIDs
+    if ddid is None:
+      ddids = range(TABLE(ms.getkeyword('DATA_DESCRIPTION'),readonly=True).nrows());
+    elif isinstance(ddid,int):
+      ddids = [ ddid ];
+    elif isinstance(ddid,(tuple,list)):
+      ddids = ddid;
+    else:
+      raise TypeError,"invalid ddid argument of type %s"%type(ddid);
+
     # form up list of TaQL expressions for subset selectors
-    single_ddid = None;
     queries = [];
     if taql:
       queries.append(taql);
-    if ddid is not None:
-      queries.append("DATA_DESC_ID==%d"%ddid);
-      single_ddid = ddid;
     if fieldid is not None:
-      queries.append("FIELD_ID==%d"%fieldid);
+      if isinstance(fieldid,int):
+        fieldid = [ fieldid ];
+      elif not isinstance(fieldid,(tuple,list)):
+        raise TypeError,"invalid fieldid argument of type %s"%type(fieldid);
+      queries.append(" || ".join(["FIELD_ID==%d"%f for f in fieldid]));
     if antennas is not None:
       antlist = str(list(antennas));
-      queries.append("(ANTENNA1 in %s || ANTENNA2 in %s)"%(antlist,antlist));
+      queries.append("ANTENNA1 in %s || ANTENNA2 in %s"%(antlist,antlist));
     if time is not None:
       t0,t1 = time;
       if t0 is not None:
@@ -323,7 +329,7 @@ class Flagger (Timba.dmi.verbosity):
       
     # form up TaQL string, and extract subset of table
     if queries:
-      query = ' && '.join(queries);
+      query = "( " + " ) && ( ".join(queries)+" )";
       purr and self.purrpipe.comment("; effective MS selection is \"%s\""%query,endline=False);
       self.dprintf(2,"selection string is %s\n",query);
       ms = ms.query(query);
@@ -337,9 +343,9 @@ class Flagger (Timba.dmi.verbosity):
         " ".join(["%d-%d"%(p,q) for p,q in baselines]),
         endline=False);
     
-    # this will be true if only whole rows are being selected. If channel/correlation
+    # This will be true if only whole rows are being selected for. If channel/correlation/clipping
     # criteria are supplied, this will be set to False below
-    flagrows = True;
+    flagrows = (clip_above is None and clip_below is None);
     # form up channel and correlation slicers
     # multichan may specify multiple channel subsets. If not specified,
     # then channels specifies a single subset. In any case, in the end multichan
@@ -360,15 +366,12 @@ class Flagger (Timba.dmi.verbosity):
     else:
       purr and self.purrpipe.comment("; correlations %s"%corrs,endline=False);
       flagrows = False;
-    print "purr is",purr;
+    # putt comment into purrpipe
     purr and self.purrpipe.comment(".");
     self.dprintf(2,"correlation selection is %s\n",corrs);
     stat_rows_nfl = stat_rows = stat_pixels = stat_pixels_nfl = 0;
-    # make list of sub-MSs
-    if single_ddid is not None:
-      sub_mss = [ (single_ddid,0,ms) ];
-    else:
-      sub_mss = self._get_submss(ms);
+    # make list of sub-MSs by DDID
+    sub_mss = self._get_submss(ms,ddids);
     nrow_tot = ms.nrows();
     # go through rows of the MS in chunks
     for ddid,irow_prev,ms in sub_mss:
@@ -458,32 +461,341 @@ class Flagger (Timba.dmi.verbosity):
             if flag:
               bfr[rowmask] |= flag;
             ms.putcol('BITFLAG_ROW',bfr,row0,nrows);
+            if fill_legacy is not None:
+              lf = ms.getcol('FLAG_ROW',row0,nrows);
+              lf[rowmask] = ( (bfr[rowmask]&fill_legacy) !=0 );
+              ms.putcol('FLAG_ROW',lf,row0,nrows);
           else:
             lf = ms.getcol('FLAG_ROW',row0,nrows);
             lf[rowmask] = (flag!=0);
             ms.putcol('FLAG_ROW',lf,row0,nrows);
         # else flagging individual correlations or channels
         else: 
-          # apply flagmask
+          # get clipping mask, if amplitude clipping is in effect
+          if clip_above is not None or clip_below is not None:
+            datacol = ms.getcol(clip_column,row0,nrows);
+            clip_mask = abs(datacol)>clip_above if clip_above is not None else True;
+            if clip_below is not None:
+              clip_mask &= abs(datacol)<clip_below;
+            # broadcast shape, if datacol has fewer axes than flags
+            if len(clip_mask.shape) == 1:
+              clip_mask = clip_mask[:,numpy.newaxis,numpy.newaxis];
+            elif len(clip_mask.shape) == 2:
+              clip_mask = clip_mask[:,:,numpy.newaxis];
+          else:
+            clip_mask = True;
+          # apply flags
           if self.has_bitflags:
             bf = self._get_bitflag_col(ms,row0,nrows);
+            # 'mask' is what needs to be flagged/unflagged. Start with empty mask.
+            mask = numpy.zeros(bf.shape,bool);
+            # then fill in subsets
+            for subset in subsets:
+              mask[subset] = True;
+            # and multiply by the clipping mask
+            mask &= clip_mask;
             if unflag:
-              for subset in subsets:
-                bf[subset] &= ~unflag;
+              bf[mask] &= ~unflag;
             if flag:
-              for subset in subsets:
-                bf[subset] |= flag;
+              bf[mask] |= flag;
             ms.putcol('BITFLAG',bf,row0,nrows);
+            if fill_legacy is not None:
+              lf = ms.getcol('FLAG',row0,nrows);
+              lf[mask] = ( (bf[mask]&fill_legacy) !=0 );
+              ms.putcol('FLAG',lf,row0,nrows);
           else:
             bf = ms.getcol('FLAG',row0,nrows);
-            for subset in subsets:
-              bf[subset] = (flag!=0);
+            bf[mask] = (flag!=0);
             ms.putcol('FLAG',bf,row0,nrows);
     if progress_callback:
       progress_callback(99,100);
     stat0 = (stat_rows and stat_rows_nfl/float(stat_rows)) or 0;
     stat1 = (stat_pixels and stat_pixels_nfl/float(stat_pixels)) or 0;
     return stat0,stat1;
+
+  def xflag (self,
+          # These options determine what to do with the subset determined below. If none are set,
+          # the xflag() simply returns stats without doing anything
+          flag=None,                         # set the flagmask (or flagset name) 
+          unflag=None,                       # clear the flagmask (or flagset name)
+          set_legacy=None,                   # if True, set FLAG/FLAG_ROW, if False, clear it
+          create=False,                      # if True and 'flag' is a string, creates new flagset as needed
+
+            # the following options restrict the subset to be flagged. Effect is cumulative.
+              # these restrict the subset according to its current flag state
+          flagmask=None,                  # any bitflag set in the given flagmask (or flagset name)
+          flagmask_all=None,              # all bitflags set in the given flagmask (or flagset name)
+          flagmask_none=None,             # no bitflags set in the given flagmask (or flagset name)
+          legacy=None,                    # legacy flag == True,False or None to ignore
+              # and these restrict the subset according to what data is in it
+          ddid=None,fieldid=None,         # DATA_DESC_ID or FIELD_ID, single int or list
+          channels=None,                  # channel subset (index, list of indices, or slice object)
+          multichan=None,                 # list of channel subsets (as an alternative to specifying just one)
+          corrs=None,                     # correlation subset (index, list of indices, or slice object)  
+          antennas=None,                  # list of antennas
+          baselines=None,                 # list of baselines (as ip,iq pairs)
+          time=None,                      # time range as (min,max) pair (can use None for either min or max)
+          reltime=None,                   # relative time (rel. to start of MS) range as (min,max) pair 
+          taql=None,                      # additional TaQL string
+              # and these restrict the subset according to abs(data)
+          data_above=None,                # restrict flagged subset to abs(data)>clip_above
+          data_below=None,                #                        and abs(data)<clip_below
+          data_column='CORRECTED_DATA',   # data column for clip_above and clip_below
+
+            # other options
+          progress_callback=None,         # callback, called with (n,nmax) to report progress
+          purr=False                      # if True, writes comments to purrpipe
+          ):
+    """Alternative flag interface, works on the in/out principle.""";
+    ms = self._reopen();
+    if not self.has_bitflags:
+      if transfer:
+        raise TypeError,"MS does not contain a BITFLAG column, cannot use flagsets""";
+      if get_stats and flag:
+        raise TypeError,"MS does not contain a BITFLAG column, cannot get statistics""";
+    if get_stats and not flag and not include_legacy_stats:
+      flag = -1;
+    # lookup flagset name, if so specified
+    if isinstance(flag,str):
+      flagname = flag;
+      flag = self.flagsets.flagmask(flag,create=create);
+      self.dprintf(2,"flagset %s corresponds to bitmask 0x%x\n",flagname,flag);
+    # lookup same for unflag, except we don't create
+    if isinstance(unflag,str):
+      flagname = unflag;
+      unflag = self.flagsets.flagmask(unflag);
+      self.dprintf(2,"flagset %s corresponds to bitmask 0x%x\n",flagname,unflag);
+    if self.flagsets.names() is not None:
+      if flag:
+        self.dprintf(2,"flagging with bitmask 0x%x\n",flag);
+      if unflag:
+        self.dprintf(2,"unflagging with bitmask 0x%x\n",unflag);
+    else:
+      self.dprintf(2,"no bitflags in MS, using legacy FLAG/FLAG_ROW columns\n",unflag);
+ 
+    # get DDIDs
+    if ddid is None:
+      ddids = range(TABLE(ms.getkeyword('DATA_DESCRIPTION'),readonly=True).nrows());
+    elif isinstance(ddid,int):
+      ddids = [ ddid ];
+    elif isinstance(ddid,(tuple,list)):
+      ddids = ddid;
+    else:
+      raise TypeError,"invalid ddid argument of type %s"%type(ddid);
+
+    # form up list of TaQL expressions for subset selectors
+    queries = [];
+    if taql:
+      queries.append(taql);
+    if fieldid is not None:
+      if isinstance(fieldid,int):
+        fieldid = [ fieldid ];
+      elif not isinstance(fieldid,(tuple,list)):
+        raise TypeError,"invalid fieldid argument of type %s"%type(fieldid);
+      queries.append(" || ".join(["FIELD_ID==%d"%f for f in fieldid]));
+    if antennas is not None:
+      antlist = str(list(antennas));
+      queries.append("ANTENNA1 in %s || ANTENNA2 in %s"%(antlist,antlist));
+    if time is not None:
+      t0,t1 = time;
+      if t0 is not None:
+        queries.append("TIME>=%g"%t0);
+      if t1 is not None:
+        queries.append("TIME<=%g"%t1);
+    if reltime is not None:
+      t0,t1 = reltime;
+      time0 = self.ms.getcol('TIME',0,1)[0];
+      if t0 is not None:
+        queries.append("TIME>=%f"%(time0+t0));
+      if t1 is not None:
+        queries.append("TIME<=%f"%(time0+t1));
+      
+    # form up TaQL string, and extract subset of table
+    if queries:
+      query = "( " + " ) && ( ".join(queries)+" )";
+      purr and self.purrpipe.comment("; effective MS selection is \"%s\""%query,endline=False);
+      self.dprintf(2,"selection string is %s\n",query);
+      ms = ms.query(query);
+      self.dprintf(2,"query reduces MS to %d rows\n",ms.nrows());
+    else:
+      self.dprintf(2,"no selection applied\n");
+    # check list of baselines
+    if baselines:
+      baselines = [ (int(p),int(q)) for p,q in baselines ];
+      purr and self.purrpipe.comment("; baseline subset is %s"%
+        " ".join(["%d-%d"%(p,q) for p,q in baselines]),
+        endline=False);
+    
+    # This will be true if only whole rows are being selected for. If channel/correlation/clipping
+    # criteria are supplied, this will be set to False below
+    flagrows = (clip_above is None and clip_below is None);
+    # form up channel and correlation slicers
+    # multichan may specify multiple channel subsets. If not specified,
+    # then channels specifies a single subset. In any case, in the end multichan
+    # will contain a list of the current channel selection
+    if multichan is None:
+      if channels is None:
+        multichan = [ numpy.s_[:] ];
+      else:
+        flagrows = False;
+        multichan = [ channels ];
+        purr and self.purrpipe.comment("; channels are %s"%channels,endline=False);
+    else:
+      purr and self.purrpipe.comment("; channels are %s"%(', '.join(map(str,multichan))),endline=False);
+      flagrows = False;
+    self.dprintf(2,"channel selection is %s\n",multichan);
+    if corrs is None:
+      corrs = numpy.s_[:];
+    else:
+      purr and self.purrpipe.comment("; correlations %s"%corrs,endline=False);
+      flagrows = False;
+    # putt comment into purrpipe
+    purr and self.purrpipe.comment(".");
+    self.dprintf(2,"correlation selection is %s\n",corrs);
+    stat_rows_nfl = stat_rows = stat_pixels = stat_pixels_nfl = 0;
+    # make list of sub-MSs by DDID
+    sub_mss = self._get_submss(ms,ddids);
+    nrow_tot = ms.nrows();
+    # go through rows of the MS in chunks
+    for ddid,irow_prev,ms in sub_mss:
+      self.dprintf(2,"processing MS subset for ddid %d\n",ddid);
+      if progress_callback:
+        progress_callback(irow_prev,nrow_tot);
+      for row0 in range(0,ms.nrows(),self.chunksize):
+        if progress_callback:
+          progress_callback(irow_prev+row0,nrow_tot);
+        nrows = min(self.chunksize,ms.nrows()-row0);
+        self.dprintf(2,"flagging rows %d:%d\n",row0,row0+nrows-1);
+        # get mask of matching baselines
+        if baselines:
+          # init mask of all-false
+          rowmask = numpy.zeros(nrows,dtype=numpy.bool);
+          a1 = ms.getcol('ANTENNA1',row0,nrows);
+          a2 = ms.getcol('ANTENNA2',row0,nrows);
+          # update mask
+          for p,q in baselines:
+            rowmask |= (a1==p) & (a2==q);
+          self.dprintf(2,"baseline selection leaves %d rows\n",len(rowmask.nonzero()[0]));
+        # else select all rows
+        else:
+          rowmask = numpy.s_[:];
+          self.dprintf(2,"no baseline selection applied, flagging %d rows\n",nrows);
+        # form up subsets for channel/correlation selector
+        subsets = [ (rowmask,ch,corrs) for ch in multichan ];
+        # first, handle statistics mode
+        if get_stats:
+          # collect row stats
+          if include_legacy_stats:
+            lfr  = ms.getcol('FLAG_ROW',row0,nrows)[rowmask];
+            lf   = ms.getcol('FLAG',row0,nrows);
+          else:
+            lfr = lf = 0;
+          if flag:
+            bfr = ms.getcol('BITFLAG_ROW',row0,nrows)[rowmask];
+            lfr = lfr + ((bfr&flag)!=0);
+            bf = self._get_bitflag_col(ms,row0,nrows);
+          # size seems to be a method or an attribute depending on numpy version :(
+          stat_rows     += (callable(lfr.size) and lfr.size()) or lfr.size;
+          stat_rows_nfl += lfr.sum();
+          for subset in subsets:
+            if include_legacy_stats:
+              lfm = lf[subset];
+            else:
+              lfm = 0;
+            if flag:
+              lfm = lfm + (bf[subset]&flag)!=0;
+            # size seems to be a method or an attribute depending on numpy version :(
+            stat_pixels     += (callable(lfm.size) and lfm.size()) or lfm.size;
+            stat_pixels_nfl += lfm.sum();
+        # second, handle transfer-flags mode
+        elif transfer:
+          bf = ms.getcol('BITFLAG_ROW',row0,nrows);
+          bfm = bf[rowmask];
+          if unflag:
+            bfm &= ~unflag;
+          lf = ms.getcol('FLAG_ROW',row0,nrows)[rowmask];
+          bf[rowmask] = numpy.where(lf,bfm|flag,bfm);
+            # size seems to be a method or an attribute depending on numpy version :(
+          stat_rows     += (callable(lf.size) and lf.size()) or lf.size;
+          stat_rows_nfl += lf.sum();
+          ms.putcol('BITFLAG_ROW',bf,row0,nrows);
+          lf = ms.getcol('FLAG',row0,nrows);
+          bf = self._get_bitflag_col(ms,row0,nrows,lf.shape);
+          for subset in subsets:
+            bfm = bf[subset];
+            if unflag:
+              bfm &= ~unflag;
+            lfm = lf[subset]
+            bf[subset] = numpy.where(lfm,bfm|flag,bfm);
+            # size seems to be a method or an attribute depending on numpy version :(
+            stat_pixels     += (callable(lfm.size) and lfm.size()) or lfm.size;
+            stat_pixels_nfl += lfm.sum();
+          ms.putcol('BITFLAG',bf,row0,nrows);
+        # else, are we flagging whole rows?
+        elif flagrows:
+          if self.has_bitflags:
+            bfr = ms.getcol('BITFLAG_ROW',row0,nrows);
+            if unflag:
+              bfr[rowmask] &= ~unflag;
+              # if unflaging, also have to clear flags from BITFLAG too
+              bf = self._get_bitflag_col(ms,row0,nrows);
+              bf[rowmask,:,:] &= ~unflag;
+              ms.putcol('BITFLAG',bf,row0,nrows);
+            if flag:
+              bfr[rowmask] |= flag;
+            ms.putcol('BITFLAG_ROW',bfr,row0,nrows);
+            if fill_legacy is not None:
+              lf = ms.getcol('FLAG_ROW',row0,nrows);
+              lf[rowmask] = ( (bfr[rowmask]&fill_legacy) !=0 );
+              ms.putcol('FLAG_ROW',lf,row0,nrows);
+          else:
+            lf = ms.getcol('FLAG_ROW',row0,nrows);
+            lf[rowmask] = (flag!=0);
+            ms.putcol('FLAG_ROW',lf,row0,nrows);
+        # else flagging individual correlations or channels
+        else: 
+          # get clipping mask, if amplitude clipping is in effect
+          if clip_above is not None or clip_below is not None:
+            datacol = ms.getcol(clip_column,row0,nrows);
+            clip_mask = abs(datacol)>clip_above if clip_above is not None else True;
+            if clip_below is not None:
+              clip_mask &= abs(datacol)<clip_below;
+            # broadcast shape, if datacol has fewer axes than flags
+            if len(clip_mask.shape) == 1:
+              clip_mask = clip_mask[:,numpy.newaxis,numpy.newaxis];
+            elif len(clip_mask.shape) == 2:
+              clip_mask = clip_mask[:,:,numpy.newaxis];
+          else:
+            clip_mask = True;
+          # apply flags
+          if self.has_bitflags:
+            bf = self._get_bitflag_col(ms,row0,nrows);
+            # 'mask' is what needs to be flagged/unflagged. Start with empty mask.
+            mask = numpy.zeros(bf.shape,bool);
+            # then fill in subsets
+            for subset in subsets:
+              mask[subset] = True;
+            # and multiply by the clipping mask
+            mask &= clip_mask;
+            if unflag:
+              bf[mask] &= ~unflag;
+            if flag:
+              bf[mask] |= flag;
+            ms.putcol('BITFLAG',bf,row0,nrows);
+            if fill_legacy is not None:
+              lf = ms.getcol('FLAG',row0,nrows);
+              lf[mask] = ( (bf[mask]&fill_legacy) !=0 );
+              ms.putcol('FLAG',lf,row0,nrows);
+          else:
+            bf = ms.getcol('FLAG',row0,nrows);
+            bf[mask] = (flag!=0);
+            ms.putcol('FLAG',bf,row0,nrows);
+    if progress_callback:
+      progress_callback(99,100);
+    stat0 = (stat_rows and stat_rows_nfl/float(stat_rows)) or 0;
+    stat1 = (stat_pixels and stat_pixels_nfl/float(stat_pixels)) or 0;
+    return stat0,stat1;
+
       
   def set_legacy_flags (self,flags,progress_callback=None,purr=True):
     """Fills the legacy FLAG/FLAG_ROW column by applying the specified flagmask

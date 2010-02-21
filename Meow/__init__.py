@@ -28,12 +28,20 @@ import sys
 
 _meow_path = __path__[0];
 
+
+
 # do nothing if we're imported on the kernel-side, as reloading
 # the octopython stuff confuses the hell out of the kernel
 if "Timba.meqkernel" in sys.modules:
   pass;
   
 else:
+  import __main__
+  _verbosity = getattr(__main__,'_meow_verbosity',1);
+
+  def dprint (msg,level=1):
+    if level <= _verbosity:
+      print msg;
 
   from CorruptComponent import CorruptComponent
   from Position import Position
