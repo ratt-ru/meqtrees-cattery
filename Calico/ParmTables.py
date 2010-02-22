@@ -235,7 +235,8 @@ class FunkSet (object):
       try:
         cPickle.dump(arr,file(cachefile,"w"));
       except:
-        traceback.print_exc();
+        if verbosity.get_verbose() > 0:
+          traceback.print_exc();
         dprintf(0,"error writing cache array %s, but proceeding anyway\n"%cachefile);
     # now apply the masked and fill_value properties
     if not masked:
@@ -294,8 +295,9 @@ class FunkSet (object):
                 self.mtime = time.time();
                 self.parmtable(True).delete_funklet(self.name,funk.domain_index);
               except:
+                if verbosity.get_verbose() > 0:
+                  traceback.print_exc();
                 dprintf(0,"error deleting funklet for %s slice %s\n",self.name,funk.slice_index);
-                traceback.print_exc();
           dprintf(4,"%s slice %s: writing %d output funklets\n",self.name,sl0,len(outfunk));
           name = self.name;
           for ff in outfunk:
@@ -308,7 +310,8 @@ class FunkSet (object):
                 outtab.parmtable(True).put_funklet(name,ff);
               except:
                 dprintf(0,"error saving funklet for %s slice %s\n",self.name,sl0);
-                traceback.print_exc();
+                if verbosity.get_verbose() > 0:
+                  traceback.print_exc();
                 dprintf(0,"this slice will be ignored\n");
                 funk = None;
                 break;
@@ -471,7 +474,8 @@ class ParmTab (object):
         dprintf(2,"elapsed time: %f seconds\n",time.time()-t0); t0 = time.time();
         return;
       except:
-        traceback.print_exc();
+        if verbosity.get_verbose() > 0:
+          traceback.print_exc();
         dprintf(0,"%s: error reading cached stats, regenerating\n",self.filename);
         has_cache = False;
     # no cache, so regenerate everything
@@ -533,7 +537,8 @@ class ParmTab (object):
           ),file(cachepath,'w')
         );
       except:
-        traceback.print_exc();
+        if verbosity.get_verbose() > 0:
+          traceback.print_exc();
         dprintf(0,"%s: error writing stats to cache, will probably regenerate next time\n",self.filename);
       dprintf(2,"elapsed time: %f seconds\n",time.time()-t0); t0 = time.time();
 

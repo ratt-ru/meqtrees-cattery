@@ -230,7 +230,7 @@ class Flagger (Timba.dmi.verbosity):
     sub_mss = [];
     nrows = 0;
     if ddids is None:
-      ddids = range(TABLE(ms.getkeyword('DATA_DESCRIPTION').nrows()));
+      ddids = range(TABLE(ms.getkeyword('DATA_DESCRIPTION')).nrows());
     for ddid in ddids:
       subms = ms.query("DATA_DESC_ID==%d"%ddid);
       sub_mss.append((ddid,nrows,subms));
@@ -259,6 +259,8 @@ class Flagger (Timba.dmi.verbosity):
           taql=None,                      # additional TaQL string
           clip_above=None,                # restrict flagged subset to abs(data)>clip_above
           clip_below=None,                #                        and abs(data)<clip_below
+          clip_fm_above=None,             # same as clip_above/_below, but flags based on the mean
+          clip_fm_below=None,             #                       amplitude across all frequencies
           clip_column='CORRECTED_DATA',   # data column for clip_above and clip_below
           progress_callback=None,         # callback, called with (n,nmax) to report progress
           purr=False                      # if True, writes comments to purrpipe
@@ -345,7 +347,9 @@ class Flagger (Timba.dmi.verbosity):
     
     # This will be true if only whole rows are being selected for. If channel/correlation/clipping
     # criteria are supplied, this will be set to False below
-    flagrows = (clip_above is None and clip_below is None);
+    clip = not (  clip_above is None and clip_below is None and 
+                  clip_fm_above is None and clip_fm_below is None);
+    flagrows = not clip;
     # form up channel and correlation slicers
     # multichan may specify multiple channel subsets. If not specified,
     # then channels specifies a single subset. In any case, in the end multichan
@@ -452,48 +456,63 @@ class Flagger (Timba.dmi.verbosity):
         elif flagrows:
           if self.has_bitflags:
             bfr = ms.getcol('BITFLAG_ROW',row0,nrows);
+            bf = self._get_bitflag_col(ms,row0,nrows);
             if unflag:
               bfr[rowmask] &= ~unflag;
-              # if unflaging, also have to clear flags from BITFLAG too
-              bf = self._get_bitflag_col(ms,row0,nrows);
               bf[rowmask,:,:] &= ~unflag;
-              ms.putcol('BITFLAG',bf,row0,nrows);
             if flag:
               bfr[rowmask] |= flag;
+              bf[rowmask,:,:] |= flag;
             ms.putcol('BITFLAG_ROW',bfr,row0,nrows);
+            ms.putcol('BITFLAG',bf,row0,nrows);
             if fill_legacy is not None:
-              lf = ms.getcol('FLAG_ROW',row0,nrows);
-              lf[rowmask] = ( (bfr[rowmask]&fill_legacy) !=0 );
-              ms.putcol('FLAG_ROW',lf,row0,nrows);
+              lfr = ms.getcol('FLAG_ROW',row0,nrows);
+              lf = ms.getcol('FLAG',row0,nrows);
+              lfr[rowmask] = ( (bfr[rowmask]&fill_legacy) !=0 );
+              lf[rowmask,:,:] = ( (bf[rowmask]&fill_legacy) !=0 );
+              ms.putcol('FLAG_ROW',lfr,row0,nrows);
+              ms.putcol('FLAG',lf,row0,nrows);
           else:
-            lf = ms.getcol('FLAG_ROW',row0,nrows);
-            lf[rowmask] = (flag!=0);
-            ms.putcol('FLAG_ROW',lf,row0,nrows);
+            lfr = ms.getcol('FLAG_ROW',row0,nrows);
+            lf = ms.getcol('FLAG',row0,nrows);
+            lfr[rowmask] = (flag!=0);
+            lf[rowmask,:,:] = (flag!=0);
+            ms.putcol('FLAG_ROW',lfr,row0,nrows);
+            ms.putcol('FLAG',lf,row0,nrows);
         # else flagging individual correlations or channels
         else: 
+          # get flags (for clipping purposes)
+          lf = ms.getcol('FLAG',row0,nrows);
+          # 'mask' is what needs to be flagged/unflagged. Start with empty mask.
+          mask = numpy.zeros(lf.shape,bool);
+          # then fill in subsets
+          for subset in subsets:
+            mask[subset] = True;
           # get clipping mask, if amplitude clipping is in effect
-          if clip_above is not None or clip_below is not None:
+          if clip:
             datacol = ms.getcol(clip_column,row0,nrows);
-            clip_mask = abs(datacol)>clip_above if clip_above is not None else True;
+            clip_mask = numpy.ones(datacol.shape,bool);
+            if clip_above is not None:
+              clip_mask &= abs(datacol)>clip_above;
             if clip_below is not None:
               clip_mask &= abs(datacol)<clip_below;
+            if len(datacol.shape) > 1:
+              # mask data column with subset, and with legacy flags
+              datacol = numpy.ma.masked_array(abs(datacol),(~mask)|lf,fill_value=0).mean(1);
+              if clip_fm_above is not None:
+                clip_mask &= (datacol>clip_fm_above)[:,numpy.newaxis,...];
+              if clip_fm_below is not None:
+                clip_mask &= (datacol<clip_fm_below)[:,numpy.newaxis,...];
             # broadcast shape, if datacol has fewer axes than flags
             if len(clip_mask.shape) == 1:
               clip_mask = clip_mask[:,numpy.newaxis,numpy.newaxis];
             elif len(clip_mask.shape) == 2:
               clip_mask = clip_mask[:,:,numpy.newaxis];
-          else:
-            clip_mask = True;
+            # and multiply mask by the clipping mask
+            mask &= clip_mask;
           # apply flags
           if self.has_bitflags:
             bf = self._get_bitflag_col(ms,row0,nrows);
-            # 'mask' is what needs to be flagged/unflagged. Start with empty mask.
-            mask = numpy.zeros(bf.shape,bool);
-            # then fill in subsets
-            for subset in subsets:
-              mask[subset] = True;
-            # and multiply by the clipping mask
-            mask &= clip_mask;
             if unflag:
               bf[mask] &= ~unflag;
             if flag:
@@ -504,9 +523,8 @@ class Flagger (Timba.dmi.verbosity):
               lf[mask] = ( (bf[mask]&fill_legacy) !=0 );
               ms.putcol('FLAG',lf,row0,nrows);
           else:
-            bf = ms.getcol('FLAG',row0,nrows);
-            bf[mask] = (flag!=0);
-            ms.putcol('FLAG',bf,row0,nrows);
+            lf[mask] = (flag!=0);
+            ms.putcol('FLAG',lf,row0,nrows);
     if progress_callback:
       progress_callback(99,100);
     stat0 = (stat_rows and stat_rows_nfl/float(stat_rows)) or 0;
