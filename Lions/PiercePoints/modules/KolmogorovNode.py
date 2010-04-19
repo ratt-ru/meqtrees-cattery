@@ -72,11 +72,29 @@ class KolmogorovNode (pynode.PyNode):
         
         cells=request.cells;
         seg=cells.segments.time;
-        startt=seg.start_index;
-        endt=seg.end_index;
+#        print '************************************************************'
+#        print cells
+#        print '------------------------------------------------------------'
+#        print seg
+#        print '************************************************************'
+        # the startt and endt are the timeslots when tiling is set > 1
+        # for actual LOFAR MS these are an array and need to be indexed
+# HARDCODE workaround
+# UNCOMMENT for simulation from scratch
+#        if (seg.start_index == 0):
+#            startt=seg.start_index;
+#            endt=seg.end_index;
+# UNCOMMENT THIS for simulation on actual LOFAR observed MS
+        startt=seg.start_index[0];
+        endt=seg.end_index[-1];
+#        print '************************************************************'
+#        print startt, endt
+#        print '************************************************************'
+
         # make time a lot smaller to prevent precision errors for int
         # the actual value of the constant
         time=cells.grid.time - self.starttime;
+
         if startt>=endt:
             time=[time,];
         val=[];

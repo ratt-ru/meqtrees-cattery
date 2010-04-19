@@ -24,7 +24,7 @@ class MIM(PiercePoints):
         if night:
             beta = 5./3.
             N = 1024
-            speedx = 600.
+            speedx = 400.
             speedy = 50.
             scale = 0.5
             amp_scale = 0.5
@@ -34,14 +34,14 @@ class MIM(PiercePoints):
             use_lonlat = True
         if day:
             beta = 5./3.
-            N = 2048
-            speedx = 600.
+            N = 1024
+            speedx = 400.
             speedy = 50.
-            scale = 0.2
+            scale = 0.5
             amp_scale = 1.0
             TEC0 = 5.0
             height = 300.
-            seed_nr = 310573
+            seed_nr = 3418
             use_lonlat = True
             
         PiercePoints.__init__(self,ns,name,sources,stations,height,make_log);
