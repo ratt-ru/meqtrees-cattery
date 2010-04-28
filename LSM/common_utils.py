@@ -753,7 +753,7 @@ def lm_to_radec(ra0,dec0,l,m):
     return (ra,dec)
 
 
-## convert ra,dec to lm
+## convert ra,dec to lm (NCP)
 def radec_to_lm(ra0,dec0,ra,dec):
     l=-math.sin(ra-ra0)*math.cos(dec)
     sind0=math.sin(dec0)
@@ -762,6 +762,13 @@ def radec_to_lm(ra0,dec0,ra,dec):
     else:
      m=0
     return (l,m)
+
+## convert ra,dec to lm (SIN)
+def radec_to_lm_SIN(ra0,dec0,ra,dec):
+    l=-math.sin(ra-ra0)*math.cos(dec)
+    m=-(math.cos(ra-ra0)*math.cos(dec)*math.sin(dec0)-math.cos(dec0)*math.sin(dec))
+    return (l,m)
+
 #################################################################
 if __name__ == '__main__':
   ns=NodeScope()
