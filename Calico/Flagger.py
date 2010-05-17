@@ -558,7 +558,7 @@ class Flagger (Timba.dmi.verbosity):
     if isinstance(flagset,int):
       flagset = [ flagset ];
     elif isinstance(flagset,str):
-      flagset = flagset.split(","):
+      flagset = flagset.split(",");
     elif not isinstance(flagset,(list,tuple)):
       raise TypeError,"invalid flagset of type %s"%type(flagset);
     # loop over list and accumulate flagmask
@@ -579,7 +579,7 @@ class Flagger (Timba.dmi.verbosity):
           # lookup name or number
           if re.match('^\d+$',fset):
             flagmask |= int(fset);  
-          elif re.match('^0[xX][\dA-Fa-f]+$',fset);
+          elif re.match('^0[xX][\dA-Fa-f]+$',fset):
             flagmask |= int(fset,16);  
           elif fset:
             flagmask |= self.flagsets.flagmask(fset,create=create);
@@ -707,7 +707,7 @@ class Flagger (Timba.dmi.verbosity):
       if isinstance(selection,(int,slice)):
         return make_slice_list([selection],parm);
       if not isinstance(selection,(list,tuple)):
-        raise TypeError,"invalid %s selection: %s"%(parm,selection));
+        raise TypeError,"invalid %s selection: %s"%(parm,selection);
       sellist = [];
       for sel in selection:
         if isinstance(sel,int):
@@ -715,7 +715,7 @@ class Flagger (Timba.dmi.verbosity):
         elif isinstance(sel,slice):
           sellist.append(sel);
         else:
-          raise TypeError,"invalid %s selection: %s"%(parm,selection));
+          raise TypeError,"invalid %s selection: %s"%(parm,selection);
       return sellist;
     # parse the arguments
     channels  = make_slice_list(channels,'channels');
