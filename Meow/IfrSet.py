@@ -142,7 +142,7 @@ class IfrSet (object):
           <P>You appear to have an WSRT MS, so in addition to the above, the following standard
           designations are recognized:</P>
 
-          <P>"FF", "FM", "MM" (or "F-F", "F-M", "M-M"): selects the stadard WSRT sets
+          <P>"FF", "FM", "MM" (or "F-F", "F-M", "M-M"): selects the standard WSRT sets
           of fixed-fixed, fixed-movable and movable-movable baselines. Can also be negated,
           so "* -MM" selects all baselines except the movable-movable ones.
           </P>

@@ -107,7 +107,8 @@ def compute_jones (Jones,stations=None,**kw):
 
   for p in stations:
     # get feed angle for this antenna number. If list contains fewer angles than stations, the last angle is reused
-    angle = angles[min(Context.array.number_of_station(p),len(angles)-1)]*DEG;
+    angle_deg = angles[min(Context.array.number_of_station(p),len(angles)-1)];
+    angle = angle_deg*DEG;
     Jj = Jones(p);
     ns = Jj.Subscope();
 
@@ -120,8 +121,15 @@ def compute_jones (Jones,stations=None,**kw):
       sin = ns.sin_fa << Meq.Sin(ns.fa);
     # no p.a., work out sines and cosines directly (as constants)
     else:
-      cos = math.cos(angle);
-      sin = math.sin(angle);
+      # treat these cases directly, to avoid rounding errors causing unseemly near-0 terms
+      if angle_deg == 90:
+        cos,sin = 0,1;
+      elif angle_deg == 180:
+        cos,sin = -1,0;
+      elif angle_deg == 270:
+        cos,sin = 0,-1;
+      else:
+        cos,sin = math.cos(angle),math.sin(angle);
 
     # now make the rotation matrix. 'cos' and 'sin' may be nodes or constants at this point, it doesn't matter.
     Jj << Meq.Matrix22(cos,-sin,sin,cos);

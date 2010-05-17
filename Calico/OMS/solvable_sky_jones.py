@@ -114,8 +114,9 @@ class FullRealImag (object):
     self.subset_selector = Meow.MeqMaker.SourceSubsetSelector("Apply this Jones term to a subset of sources",
                             tdloption_namespace=self.tdloption_namespace);
     self.options = [
-      TDLOption("init_diag","Initial value, diagonal",[0,1],default=1,more=float,namespace=self),
-      TDLOption("init_offdiag","Initial value, off-diagonal",[0,1],default=0,more=float,namespace=self),
+      TDLOption("matrix_type","Matrix type",["complex","real"],namespace=self),
+      TDLOption("init_diag","Initial value, diagonal",[0,1],default=1,more=complex,namespace=self),
+      TDLOption("init_offdiag","Initial value, off-diagonal",[0,1],default=0,more=complex,namespace=self),
     ] + self.subset_selector.options;
     self._offdiag = True;
 
@@ -126,6 +127,7 @@ class FullRealImag (object):
     stations = stations or Context.array.stations();
     # figure out which sources to apply to
     sources = self.subset_selector.filter(sources);
+    is_complex = self.matrix_type != "real";
     # set up qualifier labels depending on polarization definition
     if Context.observation.circular():
       x,y,X,Y = 'R','L','R','L';
@@ -134,17 +136,35 @@ class FullRealImag (object):
     xx,xy,yx,yy = x+x,x+y,y+x,y+y;
     rxx,rxy,ryx,ryy = [ q+":r" for q in xx,xy,yx,yy ];
     ixx,ixy,iyx,iyy = [ q+":i" for q in xx,xy,yx,yy ];
-    # create parm definitions for each jones element
+    # prepare parm definitions for real and imag parts of diagonal and off-diagonal elements
     tags = NodeTags(tags) + "solvable";
-    diag_real = Meq.Parm(self.init_diag,tags=tags+"diag real");
-    diag_imag = Meq.Parm(0,tags=tags+"diag imag");
-    offdiag_real = Meq.Parm(self.init_offdiag,tags=tags+"offdiag real");
-    offdiag_imag = Meq.Parm(0,tags=tags+"offdiag imag");
+    diag_pdefs =     ( Meq.Parm(complex(self.init_diag).real,tags=tags+"diag real"),
+                       Meq.Parm(complex(self.init_diag).imag,tags=tags+"diag imag") );
+    offdiag_pdfefs = ( Meq.Parm(complex(self.init_offdiag).imag,tags=tags+"offdiag real"),
+                       Meq.Parm(complex(self.init_offdiag).imag,tags=tags+"offdiag imag") );
     # loop over sources
     parms_diag = [];
     parms_offdiag = [];
     subgroups_diag = [];
     subgroups_offdiag = [];
+
+    # Define a function to put together a matrix element, depending on whether we're in real or complex mode.
+    # This is also responsible for appending parms to the appropriate parm and subgroup lists.
+    # Note that for the purely-real case we still create parms called 'J:xx:r' (and not 'J:xx' directly),
+    # this is to keep MEP tables mututally-compatible naming wise.
+    if self.matrix_type == "real":
+      def make_element (jj,parmdef,*parmlists):
+        parm = jj('r') << parmdef[0];
+        for plist in parmlists:
+          plist.append(parm);
+        return jj << Meq.Identity(parm);
+    else:
+      def make_element (jj,parmdef,*parmlists):
+        parms = [ jj('r') << parmdef[0],jj('i') << parmdef[1] ];
+        for plist in parmlists:
+          plist += parms;
+        return jj << Meq.ToComplex(*parms);
+        
     for src in sources:
       # now loop to create nodes
       sgdiag = [];
@@ -152,30 +172,11 @@ class FullRealImag (object):
       for p in stations:
         jj = jones(src,p);
         jj << Meq.Matrix22(
-          jj(xx) << Meq.ToComplex(
-              jj(rxx) << diag_real,
-              jj(ixx) << diag_imag
-          ),
-          (jj(xy) << Meq.ToComplex(
-              jj(rxy) << offdiag_real,
-              jj(ixy) << offdiag_imag
-          )) if self._offdiag else 0,
-          (jj(yx) << Meq.ToComplex(
-              jj(ryx) << offdiag_real,
-              jj(iyx) << offdiag_imag
-          )) if self._offdiag else 0,
-          jj(yy) << Meq.ToComplex(
-              jj(ryy) << diag_real,
-              jj(iyy) << diag_imag
-          )
+          make_element(jj(xx),diag_pdefs,parms_diag,sgdiag),
+          make_element(jj(xy),offdiag_pdefs,parms_offdiag,sgoff) if self._offdiag else 0,
+          make_element(jj(yx),offdiag_pdefs,parms_offdiag,sgoff) if self._offdiag else 0,
+          make_element(jj(yy),diag_pdefs,parms_diag,sgdiag)
         );
-        # add to list of parms for groups and subgroups
-        parms = [ jj(zz) for zz in rxx,ixx,ryy,iyy ]
-        parms_diag += parms;
-        sgdiag += parms;
-        parms = [ jj(zz) for zz in rxy,ixy,ryx,iyx ];
-        parms_offdiag += parms;
-        sgoff  += parms;
       # add subgroup for this source
       subgroups_diag.append(ParmGroup.Subgroup(src.name,sgdiag));
       subgroups_offdiag.append(ParmGroup.Subgroup(src.name,sgoff));
@@ -217,6 +218,7 @@ class DiagRealImag (FullRealImag):
     self.subset_selector = Meow.MeqMaker.SourceSubsetSelector("Apply this Jones term to a subset of sources",
                             tdloption_namespace=self.tdloption_namespace);
     self.options = [
+      TDLOption("matrix_type","Matrix type",["complex","real"],namespace=self),
       TDLOption("init_diag","Initial value",[0,1],default=1,more=float,namespace=self),
     ] + self.subset_selector.options;
     self._offdiag = False;

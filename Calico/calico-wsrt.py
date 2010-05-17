@@ -212,7 +212,10 @@ from Calico.OMS import wsrt_beams
 from Calico.OMS import solvable_pointing_errors
 meqmaker.add_sky_jones('E','primary beam',[wsrt_beams],
   pointing=solvable_pointing_errors);
-# then add differential gains
+## add solvable refraction
+# from Calico.OMS import solvable_position_shifts
+# meqmaker.add_sky_jones('R','position shifts',solvable_position_shifts);
+# add differential gains
 from Calico.OMS import solvable_sky_jones
 meqmaker.add_sky_jones('dE','differential gains',
   [ solvable_sky_jones.DiagRealImag('dE'),

@@ -464,16 +464,16 @@ class MeqMaker (object):
     name = name or inspector_node.initrec().get('title',None) or inspector_node.name.replace('_',' ');
     Meow.Bookmarks.Page(name).add(inspector_node,viewer="Collections Plotter");
 
-  def make_bookmark_set (self,nodes,quals,title_inspector,title_folder=None,labels=None,freqmean=True):
-    """Makes a standard set of bookmarks for a series if nodes: i.e. an inspector, and a folder of 
+  def make_bookmark_set (self,nodes,quals,title_inspector,title_folder=None,inspector_node=None,labels=None,freqmean=True):
+    """Makes a standard set of bookmarks for a series of nodes: i.e. an inspector, and a folder of 
     individual bookmarks""";
-    labels = labels or [ ':'.join(map(str,qq)) for qq in quals ];
+    labels = labels or [ ':'.join([getattr(q,'name',None) or str(q) for q in qq]) for qq in quals ];
     if freqmean:
       nodelist = [ nodes('freqmean',*qq) << Meq.Mean(nodes(*qq),reduction_axes="freq") for qq in quals ];
     else:
       nodelist = [ nodes(*qq) for qq in quals ];
     # make inspector + bookmark
-    insp = nodes('inspector') << Meq.Composer(dims=[0],plot_label=labels,mt_polling=True,*nodelist);
+    insp = (inspector_node or nodes('inspector')) << Meq.Composer(dims=[0],plot_label=labels,mt_polling=True,*nodelist);
     self.add_inspector_node(insp,title_inspector);
     # make folder of per-baseline plots
     if title_folder is not None:
