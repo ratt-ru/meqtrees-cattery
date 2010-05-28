@@ -136,6 +136,9 @@ class IfrBiases (object):
     ifrs = ifrs or Context.array.ifrs();
     label = label or 'ifr_biases';
     C = self.init_nodes(ns,tags,label);
+
+    for p,q in ifrs:
+      nodes(p,q) << input_nodes(p,q) + C(p,q);
     
     return nodes;
 
