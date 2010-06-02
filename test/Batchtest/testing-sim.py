@@ -31,6 +31,12 @@ import math
 import Meow
 import Meow.StdTrees
 
+try:
+  import pyrap_tables
+except:
+  import pyrap.tables
+  
+
 # MS options first
 mssel = Meow.Context.mssel = Meow.MSUtils.MSSelector(has_input=False,tile_sizes=[8,16,32],flags=False);
 # MS compile-time options
