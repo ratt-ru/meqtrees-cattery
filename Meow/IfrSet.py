@@ -91,7 +91,7 @@ class IfrSet (object):
     # _number_to_name: maps ip to p (since ip's are not necessarily contiguous)
     self._number_to_name = dict(self._station_index);
     # make reverse dictionary: from name (also in uppercase) to number.
-    self._name_to_number = dict([(p.upper(),ip) for ip,p in self._station_index]);
+    self._name_to_number = dict([(str(p).upper(),ip) for ip,p in self._station_index]);
     self._name_to_number.update([(p,ip) for ip,p in self._station_index]);
     # make a dict of positions and baseline lengths
     # _positions[ip] gives the position of antenna #ip
