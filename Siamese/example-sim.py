@@ -156,6 +156,8 @@ def _define_forest (ns):
   else:
     spigots = False;
 
+  meqmaker.make_per_ifr_bookmarks(output,"Output visibilities");
+
   # make sinks and vdm.
   # The list of inspectors comes in handy here
   Meow.StdTrees.make_sinks(ns,output,spigots=spigots,post=meqmaker.get_inspectors());
