@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -43,4 +44,14 @@ def source_list (ns,basename="S",l0=None,m0=None):
 
 
 TDLCompileOption("image_filename","FITS image file",TDLFileSelect("*.fits"));
-TDLCompileOption("pad_factor","Padding factor",[1,2],more=float);
+TDLCompileOption("pad_factor","Padding factor",[1,1.1,1.2,1.5,2],more=float,default=1.2,
+  doc="""<P>During prediction from FITS images, flux scale may become severely distorted
+  at the edges of the image. If your image is zero at the edges, this is not a problem.
+  If your image contains non-zero flux close to its edges, you need to enable padding by setting the
+  pad factor to >1. The image will then be padded out with zeroes out to
+  a multiple of the original size (e.g. with a pad factor of 1.5, a 100x100 image
+  will be padded out to a size of 150x150.)</P>
+
+  <P>Padding increases your effective image size and therefore uses more RAM. With large images,
+  don't enable it unless you have to.</P>""");
+
