@@ -73,8 +73,9 @@ from Siamese.OMS import oms_n_inverse
 meqmaker.add_sky_jones('Ncorr','n-term correction',oms_n_inverse);
 
 # Z - ionosphere
+from Lions import ZJones
 from Siamese.OMS import oms_ionosphere
-meqmaker.add_sky_jones('Z','ionosphere',oms_ionosphere);
+meqmaker.add_sky_jones('Z','ionosphere',[oms_ionosphere,ZJones.ZJones()]);
 
 # L - dipole projection
 from Siamese.OMS import oms_dipole_projection
@@ -126,19 +127,14 @@ def _define_forest (ns):
 
   # throw in a bit of noise
   if noise_stddev:
-    # make two complex noise terms per station (x/y)
     noisedef = Meq.GaussNoise(stddev=noise_stddev)
-    noise_x = ns.sta_noise('x');
-    noise_y = ns.sta_noise('y');
-    for p in array.stations():
-      noise_x(p) << Meq.ToComplex(noisedef,noisedef);
-      noise_y(p) << Meq.ToComplex(noisedef,noisedef);
-    # now combine them into per-baseline noise matrices
     for p,q in array.ifrs():
-      noise = ns.noise(p,q) << Meq.Matrix22(
-        noise_x(p)+noise_x(q),noise_x(p)+noise_y(q),
-        noise_y(p)+noise_x(q),noise_y(p)+noise_y(q)
-      );
+      noise = ns.noise(p,q);
+      for x in range(4):
+        re = noise(x,'real') << noisedef; 
+        im = noise(x,'imag') << noisedef;
+        noise(x) << Meq.ToComplex(re,im);
+      noise << Meq.Matrix22(*[noise(x) for x in range(4)]);
       ns.noisy_predict(p,q) << output(p,q) + noise;
     output = ns.noisy_predict;
 
