@@ -115,7 +115,7 @@ def compute_jones (Jones,sources,stations=None,
   lmsrc = {};
   # see if sources have a "beam_lm" attribute, use that for beam offsets
   for src in sources:
-    lm = src.get_attr("beam_lm",None);
+    lm = src.get_attr("beam_lm",None) or src.get_attr("_lm_ncp",None);
     if lm:
       l,m = lmsrc[src.name] = lm;
       src.set_attr(label+'r',math.sqrt(l**2+m**2)/math.pi*(180*60));
