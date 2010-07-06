@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-#% $Id$ 
+#% $Id$
 #
 #
 # Copyright (C) 2002-2007
-# The MeqTree Foundation & 
+# The MeqTree Foundation &
 # ASTRON (Netherlands Foundation for Research in Astronomy)
 # P.O.Box 2, 7990 AA Dwingeloo, The Netherlands
 #
@@ -20,11 +20,11 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>,
-# or write to the Free Software Foundation, Inc., 
+# or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 """This implements a Jones module for WSRT beams.
-  See also analytic_beams in Siamese.OMS for an alternative. 
+  See also analytic_beams in Siamese.OMS for an alternative.
   The two modules will eventually be merged.
 """;
 
@@ -47,7 +47,7 @@ ARCSEC = DEG/3600;
 def WSRT_cos3_beam (E,lm,bf,*dum):
   """computes a cos^3 beam for the given direction, using NEWSTAR's
   cos^^(fq*B*r) model (thus giving a cos^6 power beam).
-  r=sqrt(l^2+m^2), which is not entirely accurate (in terms of angular distance), but close enough 
+  r=sqrt(l^2+m^2), which is not entirely accurate (in terms of angular distance), but close enough
   to be good for NEWSTAR, so good enough for us.
   'E' is output node
   'lm' is direction (2-vector node, or l,m tuple)
@@ -63,34 +63,6 @@ def WSRT_cos3_beam (E,lm,bf,*dum):
     clip = -clip;
   E << Meq.WSRTCos3Beam(bf,r,clip=clip);
   return E;
-
-# this beam model is not per-station
-WSRT_cos3_beam._not_per_station = True;
-
-class SourceBeam (object):
-  """This class implements a Sky Jones contract, given a set of beams that are
-  per-source but possibly not per-station""";
-  def __init__ (self,beams,p0):
-    self.beams = beams;
-    # p0 is the first station index. It is used to check if a beam is per-station
-    self.p0 = p0;
-  def __call__ (self,src,p=None,*args,**kw):
-    beam = self.beams(src);
-    # if station is specified, return per-station beam (if available),
-    # else the common source beam
-    if p is not None:
-      if beam(p).initialized():
-        return beam(p);
-      else:
-        return beam;
-    # else return potentially qualifiable beam
-    else:
-      if beam(self.p0).initialized():
-        return beam;
-      else:
-        return lambda p:beam;
-  def search (self,*args,**kw):
-    return self.beams.search(*args,**kw);
 
 def compute_jones (Jones,sources,stations=None,label="beam",pointing_offsets=None,inspectors=[],
                    solvable_sources=set(),**kw):
@@ -108,13 +80,13 @@ def compute_jones (Jones,sources,stations=None,label="beam",pointing_offsets=Non
     ParmGroup.SolveJob("cal_"+label+"_scale","Calibrate beam scale",pg_beam);
   else:
     bf = ns.beamscale << wsrt_beam_size_factor*1e-9;
-  
+
   # this dict will hold LM tuples (or nodes) for each source.
   lmsrc = {};
-  # see if sources have a "beam_lm" attribute, use that for beam offsets
+  # see if sources have a "beam_lm" or "lm_ncp" attribute, use that for beam offsets
 #  log = file("e.log","wt");
   for src in sources:
-    lm = src.get_attr("beam_lm",None);
+    lm = src.get_attr("beam_lm",None) or src.get_attr("_lm_ncp",None);
     if lm:
       l,m = lmsrc[src.name] = lm;
 #      log.write("%s l=%.14g m=%.14g r=%.14g (from model)\n"
@@ -132,11 +104,11 @@ def compute_jones (Jones,sources,stations=None,label="beam",pointing_offsets=Non
       # else use lmn node
       else:
         lmsrc[src.name] = src.direction.lm();
-    
+
   # set of all sources, will later become set of sources for which
   # a beam hasn't been computed
   all_sources = set([src.name for src in sources]);
-  
+
   # if pointing errors are enabled, compute beams for sources with a PE
   if pointing_offsets:
     # is a subset specified?
@@ -162,24 +134,13 @@ def compute_jones (Jones,sources,stations=None,label="beam",pointing_offsets=Non
         lm1 = lm(p) << lm + pointing_offsets(p);
         # make beam model
         beam_model(Jones(name,p),lm1,bf,p);
-  
+
   # now, all_sources is the set of sources for which we haven't computed the beam yet
   if all_sources:
-    # if not per-station, use same beam for every source
-    if beam_model._not_per_station:
-      for name in all_sources:
-        beam_model(Jones(name),lmsrc[name],bf);
-      inspectors.append(Jones('inspector') << StdTrees.define_inspector(Jones,list(all_sources)));
-      # in this case we return a wrapper around the base Jones node, to make sure
-      # that the station index is applied or not applied depending on whether a per-station
-      # beam is available
-      return SourceBeam(Jones,p0=Context.array.stations()[0]);
-    # else make per-source, per-station beam
-    else:
-      for name in all_sources:
-        for p in Context.array.stations():
-          beam_model(Jones(name,p),lmsrc[name],bf,p);
-          
+    for name in all_sources:
+      for p in stations:
+        beam_model(Jones(name,p),lmsrc[name],bf,p);
+
   return Jones;
 
 # this will be set to True on a per-source basis, or if beam scale is solvable
@@ -189,7 +150,7 @@ _model_option = TDLCompileOption('beam_model',"Beam model",
   [WSRT_cos3_beam]
 );
 TDLCompileOption('pe_subset',"Apply pointing errors (if any) to a subset of sources",
-        ["all"],more=str,doc="""Selects a subset of sources to which pointing errors 
+        ["all"],more=str,doc="""Selects a subset of sources to which pointing errors
         (if any) are applied. Enter soure names separated by space""");
 
 _wsrt_option_menu = TDLCompileMenu('WSRT beam model options',
@@ -200,7 +161,7 @@ _wsrt_option_menu = TDLCompileMenu('WSRT beam model options',
   TDLOption('wsrt_newstar_mode',"Use NEWSTAR-compatible beam clipping (very naughty)",False,
     doc="""NEWSTAR's primary beam model does not implement clipping properly: it only makes the
     beam flat where the model gain goes below the threshold. Further away, where the gain (which
-    is cos^3(r) essentially) rises above the threshold again, the beam is no longer clipped, and so 
+    is cos^3(r) essentially) rises above the threshold again, the beam is no longer clipped, and so
     the gain goes up again. This is a physically incorrect model, but you may need to enable this
     if working with NEWSTAR-derived models, since fluxes of far-off sources will have been estimated with
     this incorrect beam."""),

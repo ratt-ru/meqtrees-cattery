@@ -202,7 +202,7 @@ class MeqMaker (object):
     """Essentially a record representing one Jones term in an ME.
     A Jones term has the following fields:
       label:      a label (e.g. "G", "E", etc.)
-      name:       a descriprive name
+      name:       a descriptive name
       modules:    a list of possible modules implementing the Jones set
     """;
     def __init__ (self,label,name,modules):
@@ -219,6 +219,7 @@ class MeqMaker (object):
     def __init__ (self,label,name,modules,pointing_modules=None):
       MeqMaker.JonesTerm.__init__(self,label,name,modules);
       self.pointing_modules = pointing_modules;
+      self.subset_selector = None;
 
   def _add_module_to_compile_options (self,option,is_uvplane):
     if is_uvplane:
@@ -273,20 +274,24 @@ class MeqMaker (object):
         pointing = [ pointing ];
       extra_options += [ self._module_selector("Apply pointing errors to %s"%label,
                                               label+"pe",pointing,nonexclusive=True) ];
-    # extra options for per-station options
-    extra_options.append(
-      TDLOption(self._make_attr('all_stations',label),"Use same %s-Jones for all stations"%label,False,namespace=self,nonexclusive=True,
+    # extra options for per-station Jones term
+    sta_opt = TDLOption(self._make_attr('all_stations',label),"Use same %s-Jones for all stations"%label,False,namespace=self,nonexclusive=True,
         doc="""If checked, then the same %s-Jones term will be used for all stations in the array. This may
         make your trees smaller and/or faster. Whether this is a valid approximation or not depends on your
-        physics; typically this is valid if your array is small, and the effect arises far from the receivers."""%label));
-    # extra options for per-source options
-    if not is_uvplane:
-      extra_options.append(
-        TDLOption(self._make_attr('all_sources',label),"Use same %s-Jones for all sources"%label,False,namespace=self,nonexclusive=True,
-        doc="""If checked, then the same %s-Jones term will be used for all source in the model. This is a valid
-        approximation for narrow fields, and will make your trees smaller and/or faster."""%label));
-    else:
+        physics; typically this is valid if your array is small, and the effect arises far from the receivers."""%label);
+    if is_uvplane:
+      extra_options.append(sta_opt);
       setattr(self,self._make_attr('all_sources',label),False);
+      jt = self.JonesTerm(label,name,modules);
+    else:
+      jt = self.SkyJonesTerm(label,name,modules,pointing);
+      tdloption_namespace = "%s.subset_%s"%(self.tdloption_namespace,label);
+      jt.subset_selector = SourceSubsetSelector ("Apply %s-Jones to subset of sources"%label,tdloption_namespace,annotate=False);
+      opts =  [ sta_opt, TDLOption(self._make_attr('all_sources',label),"Use same %s-Jones for all sources"%label,False,namespace=self,nonexclusive=True,
+          doc="""If checked, then the same %s-Jones term will be used for all source in the model. This is a valid
+          approximation for narrow fields, and will make your trees smaller and/or faster."""%label) ];
+      opts += jt.subset_selector.options;
+      extra_options.append(TDLMenu("Advanced options",*opts));
     # make option menus for selecting a jones module
     mainmenu = self._module_selector("Use %s Jones (%s)"%(label,name),
                                      label,modules,extra_opts=extra_options);
@@ -297,9 +302,9 @@ class MeqMaker (object):
     # base_node is inintially None; when a module is ultimately invoked to
     # build the trees, the base node gets stashed here for later reuse
     if is_uvplane:
-      self._uv_jones_list.append(self.JonesTerm(label,name,modules));
+      self._uv_jones_list.append(jt);
     else:
-      self._sky_jones_list.append(self.SkyJonesTerm(label,name,modules,pointing));
+      self._sky_jones_list.append(jt);
 
   def runtime_options (self,nest=True):
     if self._runtime_options is None:
@@ -449,7 +454,7 @@ class MeqMaker (object):
     if self._source_list is None:
       modules = self._get_selected_modules('sky',self._sky_models);
       if not modules:
-        return [];                
+        return [];
       self._source_list = [];
       for mod in modules:
         self._source_list += mod.source_list(ns);
@@ -465,7 +470,7 @@ class MeqMaker (object):
     Meow.Bookmarks.Page(name).add(inspector_node,viewer="Collections Plotter");
 
   def make_bookmark_set (self,nodes,quals,title_inspector,title_folder=None,inspector_node=None,labels=None,freqmean=True):
-    """Makes a standard set of bookmarks for a series of nodes: i.e. an inspector, and a folder of 
+    """Makes a standard set of bookmarks for a series of nodes: i.e. an inspector, and a folder of
     individual bookmarks""";
     labels = labels or [ ':'.join([getattr(q,'name',None) or str(q) for q in qq]) for qq in quals ];
     if freqmean:
@@ -480,7 +485,7 @@ class MeqMaker (object):
       Meow.Bookmarks.make_node_folder(title_folder,[nodes(*qq) for qq in quals],sorted=True,ncol=2,nrow=2);
 
   def make_per_ifr_bookmarks (self,nodes,title,ifrs=None,freqmean=True):
-    """Makes a standard set of bookmarks for a per-ifr node: i.e. an inspector, and a folder of 
+    """Makes a standard set of bookmarks for a per-ifr node: i.e. an inspector, and a folder of
     per-baseline bookmarks""";
     ifrs = ifrs or Meow.Context.array.ifrs();
     return self.make_bookmark_set(nodes,ifrs,
@@ -488,10 +493,18 @@ class MeqMaker (object):
         labels=[ "%s-%s"%(p,q) for p,q in ifrs ],freqmean=freqmean);
 
   def make_per_station_bookmarks (self,nodes,title,stations=None,freqmean=True):
-    """Makes a standard set of bookmarks for a station node: i.e. an inspector, and a folder of 
+    """Makes a standard set of bookmarks for a station node: i.e. an inspector, and a folder of
     per-station bookmarks""";
     stations = stations or Meow.Context.array.stations();
     return self.make_bookmark_set(nodes,[ (p,) for p in stations],
+        "%s: inspector plot"%title,"%s: by station"%title,
+        freqmean=freqmean);
+
+  def make_per_source_per_station_bookmarks (self,nodes,title,sources,stations=None,freqmean=True):
+    """Makes a standard set of bookmarks for a station node: i.e. an inspector, and a folder of
+    per-station bookmarks""";
+    stations = stations or Meow.Context.array.stations();
+    return self.make_bookmark_set(nodes,[(src,p) for src in sources for p in stations],
         "%s: inspector plot"%title,"%s: by station"%title,
         freqmean=freqmean);
 
@@ -547,9 +560,9 @@ class MeqMaker (object):
     self._runtime_vis_options.append(TDLJob(visualize_node,"Visualize %s (%s)"%(label,name)));
 
   def get_uvjones_nodes (self,label):
-    """Returns the Jones nodes associated with the given Jones label. 
+    """Returns the Jones nodes associated with the given Jones label.
     Returns unqualified node that should be qualified with a station index.
-    If this Jones term is not yet initialized, or is disabled via compile-time 
+    If this Jones term is not yet initialized, or is disabled via compile-time
     options, returns None. If Jones term is not found, raises KeyError.""";
     for jt in self._uv_jones_list:
       if jt.label == label:
@@ -557,9 +570,9 @@ class MeqMaker (object):
     raise KeyError,"uv-Jones term %s not defined"%label;
 
   def get_skyjones_nodes (self,label):
-    """Returns the Jones nodes associated with the given Jones label. 
+    """Returns the Jones nodes associated with the given Jones label.
     Returns unqualified node that should be qualified with a source and station index.
-    If this Jones term is not yet initialized, or is disabled via compile-time 
+    If this Jones term is not yet initialized, or is disabled via compile-time
     options, returns None. If Jones term is not found, raises KeyError.""";
     for jt in self._sky_jones_list:
       if jt.label == label:
@@ -577,7 +590,12 @@ class MeqMaker (object):
     If basenode==None, the given JonesTerm is not implemented and may be omitted from the ME.
     """;
     if jt.base_node is None:
+      if isinstance(jt,self.SkyJonesTerm):
+        sources = jt.subset_selector.filter(sources);
+        if not sources:
+          return None,False;
       all_sources,all_stations = sources,(stations or Context.array.stations());
+      # for sky-jones terms, apply subset selector to finalize list of sources
       # are we doing a per-source and per-station Jones term?
       same_all_sources = sources and getattr(self,self._make_attr('all_sources',jt.label),False);
       same_all_stations = getattr(self,self._make_attr('all_stations',jt.label),False);
@@ -801,13 +819,11 @@ class MeqMaker (object):
         # if this Jones is enabled (Jj not None), corrupt each source
         if Jj:
           newlist = [];
-          # go through sourcs, and make new list of corrupted sources.
-          # note that not every source is necessarily corrupted
           # print jt.label,solvable,len(solvable_skyjones);
           for name,src in sourcelist:
-            jones = Jj(name);
             # if Jones term is initialized, corrupt and append to corr_sources
             # if not initialized, then append to uncorr_sources
+            jones = Jj(name);
             if jones(stations[0]).initialized():
               src = src.corrupt(jones);
               if solvable:
@@ -1022,17 +1038,20 @@ class MeqMaker (object):
             self.export_karma_filename,label_format=self.export_karma_label,maxlabels=nlab);
 
 class SourceSubsetSelector (object):
-  def __init__ (self,title,tdloption_namespace=None,doc=None):
+  def __init__ (self,title,tdloption_namespace=None,doc=None,annotate=True):
     if tdloption_namespace:
       self.tdloption_namespace = tdloption_namespace;
     self.subset_enabled = False;
     global _annotation_label_doc;
-    subset_opt = TDLMenu(title,toggle='subset_enabled',namespace=self,doc=doc,
-      *(
+    opts = [
         TDLOption('source_subset',"Sources",["all"],more=str,namespace=self,
-                  doc="""Enter source names separated by space."""),
-        TDLMenu("Annotate selected sources",doc="""If you're exporting annotations for your sky model,
-    you may choose to mark the selected sources using different colours and/or labels""",
+                  doc="""<P>You can enter source names separated by space. "all" selects all sources. "=<i>tagname</i>"
+                  selects all sources with a given tag. "-<i>name</i>" deselects the named sources. "-=<i>tagname</i>" deselects sources by tag,</P>""")
+    ];
+    self.annotate = False;
+    if annotate:
+      opts.append(TDLMenu("Annotate selected sources",doc="""If you're exporting annotations for your sky
+                    model, you may choose to mark the selected sources using different colours and/or labels""",toggle='annotate',namespace=self,
           *(
             TDLOption('annotation_symbol_color',"Colour of source markers",
                       ["default","red","green","blue","yellow","purple","cyan","white"],more=str,namespace=self),
@@ -1043,25 +1062,46 @@ class SourceSubsetSelector (object):
                       doc="Overrides default annotation labels for selected sources.\n"+
                           _annotation_label_doc)
           )
-        )
       ));
+    subset_opt = TDLMenu(title,toggle='subset_enabled',namespace=self,doc=doc,*opts);
     self._src_set = None;
     self.options = [ subset_opt ];
 
-  def filter (self,srclist):
+  def selectedTag (self):
+    """If sources were selected by tag, returns the tagname. Else returns None""";
+    if self.source_subset[0] == "=":
+      return self.source_subset.split()[0][1:];
+    return None;
+
+  def filter (self,srclist0):
     if not self.subset_enabled or self.source_subset == "all":
-      return srclist;
-    if not self._src_set:
-      self._src_set = set(self.source_subset.split(" "));
+      return srclist0;
+    all = set([src.name for src in srclist0]);
+    srcs = set();
+    for ispec,spec in enumerate(self.source_subset.split()):
+      spec = spec.strip();
+      if spec:
+        # if first spec is a negation, then implictly select all sources first
+        if not ispec and spec[0] == "-":
+            srcs = all;
+        if spec == "all":
+          srcs = all;
+        elif spec.startswith("="):
+          srcs.update([ src for src in srclist if src.get_attr(spec[1:]) ]);
+        elif spec.startswith("-="):
+          srcs.difference_update([ src for src in srclist if src.get_attr(spec[2:]) ]);
+        elif spec.startswith("-"):
+          srcs.discard(spec[1:]);
     # make list
-    srclist = [ src for src in srclist if src.name in self._src_set ];
-    # apply annotations
-    if self.annotation_symbol_color != "default":
-      [ src.set_attr('ANNOTATION_SYMBOL_COLOR',self.annotation_symbol_color) for src in srclist ];
-    if self.annotation_label_color != "default":
-      [ src.set_attr('ANNOTATION_LABEL_COLOR',self.annotation_label_color) for src in srclist ];
-    if self.annotation_label != "default":
-      [ src.set_attr('ANNOTATION_LABEL',self.annotation_label) for src in srclist ];
+    srclist = [ src for src in srclist0 if src.name in srcs ];
+    if self.annotate:
+      # apply annotations
+      if self.annotation_symbol_color != "default":
+        [ src.set_attr('ANNOTATION_SYMBOL_COLOR',self.annotation_symbol_color) for src in srclist ];
+      if self.annotation_label_color != "default":
+        [ src.set_attr('ANNOTATION_LABEL_COLOR',self.annotation_label_color) for src in srclist ];
+      if self.annotation_label != "default":
+        [ src.set_attr('ANNOTATION_LABEL',self.annotation_label) for src in srclist ];
     return srclist;
 
 def export_karma_annotations (sources,filename,

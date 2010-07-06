@@ -60,14 +60,14 @@ class PointSource(SkyComponent):
     self._add_parm('U',U or 0.,tags="flux pol");
     self._add_parm('V',V or 0.,tags="flux pol");
     # see if a spectral index is present (freq0!=0 then), create polc
-    self._has_spi = spi is not None or freq0 is not None;
+    self._has_spi = spi != 0 and spi is not None;
     if self._has_spi:
       self._add_parm('spi',spi or 0.,tags="spectrum");
       # for freq0, use placeholder node for first MS frequency,
       # unless something else is specified 
       self._add_parm('spi_fq0',freq0 or (ns.freq0 ** 0),tags="spectrum");
     # see if intrinsic rotation measure is present
-    self._has_rm = RM is not None;
+    self._has_rm = RM != 0 and RM is not None;
     if self._has_rm:
       self._add_parm("RM",RM,tags="pol");
     # flag: flux is fully defined by constants

@@ -37,13 +37,13 @@ import Meow
 from Meow import Context
 from Meow import Jones,ParmGroup,Bookmarks
 from Meow.Parameterization import resolve_parameter
-import Meow.MeqMaker 
+import Meow.MeqMaker
 
 class DiagAmplPhase (object):
   def __init__ (self,label):
     self.tdloption_namespace = label+".diagamplphase";
     subset_opt = TDLOption('subset',"Apply this Jones term to a subset of sources",
-        ["all"],more=str,namespace=self,doc="""Selects a subset of sources to which this 
+        ["all"],more=str,namespace=self,doc="""Selects a subset of sources to which this
         Jones term is applied. Enter soure names separated by space""");
     self.options = [ subset_opt ];
 
@@ -93,11 +93,11 @@ class DiagAmplPhase (object):
     # make parmgroups for phases and gains
     self.pg_phase = ParmGroup.ParmGroup(label+"_phase",
                     nodes.search(tags="solvable phase"),
-                    subgroups = subgroups_phase,                    
+                    subgroups = subgroups_phase,
                     table_name="%s_phase.mep"%label,bookmark=4);
     self.pg_ampl  = ParmGroup.ParmGroup(label+"_ampl",
                     nodes.search(tags="solvable ampl"),
-                    subgroups = subgroups_ampl,                 
+                    subgroups = subgroups_ampl,
                     table_name="%s_ampl.mep"%label,bookmark=4);
 
     ParmGroup.SolveJob("cal_"+label+"_phase","Calibrate %s phases"%label,self.pg_phase);
@@ -111,13 +111,15 @@ class FullRealImag (object):
   """This implements a full 2x2 Jones matrix with solvable real and imaginary parts""";
   def __init__ (self,label):
     self.tdloption_namespace = label+".fullrealimag";
-    self.subset_selector = Meow.MeqMaker.SourceSubsetSelector("Apply this Jones term to a subset of sources",
-                            tdloption_namespace=self.tdloption_namespace);
     self.options = [
       TDLOption("matrix_type","Matrix type",["complex","real"],namespace=self),
       TDLOption("init_diag","Initial value, diagonal",[0,1],default=1,more=complex,namespace=self),
       TDLOption("init_offdiag","Initial value, off-diagonal",[0,1],default=0,more=complex,namespace=self),
-    ] + self.subset_selector.options;
+      TDLOption("name_tag","Associate Jones term with named tag",[label,None],more=str,namespace=self,doc=
+                """<P>If you specify 'None', each source will receive an independent Jones term. if you specify a tag name, you can have sources share
+                a Jones term: if tag name is "foo", and source A has the tag foo=B, while source B doesn't have the 'foo' tag, then source A will use the Jones
+                term associated with source B.</P>"""),
+    ];
     self._offdiag = True;
 
   def compile_options (self):
@@ -125,8 +127,6 @@ class FullRealImag (object):
 
   def compute_jones (self,jones,sources,stations=None,tags=None,label='',**kw):
     stations = stations or Context.array.stations();
-    # figure out which sources to apply to
-    sources = self.subset_selector.filter(sources);
     is_complex = self.matrix_type != "real";
     # set up qualifier labels depending on polarization definition
     if Context.observation.circular():
@@ -164,8 +164,25 @@ class FullRealImag (object):
         for plist in parmlists:
           plist += parms;
         return jj << Meq.ToComplex(*parms);
-        
-    for src in sources:
+
+    # if sources are defined by tag, then the (string) value of the tag can be used to give the name
+    # of the Jones term (thus making it possible for multiple sources to share the same Jones term.)
+    # Make a dict from source name to Jones name.
+    jones_name = {};
+    if self.name_tag:
+      names = set();
+      for src in sources:
+        tagval = src.get_attr(self.name_tag);
+        if isinstance(tagval,str):
+          jones_name[src.name] = tagval;
+        else:
+          jones_name[src.name] = src.name;
+    else:
+      jones_name = dict([(src.name,src.name) for src in sources]);
+
+    # make nodes for all known jones names
+    uniqnames = sorted(set(jones_name.itervalues()));
+    for src in uniqnames:
       # now loop to create nodes
       sgdiag = [];
       sgoff = [];
@@ -178,12 +195,19 @@ class FullRealImag (object):
           make_element(jj(yy),diag_pdefs,parms_diag,sgdiag)
         );
       # add subgroup for this source
-      subgroups_diag.append(ParmGroup.Subgroup(src.name,sgdiag));
-      subgroups_offdiag.append(ParmGroup.Subgroup(src.name,sgoff));
+      subgroups_diag.append(ParmGroup.Subgroup(src,sgdiag));
+      subgroups_offdiag.append(ParmGroup.Subgroup(src,sgoff));
+
+    # now, for sources whose Jones term is named differently, use a Meq.Identity to connect to it
+    for src in sources:
+      if src.name != jones_name[src.name]:
+        for p in stations:
+          jones(src,p) << Meq.Identity(jones(jones_name[src.name],p));
+
     # re-sort by name
     subgroups_diag.sort(lambda a,b:cmp(a.name,b.name));
     subgroups_offdiag.sort(lambda a,b:cmp(a.name,b.name));
-    
+
     # make parmgroups for diagonal and off-diagonal terms
     self.pg_diag  = ParmGroup.ParmGroup(label+"_diag",parms_diag,
                       subgroups=subgroups_diag,
@@ -195,11 +219,11 @@ class FullRealImag (object):
 
     # make bookmarks
     Bookmarks.make_node_folder("%s diagonal terms"%label,
-      [ jones(src,p,zz) for src in sources  
+      [ jones(src,p,zz) for src in uniqnames
         for p in stations for zz in "xx","yy" ],sorted=True);
     if self._offdiag:
       Bookmarks.make_node_folder("%s off-diagonal terms"%label,
-        [ jones(src,p,zz) for src in sources  
+        [ jones(src,p,zz) for src in uniqnames
           for p in stations for zz in "xy","yx" ],sorted=True);
 
     # make solvejobs
@@ -215,22 +239,24 @@ class DiagRealImag (FullRealImag):
   # note that this is not really proper OO design, but it's convenient
   def __init__ (self,label):
     self.tdloption_namespace = label+".diagrealimag";
-    self.subset_selector = Meow.MeqMaker.SourceSubsetSelector("Apply this Jones term to a subset of sources",
-                            tdloption_namespace=self.tdloption_namespace);
     self.options = [
       TDLOption("matrix_type","Matrix type",["complex","real"],namespace=self),
-      TDLOption("init_diag","Initial value",[0,1],default=1,more=float,namespace=self),
-    ] + self.subset_selector.options;
+      TDLOption("init_diag","Initial value, diagonal",[0,1],default=1,more=complex,namespace=self),
+      TDLOption("init_offdiag","Initial value, off-diagonal",[0,1],default=0,more=complex,namespace=self),
+      TDLOption("name_tag","Associate Jones term with named tag",[label,None],more=str,namespace=self,doc=
+                """<P>If you specify 'None', each source will receive an independent Jones term. if you specify a tag name, you can have sources share
+                a Jones term: if tag name is "foo", and source A has the tag foo=B, while source B doesn't have the 'foo' tag, then source A will use the Jones
+                term associated with source B.</P>"""),
+    ];
     self._offdiag = False;
     self.init_offdiag = 0;
 
 
-      
 class IntrinsicFR (object):
   def __init__ (self,label):
     self.tdloption_namespace = label+".intrinsic_fr";
     subset_opt = TDLOption('subset',"Apply this Jones term to a subset of sources",
-        [None],more=str,namespace=self,doc="""Selects a subset of sources to which this 
+        [None],more=str,namespace=self,doc="""Selects a subset of sources to which this
         Jones term is applied. 'None' applies to all sources.
         You may specify individual indices (0-based) separated by commas or spaces, or ranges, e.g. "M:N" (M to N inclusive), or ":M" (0 to M), or "N:" (N to last).
         Example subset: ":3 5 8 10:12 16:".""");

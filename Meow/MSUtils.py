@@ -954,6 +954,9 @@ CHANMODE_ALL   = "1 (average all)";
 CHANMODE_MFS   = "1 (multi-freq synthesis)";
 CHANMODE_MANUAL = "select manually";
 
+FREQMODE_FREQ = "frequency";
+FREQMODE_VELO = "velocity";
+
 class ImagingSelector (object):
   """ImagingSelector provides a set of TDL options for imaging""";
   def __init__ (self,mssel,npix=256,arcmin=5,cellsize=None,subset=True,namespace='img_sel'):
@@ -1020,6 +1023,8 @@ class ImagingSelector (object):
       chan_opt = TDLOption('imaging_chanmode',"Frequency channels in image",
                     [CHANMODE_ALL,CHANMODE_MFS,CHANMODE_MANUAL],
                     more=int,namespace=self,doc=docstr);
+    freq_opt = TDLOption('imaging_freqmode',"Frequency or velocity space",
+                  [FREQMODE_FREQ,FREQMODE_VELO],namespace=self);
     # manual selection menu only shown in manual mode
     def show_chansel_menu (value):
       chan_menu.show(value == CHANMODE_MANUAL);
@@ -1046,6 +1051,7 @@ class ImagingSelector (object):
     self._opts += [
       chan_opt,
       chan_menu,
+      freq_opt,
       weight_opt,taper_opt,
       TDLOption('imaging_stokes',"Stokes parameters to image",
                 ["I","IQ","IV","IQUV"],namespace=self)
@@ -1200,6 +1206,7 @@ class ImagingSelector (object):
         'weight='+self.imaging_weight,
         'stokes='+self.imaging_stokes,
         'npix=%d'%npix,
+        'prefervelocity='+("True" if self.imaging_freqmode is FREQMODE_VELO else "False"),
         'cellsize='+cellsize,
         'spwid=%d'%(selector.get_spectral_window()+offset),
         'field=%d'%(selector.get_field()+offset),

@@ -74,8 +74,8 @@ meqmaker.add_sky_jones('Ncorr','n-term correction',oms_n_inverse);
 
 # Z - ionosphere
 from Lions import ZJones
-from Siamese.OMS import oms_ionosphere
-meqmaker.add_sky_jones('Z','ionosphere',[oms_ionosphere,ZJones.ZJones()]);
+from Siamese.OMS import oms_ionosphere,oms_ionosphere2
+meqmaker.add_sky_jones('Z','ionosphere',[oms_ionosphere,oms_ionosphere2,ZJones.ZJones()]);
 
 # L - dipole projection
 from Siamese.OMS import oms_dipole_projection
