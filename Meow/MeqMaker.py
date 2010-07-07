@@ -1087,11 +1087,13 @@ class SourceSubsetSelector (object):
         if spec == "all":
           srcs = all;
         elif spec.startswith("="):
-          srcs.update([ src for src in srclist if src.get_attr(spec[1:]) ]);
+          srcs.update([ src for src in srclist0 if src.get_attr(spec[1:]) ]);
         elif spec.startswith("-="):
-          srcs.difference_update([ src for src in srclist if src.get_attr(spec[2:]) ]);
+          srcs.difference_update([ src for src in srclist0 if src.get_attr(spec[2:]) ]);
         elif spec.startswith("-"):
           srcs.discard(spec[1:]);
+        else:
+          srcs.add(spec);
     # make list
     srclist = [ src for src in srclist0 if src.name in srcs ];
     if self.annotate:
