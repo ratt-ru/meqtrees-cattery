@@ -198,13 +198,20 @@ flag_menu.when_changed(mssel.enable_write_flags);
 # these will show up in the menu automatically
 from Calico.OMS import central_point_source
 from Siamese.OMS import fitsimage_sky,gridded_sky
-import Meow.LSM
-lsm = Meow.LSM.MeowLSM(include_options=False);
+models = [central_point_source,fitsimage_sky,gridded_sky]
 
-meqmaker.add_sky_models([lsm,central_point_source,fitsimage_sky,gridded_sky]);
+try:
+  import Meow.LSM
+  models.insert(0,Meow.LSM.MeowLSM(include_options=False));
+except:
+  pass;
+try:
+  from Siamese.OMS.tigger_lsm import TiggerSkyModel
+  models.insert(0,TiggerSkyModel());
+except:
+  pass;
 
-# now add optional Jones terms
-# these will show up in the menu automatically
+meqmaker.add_sky_models(models);
 
 # E - beam
 # add a fixed primary beam first
