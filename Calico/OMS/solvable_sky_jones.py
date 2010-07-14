@@ -119,6 +119,9 @@ class FullRealImag (object):
                 """<P>If you specify 'None', each source will receive an independent Jones term. if you specify a tag name, you can have sources share
                 a Jones term: if tag name is "foo", and source A has the tag foo=B, while source B doesn't have the 'foo' tag, then source A will use the Jones
                 term associated with source B.</P>"""),
+      TDLOption("independent_solve","Solve for each source independently",False,namespace=self,doc=
+        """<P>If enabled, then each group of %s-Jones terms associated with a source will be
+        solved for independently of other sources. If disabled, then a joint solution will be done. The former is faster, the latter will be more accurate when source parameters have a significant co-dependence.</P>"""%label)
     ];
     self._offdiag = True;
 
@@ -138,10 +141,7 @@ class FullRealImag (object):
     ixx,ixy,iyx,iyy = [ q+":i" for q in xx,xy,yx,yy ];
     # prepare parm definitions for real and imag parts of diagonal and off-diagonal elements
     tags = NodeTags(tags) + "solvable";
-    diag_pdefs =     ( Meq.Parm(complex(self.init_diag).real,tags=tags+"diag real"),
-                       Meq.Parm(complex(self.init_diag).imag,tags=tags+"diag imag") );
-    offdiag_pdfefs = ( Meq.Parm(complex(self.init_offdiag).imag,tags=tags+"offdiag real"),
-                       Meq.Parm(complex(self.init_offdiag).imag,tags=tags+"offdiag imag") );
+    diag_pdefs = offdiag_pdefs = None;
     # loop over sources
     parms_diag = [];
     parms_offdiag = [];
@@ -183,6 +183,13 @@ class FullRealImag (object):
     # make nodes for all known jones names
     uniqnames = sorted(set(jones_name.itervalues()));
     for src in uniqnames:
+      sg = src if self.independent_solve else '';
+      # (re)create parm definitions. 
+      if diag_pdefs is None or self.independent_solve:
+        diag_pdefs =     ( Meq.Parm(complex(self.init_diag).real,tags=tags+"diag real",solve_group=sg),
+                           Meq.Parm(complex(self.init_diag).imag,tags=tags+"diag imag",solve_group=sg) );
+        offdiag_pdfefs = ( Meq.Parm(complex(self.init_offdiag).imag,tags=tags+"offdiag real",solve_group=sg),
+                           Meq.Parm(complex(self.init_offdiag).imag,tags=tags+"offdiag imag",solve_group=sg) );
       # now loop to create nodes
       sgdiag = [];
       sgoff = [];
@@ -197,6 +204,10 @@ class FullRealImag (object):
       # add subgroup for this source
       subgroups_diag.append(ParmGroup.Subgroup(src,sgdiag));
       subgroups_offdiag.append(ParmGroup.Subgroup(src,sgoff));
+      # label solve group for independent solve
+      if self.independent_solve:
+        for parm in sgdiag + sgoff:
+          parm.initrec().solve_group = src;
 
     # now, for sources whose Jones term is named differently, use a Meq.Identity to connect to it
     for src in sources:
@@ -247,6 +258,9 @@ class DiagRealImag (FullRealImag):
                 """<P>If you specify 'None', each source will receive an independent Jones term. if you specify a tag name, you can have sources share
                 a Jones term: if tag name is "foo", and source A has the tag foo=B, while source B doesn't have the 'foo' tag, then source A will use the Jones
                 term associated with source B.</P>"""),
+      TDLOption("independent_solve","Solve for each source independently",False,namespace=self,doc=
+        """<P>If enabled, then each group of %s-Jones terms associated with a source will be
+        solved for independently of other sources. If disabled, then a joint solution will be done. The former is faster, the latter will be more accurate when source parameters have a significant co-dependence.</P>"""%label)
     ];
     self._offdiag = False;
     self.init_offdiag = 0;
