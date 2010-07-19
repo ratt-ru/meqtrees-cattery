@@ -29,20 +29,20 @@ import traceback
 
 from Timba.array import array
 
-ifr_spec_syntax = """<P>Specify interferometers as a list of tokens, separated by commas or spaces. 
+ifr_spec_syntax = """<P>Specify interferometers as a list of tokens, separated by commas or spaces.
   The format of each token is as follows:</P>
 
   <P>"*" or "all" or "ALL": selects all ifrs.</P>
 
   <P>"&lt;=N", "&lt;N", "&gt;=N", "&gt;N": selects by baseline length.</P>
 
-  <P>"P-Q" or "P:Q" or "PQ": selects interferometer P-Q. (The third form is useful when 
-  station names are a single character, as for WSRT.) Q may be "*", in which case all 
+  <P>"P-Q" or "P:Q" or "PQ": selects interferometer P-Q. (The third form is useful when
+  station names are a single character, as for WSRT.) Q may be "*", in which case all
   interferometers formed with antenna P are selected.</P>
 
-  <P>"-xxx": excludes baselines specified by token xxx. E.g. "all -4* -&lt;144 0-1 AB" selects all 
-  baselines, then throws out those with antenna 4 and those shorter than 144m, then adds 0-1 
-  and A-B. Note also that as a shortcut, if the first token in the list is negated, then a "*" 
+  <P>"-xxx": excludes baselines specified by token xxx. E.g. "all -4* -&lt;144 0-1 AB" selects all
+  baselines, then throws out those with antenna 4 and those shorter than 144m, then adds 0-1
+  and A-B. Note also that as a shortcut, if the first token in the list is negated, then a "*"
   is implicitly prepended. That is, a leading "-AB" is equivalent to "all -AB".</P>
   """;
 
@@ -53,7 +53,7 @@ class IfrSet (object):
   ifr_spec_syntax = ifr_spec_syntax;
   def __init__ (self,station_list=None,ifr_index=None,
                 positions=None,observatory=None,label_sep=None,parent=None):
-    """Creates a set of interferometers from either 
+    """Creates a set of interferometers from either
       * 'station_list': a list of station IDs
       * 'station_list': a list of (ip,p): station numbers and ID tuples.
       * 'ifr_index': a list of (ip,p),(iq,q) pairs,
@@ -65,7 +65,7 @@ class IfrSet (object):
           subset() (e.g. "FM" for WSRT fixed-movable set.)
       'label_sep' is a separator string for IFR labels. If None, then the default
           is to use "-", or "" if all station names are single-character.
-      'parent' is a parent IfrSet object. If set, then information such as the above 
+      'parent' is a parent IfrSet object. If set, then information such as the above
       (position, observatory, etc.) is copied over.
     """
     # init these from args or from parent IfrSet
@@ -116,7 +116,7 @@ class IfrSet (object):
     # default label separator is "-", or "" for single-char stations
     if self.label_sep is None:
       self.label_sep = "-" if max(map(len,map(str,self._stations)))>1 else "";
-    self._ifr_labels = dict([((ip,iq),p+self.label_sep+q) for (ip,p),(iq,q) in self._ifr_index ]);
+    self._ifr_labels = dict([((ip,iq),"%s%s%s"%(p,self.label_sep,q)) for (ip,p),(iq,q) in self._ifr_index ]);
     # fill in dictionary of aliases for baseline specifications
     if parent:
       # if we're a subset of parent, make copy of parent dict (need copy since "*" item is different)
@@ -171,7 +171,7 @@ class IfrSet (object):
 
   def ifr_numbers (self):
     """Returns list of ifr numbers (i.e. ip,iq pairs, where ip and iq are station numbers).""";
-    return [ (px[0],qx[0]) for px,qx in self._ifr_index ]; 
+    return [ (px[0],qx[0]) for px,qx in self._ifr_index ];
 
   def station_index (self):
     """Returns station index: a list of ip,p pairs, where ip is the station number,
@@ -215,22 +215,22 @@ class IfrSet (object):
 
   def subset (self,specstr,strict=False):
     """Parses an interferometer subset specification string, and returns an new IfrSet
-    object composed of interferometers found in the string. If strict is False, 
+    object composed of interferometers found in the string. If strict is False,
     ignores any errors in the string, if true then throws an exception on error.
-    
+
     %s
-    
+
     Returns a new IfrSet object.
     """%ifr_spec_syntax;
     return IfrSet(ifr_index=self.ifr_index_subset(specstr,strict=strict),parent=self);
 
   def ifr_index_subset (self,specstr,strict=False):
     """Parses an interferometer subset specification string, and returns a set of ifr indices
-    for interferometers found in the string. If strict is False, ignores any errors in the string, 
+    for interferometers found in the string. If strict is False, ignores any errors in the string,
     if true then throws an exception on error.
-    
+
     %s
-    
+
     Returns a set of ((ip,p),(iq,q)) tuples.
     """%ifr_spec_syntax;
     result = set();
@@ -334,4 +334,4 @@ def from_ms (ms):
 
   # make IfrSet object
   return IfrSet(stations,positions=antpos,observatory=observatory);
-  
+
