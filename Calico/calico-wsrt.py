@@ -211,14 +211,10 @@ try:
 except:
   pass;
 
-<<<<<<< .mine
 meqmaker.add_sky_models(models);
 
 # now add optional Jones terms
 # these will show up in the menu automatically
-=======
-meqmaker.add_sky_models(models);
->>>>>>> .r7745
 
 # E - beam
 # add a fixed primary beam first
