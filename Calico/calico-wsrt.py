@@ -213,9 +213,6 @@ except:
 
 meqmaker.add_sky_models(models);
 
-# now add optional Jones terms
-# these will show up in the menu automatically
-
 # E - beam
 # add a fixed primary beam first
 from Calico.OMS import wsrt_beams
