@@ -60,10 +60,11 @@ meqmaker = MeqMaker.MeqMaker();
 from Siamese.OMS import gridded_sky
 from Siamese.OMS import transient_sky
 from Siamese.OMS import fitsimage_sky
+import three_sources
 import Meow.LSM
 lsm = Meow.LSM.MeowLSM(include_options=False);
 
-meqmaker.add_sky_models([gridded_sky,transient_sky,fitsimage_sky,lsm]);
+meqmaker.add_sky_models([gridded_sky,three_sources,transient_sky,fitsimage_sky,lsm]);
 
 # now add optional Jones terms
 # these will show up in the menu automatically
@@ -131,7 +132,7 @@ def _define_forest (ns):
     for p,q in array.ifrs():
       noise = ns.noise(p,q);
       for x in range(4):
-        re = noise(x,'real') << noisedef; 
+        re = noise(x,'real') << noisedef;
         im = noise(x,'imag') << noisedef;
         noise(x) << Meq.ToComplex(re,im);
       noise << Meq.Matrix22(*[noise(x) for x in range(4)]);
@@ -140,12 +141,12 @@ def _define_forest (ns):
 
   # in add or subtract sim mode, make some spigots and add/subtract visibilities
   if sim_mode == ADD_MS:
-    spigots = array.spigots();
+    spigots = array.spigots(corr=mssel.get_corr_index());
     for p,q in array.ifrs():
       ns.sum(p,q) << output(p,q) + spigots(p,q);
     output = ns.sum;
   elif sim_mode == SUB_MS:
-    spigots = array.spigots();
+    spigots = array.spigots(corr=mssel.get_corr_index());
     for p,q in array.ifrs():
       ns.diff(p,q) << spigots(p,q) - output(p,q);
     output = ns.diff;
