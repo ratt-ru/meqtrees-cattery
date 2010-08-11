@@ -233,6 +233,9 @@ class IfrSet (object):
 
     Returns a set of ((ip,p),(iq,q)) tuples.
     """%ifr_spec_syntax;
+    # if None, then return everything
+    if not specstr:
+      return set(self._ifr_index);
     result = set();
     for ispec,spec in enumerate(re.split("[\s,]+",specstr.strip())):
       # default action is to add to set, but a "-" prefix negates this
@@ -272,7 +275,11 @@ class IfrSet (object):
       if len(spec) == 2:
         p,q = spec;
       else:
-        p,q = re.split("[-:]",spec,1);
+        pq = re.split("[-:]",spec,1);
+        if len(pq) == 2:
+          p,q = pq;
+        else:
+          raise ValueError,"illegal interferometer subset: %s"%spec;
       # if first is wildcard, change them around, so X* becomes *X
       if p == "*":
         p,q = q,p;
