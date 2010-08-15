@@ -806,9 +806,13 @@ class MSSelector (object):
         if len(set(self.ms_antenna_names)) < len(self.ms_antenna_names):
           Meow.dprint("Warning! This MS does not define unique ANTENNA names. Using antenna indices instead.")
           self.ms_antenna_names = [ str(i) for i in range(len(self.ms_antenna_names)) ];
-      # observatory is first station
-      self.ms_observatory = anttable.getcol("STATION")[0];
       self.ms_antenna_positions = anttable.getcol('POSITION');
+      # observatory is from observation subtable
+      try:
+        self.ms_observatory = TABLE(ms.getkeyword("OBSERVATION")).getcol("TELESCOPE_NAME")[0];
+      except:
+        Meow.dprint("Warning! This MS does have a valid OBSERVATION table, can't establish telescope name");
+        self.ms_observatory = "Unknown";
       # make IfrSet object for the full antenna set
       self.ms_ifrset = Meow.IfrArray.IfrSet(self.ms_antenna_names,observatory=self.ms_observatory,
                                             positions=self.ms_antenna_positions);
