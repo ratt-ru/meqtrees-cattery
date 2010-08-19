@@ -291,7 +291,7 @@ class MeqMaker (object):
           doc="""If checked, then the same %s-Jones term will be used for all source in the model. This is a valid
           approximation for narrow fields, and will make your trees smaller and/or faster."""%label) ];
       opts += jt.subset_selector.options;
-      extra_options.append(TDLMenu("Advanced options",*opts));
+      extra_options.append(TDLMenu("Advanced options",toggle='%s_advanced'%label,*opts));
     # make option menus for selecting a jones module
     mainmenu = self._module_selector("Use %s Jones (%s)"%(label,name),
                                      label,modules,extra_opts=extra_options);
