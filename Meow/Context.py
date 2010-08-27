@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 #
 #% $Id$ 
@@ -30,6 +31,12 @@ vdm = None;
 mssel = None;
 correlations = ["XX","XY","YX","YY" ];
 active_correlations = ["XX","XY","YX","YY" ];
+
+unit_coherency = 1;
+# 0.5 corresponds to the ME papers 1-4, and the MeqTrees convention
+# 1 corresponds to AIPS/TMS/etc.
+def unitCoherency (x):
+  return x*unit_coherency if unit_coherency != 1 else x;
 
 def set (array=None,observation=None):
   """Sets the global Meow context."""

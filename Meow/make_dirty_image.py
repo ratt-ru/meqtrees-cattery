@@ -4,6 +4,13 @@ import sys
 import os
 import os.path
 
+# close open FDs to release sockets etc. inherited from parent process
+for fd in range(3,256):
+  try:
+    os.close(fd);
+  except:
+    pass;
+
 args = list(sys.argv);
 args[0] = 'lwimager';
 # insert cachesize option
@@ -62,6 +69,7 @@ if not retcode:
     if viewer == "none":
       print "Image %s ready. No image viewer selected (see TDL Exec menu)."%filename;
     else:
+      viewer = os.path.expanduser(viewer);
       if filename and os.path.exists(filename):
         try:
           os.execvp(viewer,[viewer,filename]);

@@ -60,11 +60,17 @@ meqmaker = MeqMaker.MeqMaker();
 from Siamese.OMS import gridded_sky
 from Siamese.OMS import transient_sky
 from Siamese.OMS import fitsimage_sky
-import three_sources
 import Meow.LSM
 lsm = Meow.LSM.MeowLSM(include_options=False);
+models = [ gridded_sky,transient_sky,fitsimage_sky,lsm ];
 
-meqmaker.add_sky_models([gridded_sky,three_sources,transient_sky,fitsimage_sky,lsm]);
+try:
+  from Siamese.OMS.tigger_lsm import TiggerSkyModel
+  models.append(TiggerSkyModel());
+except:
+  pass;
+      
+meqmaker.add_sky_models(models);
 
 # now add optional Jones terms
 # these will show up in the menu automatically
@@ -85,9 +91,10 @@ meqmaker.add_sky_jones('L','dipole projection',oms_dipole_projection);
 # E - beam
 from Siamese.OMS import analytic_beams
 from Siamese.OMS import wsrt_beams
+from Siamese.OMS import vla_beams
 from Siamese.SBY import lofar_beams
 from Siamese.OMS import oms_pointing_errors
-meqmaker.add_sky_jones('E','beam',[analytic_beams,wsrt_beams,lofar_beams],
+meqmaker.add_sky_jones('E','beam',[analytic_beams,wsrt_beams,vla_beams,lofar_beams],
                                   pointing=oms_pointing_errors);
 
 # P - Parallactic angle

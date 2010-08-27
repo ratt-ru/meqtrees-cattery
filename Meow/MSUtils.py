@@ -81,11 +81,16 @@ if not _lwimager and not _glish:
 
 # figure out if we have a visualizer
 _image_viewers = [];
-for viewer in [ "kvis","ds9" ]:
+for viewer in [ "tigger","tigger.py","kvis","ds9" ]:
   vpath = find_exec(viewer);
-  if find_exec(viewer):
+  if vpath:
     Meow.dprint("  (Meow.MSUtils: found image viewer %s)"%vpath);
     _image_viewers.append(viewer);
+# also look in $HOME/Tigger/tigger.py
+vpath = "~/Tigger/tigger";
+if os.access(os.path.expanduser(vpath),os.R_OK|os.X_OK):
+  Meow.dprint("  (Meow.MSUtils: found image viewer %s)"%vpath);
+  _image_viewers.insert(0,vpath);
 _image_viewers.append("none");
 
 # This defines some standard IFR subsets for some observatories.
@@ -1035,15 +1040,15 @@ class ImagingSelector (object):
     chan_opt.when_changed(show_chansel_menu);
     # weight options
     weight_opt = TDLOption('imaging_weight',"Imaging weights",
-                  ["default","natural","uniform","briggs","radial"],namespace=self,
-                 doc="""Select the weighting scheme to use. Note that imaging weights are persistent
-                 in the sense that they're stored in the MS, so you can select the 'default' option
-                 to just use the weights already there. This will save some time when running the
-                 imager on the same MS repeatedly."""
+                  ["natural","uniform","briggs","radial",None],namespace=self,
+                 doc="""Selected imaging weights will be recalculated and written to the 
+                  IMAGING_WEIGHT column of the MS. You can select the 'None' option to reuse the 
+                  current weights. This will save some time when re-running the imager on the same MS, 
+                  but will fail if the weights have not been set previously."""
     );
     taper_opt = TDLMenu("Apply Gaussian taper to visibilities",toggle='imaging_taper_gauss',namespace=self,
           doc="""Applies an additional Gaussian taper to the imaging weights. The size of the taper
-          is specified in image-plane terms.""",
+          is specified in terms of feature size on the image plane.""",
           *( TDLOption('imaging_taper_bmaj',"Major axis (arcsec)",[12],more=float,namespace=self),
               TDLOption('imaging_taper_bmin',"Minor axis (arcsec)",[12],more=float,namespace=self),
               TDLOption('imaging_taper_bpa',"Position angle (deg)",[0],more=float,namespace=self),
@@ -1207,7 +1212,7 @@ class ImagingSelector (object):
     args += \
       [ 'ms='+self.mssel.msname,
         'mode='+imgmode,
-        'weight='+self.imaging_weight,
+        'weight='+(self.imaging_weight or "default"),
         'stokes='+self.imaging_stokes,
         'npix=%d'%npix,
         'prefervelocity='+("True" if self.imaging_freqmode is FREQMODE_VELO else "False"),

@@ -170,8 +170,8 @@ def _define_forest (ns,**kw):
   
 def exec_cells (mqs,node,cells):
   if tile_size:
-    time_grid = Timba.array.array(cells.grid.Time);
-    time_size = Timba.array.array(cells.cell_size.Time);
+    time_grid = Timba.array.array(cells.grid.time);
+    time_size = Timba.array.array(cells.cell_size.time);
     domid = 0;
     for i0 in range(0,len(time_grid),tile_size):
       i1 = min(len(time_grid),i0+tile_size);

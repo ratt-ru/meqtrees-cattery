@@ -177,8 +177,8 @@ def _select_output (output):
   if output in [RESIDUALS,CORRECTED_RESIDUALS,CORRECTED_DATA]:
     flag_menu.show(True);
     flag_jones_opt.show(output in [CORRECTED_RESIDUALS,CORRECTED_DATA]);
-    flag_res_opt.show(output in [RESIDUALS,CORRECTED_RESIDUALS]);
-    flag_meanres_opt.show(output in [RESIDUALS,CORRECTED_RESIDUALS]);
+#    flag_res_opt.show(output in [RESIDUALS,CORRECTED_RESIDUALS]);
+#    flag_meanres_opt.show(output in [RESIDUALS,CORRECTED_RESIDUALS]);
   else:
     flag_menu.show(False);
 

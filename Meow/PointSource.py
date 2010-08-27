@@ -155,25 +155,25 @@ class PointSource(SkyComponent):
       if not self._polarized:
         if self._has_spi:
           if self._constant_flux:
-            coh << (self.stokes("I")*0.5)*self.norm_spectrum();
+            coh << Context.unitCoherency(self.stokes("I"))*self.norm_spectrum();
           else:
-            coh << Meq.Multiply(self.stokes("I"),self.norm_spectrum(),.5);
+            coh << Meq.Multiply(self.stokes("I"),self.norm_spectrum(),Context.unitCoherency);
         else:
-          coh << self.stokes("I")*.5;
+          coh << Context.unitCoherency(self.stokes("I"));
       else:
         coh_els = self.coherency_elements(observation);
         if self._constant_flux:
           if self._has_spi:
-            coh1 = self.ns.coh1 << Meq.Matrix22(*[x*.5 for x in coh_els]);
+            coh1 = self.ns.coh1 << Meq.Matrix22(*[Context.unitCoherency(x) for x in coh_els]);
             coh << coh1*self.norm_spectrum();
           else:
-            coh << Meq.Matrix22(*[x*.5 for x in coh_els]);
+            coh << Meq.Matrix22(*[Context.unitCoherency(x) for x in coh_els]);
         else:
           coh1 = self.ns.coh1 << Meq.Matrix22(*coh_els);
           if self._has_spi:
-            coh << Meq.Multiply(coh1,self.norm_spectrum(),.5);
+            coh << Meq.Multiply(coh1,self.norm_spectrum(),Context.unit_coherency);
           else:
-            coh << coh1*.5;
+            coh << Context.unitCoherency(coh1);
     return coh;
 
   def make_visibilities (self,nodes,array=None,observation=None,**kw):
@@ -195,7 +195,7 @@ class PointSource(SkyComponent):
     if not coh.initialized():
       # if unpolarized, then matrix is scalar -- simply take the square root
       if not self._polarized:
-        flux = self.stokes("I")*0.5*self.norm_spectrum();
+        flux = self.stokes("I")*Context.unit_coherency*self.norm_spectrum();
         if isinstance(flux,(int,float,complex)):
           coh << math.sqrt(flux);
         else:

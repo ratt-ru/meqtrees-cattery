@@ -430,7 +430,7 @@ class ParmTab (object):
     kw = {};
     for iaxis,stats in enumerate(self._axis_stats):
       if not stats.empty():
-        kwname = 'num_'+str(mequtils.get_axis_id(iaxis));
+        kwname = 'num_'+str(mequtils.get_axis_id(iaxis)).lower();
         kw[kwname] = num_cells.get(kwname,len(stats.cells));
     return meq.gen_cells(dom,**kw);
 
@@ -443,7 +443,8 @@ class ParmTab (object):
       if not stats.empty():
         grid = list(stats.cells.keys());
         grid.sort();
-        meq.add_cells_axis(cells,mequtils.get_axis_id(iaxis),grid=grid,cell_size=[ stats.cells[x0] for x0 in grid ]);
+        meq.add_cells_axis(cells,mequtils.get_axis_id(iaxis),grid=grid,cell_size=[
+              stats.cells[x0] for x0 in grid ]);
     return cells;
 
   def axis_stats (self,iaxis):

@@ -84,9 +84,13 @@ msopt.when_changed(_read_ms_feed);
 import re
 re_whitespace = re.compile("\s+");
 
-def _validate_angle (ang):
+def _validate_angle (angle_str):
   # this fill throw an exception if any of the angle components cannot be converted to a float
-  return map(float,re_whitespace.split(ang));
+  angles = [];
+  for a in re_whitespace.split(angle_str):
+    try: angles.append(float(a));
+    except: pass;
+  return angles;
 angle_opt.set_validator(_validate_angle);
 
 # helper function, convert string to float, return 0 on error
