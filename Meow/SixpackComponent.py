@@ -108,7 +108,7 @@ class SixpackComponent (SkyComponent):
   def uvbrick (self):
     brick = self.ns.uvbrick;
     if not brick.initialized():
-      brick << Meq.FFTBrick(Meq.UVDetaper(Meq.Stokes(self.iquv()),
+      brick << Meq.FFTBrick(Meq.UVDetaper(Meq.Stokes(self.iquv(),scale=Context.unit_coherency),
                                           padding=self._fft_pad_factor),
                     axes_in=(hiid('l'),hiid('m')),axes_out=(hiid('u'),hiid('v')),
                     padding=self._fft_pad_factor);
