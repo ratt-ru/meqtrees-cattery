@@ -37,6 +37,14 @@ TDLCompileMenu("Type of shift",
   exclusive='shift_type'
 );
 
+TDLCompileOption('vis_phase_slope',"Visualize phase slope",True);
+
+ANTX_dict = {
+    '0':   0.0,        '1':  143.98881006, '2':  287.98154006, '3':   431.97187006,
+    '4': 575.96470004, '5':  719.95646011, '6':  863.94757006, '7':  1007.93746007,
+    '8':1151.92894011, '9': 1295.9213701 , 'A': 1331.92456019, 'B':  1403.91958018,
+    'C':2627.84690046, 'D': 2699.84118052
+};
 
 def compute_jones (Jones,sources,stations=None,inspectors=[],meqmaker=None,label='R',**kw):
   """Creates the Z Jones for ionospheric phase, given TECs (per source, 
@@ -76,6 +84,10 @@ def compute_jones (Jones,sources,stations=None,inspectors=[],meqmaker=None,label
     # work out corresponding phase shift
     for p in stations:
       Jones(src,p) << Meq.VisPhaseShift(lmn=dlmn,uvw=uvw(p));
+    # compute phase slope
+    if vis_phase_slope:
+      Jones(src,'slope') << (Meq.Arg(Jones(src,stations[-1])) - Meq.Arg(Jones(src,stations[0])))/(ANTX_dict[stations[-1]]*DEG);
+ 
     
   # make bookmarks
   srcnames = [ src.name for src in sources ];
@@ -83,6 +95,9 @@ def compute_jones (Jones,sources,stations=None,inspectors=[],meqmaker=None,label
       "%s: inspector plot"%label,"%s: by source-station"%label,freqmean=True);
   meqmaker.make_bookmark_set(Jones,[ (src,stations[-1]) for src in srcnames ],
       "%s: inspector plot (last station)"%label,"%s: last station"%label,inspector_node=Jones('max'),freqmean=True);
+  if vis_phase_slope:
+    meqmaker.make_bookmark_set(Jones,[ (src,'slope') for src in srcnames ],
+        "%s: phase slopes"%label,"%s: phase slopes"%label,inspector_node=Jones('slope'),freqmean=True);
 
   return Jones;
 
