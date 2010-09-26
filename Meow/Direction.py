@@ -51,28 +51,13 @@ def radec_to_lmn (ra,dec,ra0,dec0):
 
 def lm_to_radec (l,m,ra0,dec0):
   """Returns ra,dec corresponding to l,m w.r.t. direction ra0,dec0""";
-  cosdec0 = cos(dec0);
-  # subpolar formula
-  if cosdec0:
-    ra = ra0 + asin(l)/cosdec0;
-    dec = dec0 + asin(m);
-    if dec > pi/2:
-      dec = pi - dec;
-      ra += pi;
-    elif dec < -pi/2:
-      dec = dec - pi;
-      ra += pi;
-    if ra > 2*pi:
-      ra -= 2*pi;
-  # polar formula, not sure if it's correct
-  else:
-    m = asin(m);
-    l = asin(l);
-    ra = atan2(m,l);
-    if dec0 > 0:
-      dec = pi/2 - sqrt(l*l+m*m);
-    else:
-      dec = sqrt(l*l+m*m) - pi/2;
+  # see formula at http://en.wikipedia.org/wiki/Orthographic_projection_(cartography)
+  rho = sqrt(l**2+m**2);
+  cc = asin(rho);
+
+  ra = ra0 + atan2( l*sin(cc),rho*cos(dec0)*cos(cc)-m*sin(dec0)*sin(cc) );
+  dec = asin( cos(cc)*sin(dec0) + m*sin(cc)*cos(dec0)/rho );
+
   return ra,dec;
 
 class Direction (Parameterization):

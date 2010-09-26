@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # file ../Meow/Position.py
 
 #
@@ -31,7 +32,7 @@ from Parameterization import *
 
 
 class Position (Parameterization):
-  """A Position represents a location in 1,2,3,4 diminsional space.
+  """A Position represents a location in 1,2,3,4 dimensional space.
   Its dimensionality depends on the coordinates (x,y,z,t) that are
   specified at creation. These may be numbers or nodes.
   """;
