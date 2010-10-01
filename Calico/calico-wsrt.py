@@ -69,8 +69,8 @@ cal_type_opt = TDLOption('cal_type',"Equation type",
 );
 cal_what_opt = TDLOption('cal_what',"Calibrate on",
                         [(CAL.VIS,"complex visibilities"),(CAL.AMPL,"amplitudes"),(CAL.LOGAMPL,"log(amplitudes)"),(CAL.PHASE,"phases")],doc="""
-  <P>Select "visibilities" to directly fit a complex model to complex data. Other options
-will only fit complex amplitudes or phases, don't use these unless you know what you're doing.</P>
+  <P>Select "complex visibilities" to directly fit a complex model to complex data, using the real and imaginary
+parts. The other options (warning: highly experimental!) will fit only the complex amplitudes (or logs of amplitudes) or phases.</P>
 """);
 
 cal_options = [ cal_type_opt,cal_what_opt ];
@@ -120,21 +120,21 @@ output_option = TDLCompileOption('do_output',"Output visibilities",
   doc="""<P>This selects what sort of visibilities get written to the output column:</P>
   <ul>
 
-  <li><B>Predict</B> refer to the visibilities given by the sky model (plus an optional uv-model column),
-  corrupted by the current instrumental modelm using the Measurement Equation specified below.</li>
+  <li><B>Predict</B> refers to the visibilities given by the sky model (plus an optional uv-model column),
+  corrupted by the current instrumental model using the Measurement Equation specified below.</li>
 
   <li><B>Corrected data</B> is the input data corrected for the instrumental model (by applying the inverse of the
   M.E.)</li>
 
-  <li><B>Residuals</B> refer to input data minus predict. This corresponds to whatever signal is left in your data
-  that is <b>not</b> represented by the model, and still subject to instrumental corruptions.</li>
+  <li><B>Uncorrected residuals</B> refer to input data minus predict. This corresponds to whatever signal is 
+  left in your data that is <b>not</b> represented by the model, and still subject to instrumental corruptions.</li>
 
   <li><B>Corrected residuals</B> are residuals corrected for the instrumental model. This is what you usually
   want to see during calibration.</li>
 
   <li><B>Data+predict</B> is a special mode where the predict is <i>added</I> to the input data. This is used
   for injecting synthetic sources into your data, or for accumulating a uv-model in several steps. (In
-  the latter case your input column need to be set to the uv-model column.)</li>
+  the latter case your input column needs to be set to the uv-model column.)</li>
   </ul>
 
   </P>If calibration is enabled above, then a calibration step is executed prior to generating output data. This
@@ -159,12 +159,12 @@ flag_jones_opt = TDLMenu("Flag on out-of-bounds Jones terms",toggle='flag_jones'
             TDLOption('flag_jones_min',"Flag if |J|<",[None,.1,.01],more=float)
     ));
 flag_res_opt = TDLOption("flag_res","Flag on residual amplitudes >",[None],more=float,
-    doc="""<P>If selected, your tree will flag visibility points where the residual
+    doc="""<P>If selected, your tree will flag all visibilities (per IFR/timeslot/channel) where the residual
     complex amplitude exceeds the given value.</P>
     """);
 flag_meanres_opt = TDLOption("flag_mean_res","Flag on mean residual amplitudes (over all IFRs) >",[None],more=float,
-    doc="""<P>If selected, your tree will flag visibility points where the mean residual
-    complex amplitude over all IFRs exceeds the given value.</P>
+    doc="""<P>If selected, your tree will flag entire timeslots (per channel) where the mean residual
+    complex amplitude over all IFRs within the timeslots exceeds the given value.</P>
     """);
 
 flag_menu = TDLCompileMenu("Flag output visibilities",flag_jones_opt,flag_res_opt,flag_meanres_opt,toggle="flag_enable");
