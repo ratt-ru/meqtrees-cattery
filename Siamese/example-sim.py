@@ -66,7 +66,7 @@ models = [ gridded_sky,transient_sky,fitsimage_sky,lsm ];
 
 try:
   from Siamese.OMS.tigger_lsm import TiggerSkyModel
-  models.append(TiggerSkyModel());
+  models.insert(0,TiggerSkyModel());
 except:
   pass;
       
@@ -90,12 +90,13 @@ meqmaker.add_sky_jones('L','dipole projection',oms_dipole_projection);
 
 # E - beam
 from Siamese.OMS import analytic_beams
+from Siamese.OMS import fits_beams0
 from Siamese.OMS import wsrt_beams
 from Siamese.OMS import vla_beams
 from Siamese.SBY import lofar_beams
 from Siamese.OMS import oms_pointing_errors
-meqmaker.add_sky_jones('E','beam',[analytic_beams,wsrt_beams,vla_beams,lofar_beams],
-                                  pointing=oms_pointing_errors);
+meqmaker.add_sky_jones('E','beam',[analytic_beams,fits_beams0,wsrt_beams,vla_beams,lofar_beams],
+                          pointing=oms_pointing_errors);
 
 # P - Parallactic angle
 from Siamese.OMS import feed_angle
