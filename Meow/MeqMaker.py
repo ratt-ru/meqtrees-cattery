@@ -30,6 +30,7 @@ from Timba.Meq import meq
 import math
 import inspect
 import types
+import re
 
 import Meow
 from Meow import StdTrees,ParmGroup,Parallelization,MSUtils
@@ -1078,12 +1079,12 @@ class SourceSubsetSelector (object):
       return srclist0;
     all = set([src.name for src in srclist0]);
     srcs = set();
-    for ispec,spec in enumerate(self.source_subset.split()):
+    for ispec,spec in enumerate(re.split("[\s,]+",self.source_subset)):
       spec = spec.strip();
       if spec:
         # if first spec is a negation, then implictly select all sources first
         if not ispec and spec[0] == "-":
-            srcs = all;
+          srcs = all;
         if spec == "all":
           srcs = all;
         elif spec.startswith("="):

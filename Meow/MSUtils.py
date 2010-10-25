@@ -1054,7 +1054,7 @@ class ImagingSelector (object):
               TDLOption('imaging_taper_bpa',"Position angle (deg)",[0],more=float,namespace=self),
           ));
     def show_taper_menu (value):
-      taper_opt.show(value != "default");
+      taper_opt.show(value is not None);
     weight_opt.when_changed(show_taper_menu);
     # insert intooption list
     self._opts += [
@@ -1223,7 +1223,7 @@ class ImagingSelector (object):
         'image_viewer=%s'%(self.image_viewer if run_viewer else 'none'),
       ];
     # add taper arguments
-    if self.imaging_weight != "default" and self.imaging_taper_gauss:
+    if self.imaging_weight is not None and self.imaging_taper_gauss:
       if _IMAGER == "glish":
         args += [
           'filter_bmaj=%farcsec'%self.imaging_taper_bmaj,
