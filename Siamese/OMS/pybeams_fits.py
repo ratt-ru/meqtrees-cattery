@@ -24,10 +24,11 @@
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-"""<P>This module implements voltage beam patterns that are read in from FITS files. This implementation uses the Resampler/Compounder combo, which scales poorly with tile size.
-It is recommended that you use small tile sizes (8~16) with this module.</P>
+"""<P>This module implements voltage beam patterns that are read in from FITS files and interpolated
+via a PyNode. This implementation allows for a lot of flexibility in how the beam  is
+interpolated.</P>
 
-<P align="right">Authors: T. Willis &lt;<tt>Tony.Willis@nrc-cnrc.gc.ca</tt>&gt; & O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
+<P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
 
 from Timba.TDL import *
 import Meow
@@ -38,21 +39,22 @@ from Meow import StdTrees
 import os
 import os.path
 
-TDLCompileOption("filename_pattern","Filename pattern",["beam_%(xy)s_%(reim)s.fits"],more=str,doc="""<P>
-  Pattern for beam FITS filenames. The real and imaginary parts of each element of the beam Jones matrix should be stored in a separate FITS file. The following tokens in the pattern will be
-  substituted:</P>
+TDLCompileOption("filename_pattern","Filename pattern",["beam_$(xy)_$(reim).fits"],more=str,doc="""<P>
+  Pattern for beam FITS filenames. The real and imaginary parts of each element of the beam Jones matrix should be stored in a separate FITS file. A number of variables will be substituted in the beam pattern, these may be introduced as
+  "$var" or "$(var)". Use "$$" for a "$" character. The following variables are recognized:</P>
   <UL>
-  <LI><B>%(xy)s</B> or <B>%(corr)s</B>: the correlation index, in lowercase 
+  <LI><B>$xy</B> or <B>$corr</B>: the correlation index, in lowercase 
   (xx/xy/yx/yy or rr/rl/lr/ll)</LI>
-  <LI><B>%(XY)s</B> or <B>%(CORR)s</B>: the correlation index, in uppercase 
+  <LI><B>$XY</B> or <B>$CORR</B>: the correlation index, in uppercase 
   (XX/XY/YX/YY or RR/RL/LR/LL)</LI>
-  <LI><B>%(reim)s</B> or <B>%(ReIm)s</B> or <B>%(REIM)s</B>: "re", "Re" or "RE" for real, "im", "Im" or "IM" for imaginary</LI>
-  <LI><B>%(realimag)s</B> or <B>%(RealImag)s</B> or <B>%(REALIMAG)s</B>: "real", "Real" or "REAL" for real, "imag", "Imag" or "IMAG" for imaginary</LI>
+  <LI><B>$reim</B> or <B>$ReIm</B> or <B>$REIM</B>: "re", "Re" or "RE" for real, "im", "Im" or "IM" for imaginary</LI>
+  <LI><B>$realimag</B> or <B>$RealImag</B> or <B>$REALIMAG</B>: "real", "Real" or "REAL" for real, "imag", "Imag" or "IMAG" for imaginary</LI>
   <UL>""");
 TDLCompileOption("missing_is_null","Use null for missing beam elements",True,doc="""<P>
   If True, then 0 will be used when a beam file is missing. Useful if you only have beams for
   the diagonal elements (XX/YY), or only real beams.
   </P>""");
+TDLCompileOption("spline_order","Spline order for interpolation",[1,2,3,4,5],default=3);
 TDLCompileOption("sky_rotation","Include sky rotation",True,doc="""<P>
   If True, then the beam will rotate on the sky with parallactic angle. Use for e.g. alt-az mounts.)
   </P>""");
@@ -61,44 +63,49 @@ CORRS = Context.correlations;
 REIM = "re","im";
 REALIMAG = dict(re="real",im="imag");
 
-def make_beam_filename (corr,reim):
+def make_beam_filename (filename_pattern,corr,reim):
   """Makes beam filename for the given correlation and real/imaginary component (one of "re" or "im")"""
   # make tokens dictionary for substitution into the filename pattern
-  tokens = dict(
+  substitutions = dict(
     corr=corr.lower(),xy=corr.lower(),CORR=corr.upper(),XY=corr.upper(),
     reim=reim.lower(),REIM=reim.upper(),ReIm=reim.title(),
     realimag=REALIMAG[reim].lower(),REALIMAG=REALIMAG[reim].upper(),
     RealImag=REALIMAG[reim].title(),
   );
-  return filename_pattern%tokens;
+  import re
+  filename = filename_pattern;
+  # loop over substitutions, longest to shortest
+  # delimit substitutions with "\n" so that they don't interfere with subsequent word boundaries
+  for key,value in sorted(substitutions.items(),lambda a,b:cmp(len(b[0]),len(a[0]))):
+    filename = re.sub("\\$(%s\\b|\\(%s\\))"%(key,key),"\n"+value+"\n",filename);
+  filename = re.sub("\\$\\$","$",filename);
+  filename = filename.replace("\n","");
+  return filename;
 
-def make_beam_nodes (beam):
-  """Makes appropriate nodes to read in beams and put together a Jones matrix.
-  beam is the base node.""";
+def make_beam_node (beam,pattern,*children):
+  """Makes beam interpolator node for the given filename pattern.""";
+  filename_real = [];
+  filename_imag = [];
   for corr in CORRS:
     # make FITS images or nulls for real and imaginary part
-    for reim in REIM:
-      filename = make_beam_filename(corr,reim);
-      if os.path.exists(filename):
-        beam(corr,reim) << Meq.FITSImage(filename=filename,cutoff=1.0,mode=2);
-      elif missing_is_null:
-        print "Can't find %s, using null"%filename;
-        beam(corr,reim) << 0;
-      else:
-        raise ValueError,"beam file %s does not exist"%filename;
-    # put it together into a complex voltage gain
-    beam(corr) << Meq.ToComplex(*[beam(corr,ri) for ri in REIM]);
-  # now put it together into one beam
-  beam << Meq.Matrix22(*[beam(corr) for corr in CORRS]);
+    filename_real.append(make_beam_filename(pattern,corr,'re'));
+    filename_imag.append(make_beam_filename(pattern,corr,'im'));
+  # if we end up with only one unique filename, make a scalar-mode interpolator
+  if len(set(filename_real)) == 1 and len(set(filename_imag)) == 1:
+    filename_real = filename_real[0];
+    filename_imag = filename_imag[0];
+  # now make interpolator node
+  import InterpolatedBeams
+  beam << Meq.PyNode(class_name="FITSBeamInterpolatorNode",module_name=InterpolatedBeams.__file__,
+                     filename_real=filename_real,filename_imag=filename_imag,
+                     missing_is_null=missing_is_null,spline_order=spline_order,verbose=0,
+                     children=children);
 
 def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=[],label='E',**kw):
   stations = stations or Context.array.stations;
   ns = Jones.Subscope();
 
-  # make the gridded beam pattern node
-  beam = ns.beam;
-  make_beam_nodes(beam);
-  # declare an inspector node for the Jons matrix -- will be defined below
+  # declare an inspector node for the Jones matrix -- will be defined below
   insp = Jones.scope.inspector(label);
   inspectors += [ insp ];
 
@@ -123,19 +130,12 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
         # apply offset (so pointing offsets are interpreted in the azel frame, if rotating)
         if pointing_offsets:
           lm = ns.lmoff(src,p) << lm + pointing_offsets(p);
-        # now make the resampler/compounder combo. dep_mask=0xFF is a little cache-defeating magic
-        # (becaise I'm too lazy to fiure out the proper symdep to put in)
-        res = Jones("res",src,p) << Meq.Resampler(ns.beam,dep_mask=0xFF);
-        Jones(src,p) << Meq.Compounder(lm,res,common_axes=[hiid('l'),hiid('m')]);
+        # now make the beam node
+        make_beam_node(Jones(src,p),filename_pattern,lm);
     else:
-      # compute E for a given source. Use Resampler (though this is not really adequate!)
-      res = Jones("res",src) << Meq.Resampler(ns.beam,dep_mask=0xFF);
-      Jones(src) << Meq.Compounder(src.direction.lm(),res,common_axes=[hiid('l'),hiid('m')]);
+      make_beam_node(Jones(src),filename_pattern,src.direction.lm());
       for p in stations:
-        Jones(src,p) << Meq.Identity(Jones(src))
-
-  # add a bookmark for the beam pattern
-  Meow.Bookmarks.Page("%s-Jones beam pattern"%label).add(beam,viewer="Result Plotter");
+        Jones(src,p) << Meq.Identity(Jones(src));
 
   # define an inspector
   if sky_rotation or pointing_offsets:
@@ -144,6 +144,5 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
   else:
     # Jones inspector is per-source
     insp << StdTrees.define_inspector(Jones,sources,label=label);
-
 
   return Jones;

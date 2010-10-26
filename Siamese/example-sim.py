@@ -91,11 +91,12 @@ meqmaker.add_sky_jones('L','dipole projection',oms_dipole_projection);
 # E - beam
 from Siamese.OMS import analytic_beams
 from Siamese.OMS import fits_beams0
+from Siamese.OMS import pybeams_fits
 from Siamese.OMS import wsrt_beams
 from Siamese.OMS import vla_beams
 from Siamese.SBY import lofar_beams
 from Siamese.OMS import oms_pointing_errors
-meqmaker.add_sky_jones('E','beam',[analytic_beams,fits_beams0,wsrt_beams,vla_beams,lofar_beams],
+meqmaker.add_sky_jones('E','beam',[analytic_beams,pybeams_fits,fits_beams0,wsrt_beams,vla_beams,lofar_beams],
                           pointing=oms_pointing_errors);
 
 # P - Parallactic angle
