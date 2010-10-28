@@ -61,6 +61,8 @@ CORRS = Context.correlations;
 REIM = "re","im";
 REALIMAG = dict(re="real",im="imag");
 
+import Utils
+
 def make_beam_filename (corr,reim):
   """Makes beam filename for the given correlation and real/imaginary component (one of "re" or "im")"""
   # make tokens dictionary for substitution into the filename pattern
@@ -70,7 +72,9 @@ def make_beam_filename (corr,reim):
     realimag=REALIMAG[reim].lower(),REALIMAG=REALIMAG[reim].upper(),
     RealImag=REALIMAG[reim].title(),
   );
-  return filename_pattern%tokens;
+  filename = Utils.substitute_pattern(filename_pattern,**tokens);
+  # apply % operation, for comparison with old %(var)s syntax.
+  return filename%tokens;
 
 def make_beam_nodes (beam):
   """Makes appropriate nodes to read in beams and put together a Jones matrix.

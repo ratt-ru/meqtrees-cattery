@@ -63,24 +63,15 @@ CORRS = Context.correlations;
 REIM = "re","im";
 REALIMAG = dict(re="real",im="imag");
 
+import Utils
+
 def make_beam_filename (filename_pattern,corr,reim):
   """Makes beam filename for the given correlation and real/imaginary component (one of "re" or "im")"""
-  # make tokens dictionary for substitution into the filename pattern
-  substitutions = dict(
+  return Utils.substitute_pattern(filename_pattern,
     corr=corr.lower(),xy=corr.lower(),CORR=corr.upper(),XY=corr.upper(),
     reim=reim.lower(),REIM=reim.upper(),ReIm=reim.title(),
     realimag=REALIMAG[reim].lower(),REALIMAG=REALIMAG[reim].upper(),
-    RealImag=REALIMAG[reim].title(),
-  );
-  import re
-  filename = filename_pattern;
-  # loop over substitutions, longest to shortest
-  # delimit substitutions with "\n" so that they don't interfere with subsequent word boundaries
-  for key,value in sorted(substitutions.items(),lambda a,b:cmp(len(b[0]),len(a[0]))):
-    filename = re.sub("\\$(%s\\b|\\(%s\\))"%(key,key),"\n"+value+"\n",filename);
-  filename = re.sub("\\$\\$","$",filename);
-  filename = filename.replace("\n","");
-  return filename;
+    RealImag=REALIMAG[reim].title());
 
 def make_beam_node (beam,pattern,*children):
   """Makes beam interpolator node for the given filename pattern.""";
