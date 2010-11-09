@@ -45,7 +45,7 @@ def make_source (ns,name,l,m,I=1):
   if l*l + m*m <= 1:
     srcdir = Meow.LMDirection(ns,name,l,m);
     if source_spi is not None:
-      freq0 = source_freq0 or Meow.Context.observation.freq0();
+      freq0 = source_freq0*1e+6 if source_freq0 else Meow.Context.observation.freq0();
     else:
       freq0 = None;
     if source_pol:
