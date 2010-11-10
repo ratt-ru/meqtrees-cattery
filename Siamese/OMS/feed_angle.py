@@ -136,6 +136,9 @@ def compute_jones (Jones,stations=None,**kw):
         cos,sin = math.cos(angle),math.sin(angle);
 
     # now make the rotation matrix. 'cos' and 'sin' may be nodes or constants at this point, it doesn't matter.
-    Jj << Meq.Matrix22(cos,-sin,sin,cos);
+#   Jj << Meq.Matrix22(cos,-sin,sin,cos);
+    # AGW thinks the following should hold ...
+    Jj << Meq.Matrix22(cos,sin,-sin,cos);
+
 
   return Jones;
