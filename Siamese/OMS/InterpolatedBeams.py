@@ -13,6 +13,44 @@ dprintf = _verbosity.dprintf;
 
 DEG = math.pi/180;
 
+def expand_axis (x,axis,n):
+  """Expands an array to N elements along the given axis. Array must have
+  1 element along the given axis (or have fewer axes)"""
+  # if array has fewer axes, pad with size-1 axes
+  if x.ndim <= axis:
+    x = x.reshape(list(x.shape)+[1]*(axis-x.ndim+1));
+  if x.shape[axis] == n:
+    return x;
+  elif x.shape[axis] != 1:
+    raise TypeError,"array must have length 1 along axis %d, it has %d"%(axis,x.shape[axis]);
+  return numpy.concatenate([x]*n,axis);
+
+def unite_shapes (a,b):
+  """Makes two arrays have the same shape, as follows:
+  - each axis must be the same shape,
+  - or if one array has shape-1, and the other shape-N, then the shape-1 is expanded.
+  """
+  if a.shape == b.shape:
+    return a,b;
+  # promote shapes to same number of dinensions, by padding missing dimensions with 1's
+  sa = [1]*max(a.ndim,b.ndim);
+  sb = list(sa);
+  sa[:a.ndim] = a.shape;
+  sb[:b.ndim] = b.shape;
+  # reshape arrays
+  a = a.reshape(sa);
+  b = b.reshape(sb);
+  # now loop, and expand missing axes
+  for axis,(na,nb) in enumerate(zip(sa,sb)):
+    if na != nb:
+      if na == 1:
+        a = expand_axis(a,axis,nb);
+      elif nb == 1:
+        b = expand_axis(b,axis,na);
+      else:
+        raise TypeError,"error: trying to unite incompatible shapes %s and %s",(sa,sb);
+  return a,b;
+
 class FITSAxes (object):
   """Helper class encapsulating a FITS header."""
   def __init__ (self,hdr):
@@ -104,11 +142,27 @@ class LMVoltageBeam (object):
     beam = beam.transpose();
     # figure out axes
     self._axes = axes = FITSAxes(ff_re.header);
+    # find L/M axes
     laxis = axes.iaxis('L');
     maxis = axes.iaxis('M');
     if laxis<0 or maxis<0:
       raise TypeError,"FITS file %s missing L or M axis"%filename_real;
-    other_axes = sorted(set(range(axes.ndim())) - set([laxis,maxis]));
+    # setup conversion functions
+    self._lToPixel = Kittens.utils.curry(axes.toPixel,laxis);
+    self._mToPixel = Kittens.utils.curry(axes.toPixel,maxis);
+    # find frequency grid. self._freqToPixel will be None if no frequency axis
+    freqaxis = axes.iaxis('FREQ');
+    if freqaxis >= 0 and axes.naxis(freqaxis) > 1:
+      dprint(1,"FREQ axis has %d points"%axes.naxis(freqaxis));
+      self._freqgrid = axes.grid(freqaxis);
+      self._freqToPixel = Kittens.utils.curry(axes.toPixel,freqaxis);
+      used_axes = [laxis,maxis,freqaxis];
+    else:
+      self._freqToPixel = None;
+      used_axes = [laxis,maxis];
+    # used_axes is either (l,m,freq) or (l,m)
+    # other_axes is all that remains, and they had better be all trivial
+    other_axes = sorted(set(range(axes.ndim())) - set(used_axes));
     if any([axes.naxis(i)>1 for i in other_axes]):
       raise TypeError,"FITS file %s has other non-trivial axes besides L/M"%filename_real;
     # setup units
@@ -118,45 +172,97 @@ class LMVoltageBeam (object):
         axes.setUnitScale(ax,DEG);
     # transpose array into L,M order and reshape
     dprint(1,"beam array has shape",beam.shape);
-    beam = beam.transpose([laxis,maxis]+other_axes);
-    beam = beam.reshape(beam.shape[:2]);
+    beam = beam.transpose(used_axes+other_axes);
+    beam = beam.reshape(beam.shape[:len(used_axes)]);
     dprint(1,"beam array has shape",beam.shape);
     dprint(2,"l grid is",axes.grid(laxis));
     dprint(2,"m grid is",axes.grid(maxis));
-    # setup conversion functions
-    self._lToPixel = Kittens.utils.curry(axes.toPixel,laxis);
-    self._mToPixel = Kittens.utils.curry(axes.toPixel,maxis);
+    if self._freqToPixel:
+      dprint(2,"freq grid is",axes.grid(freqaxis));
     # prefilter beam for interpolator
+    self._beam = beam;
     if self._spline_order > 1:
       self._beam_real = interpolation.spline_filter(beam.real,order=self._spline_order);
       self._beam_imag = interpolation.spline_filter(beam.imag,order=self._spline_order);
     else:
       self._beam_real = beam.real;
       self._beam_imag = beam.imag;
- 
-  def interpolate (self,l,m,time=None,freq=None,output=None):
+
+  def hasFrequencyAxis (self):
+    return bool(self._freqToPixel);
+    
+  def beam (self):
+    return self._beam;
+
+  def interpolate (self,l,m,time=None,freq=None,freqaxis=None,output=None):
     """Interpolates l/m coordinates in the beam.
-    l,m may be arrays (both must be the same shape).
-    Returns interpolated beam values. Return array will have the same shape as the l/m arrays.
-    time/freq are ignored -- provided for later compatibility (i.e. beams with time/freq planes)
+    l,m may be arrays (both must be the same shape, or will be promoted to the same shape)
+
+    If beam has a freq dependence, then an array of frequency coordinates (freq) must be given,
+    and freqaxis must be set to the number of the frequency axis. Then the following 
+    possibilities apply:
+    
+    (A) len(freq)==1  (freqaxis need not be set)
+        l/m is interpolated at the same frequency point.
+        Output array is same shape as l/m.
+        
+    (B) len(freq)>1 and l.shape[freqaxis] == 1:
+        The same l/m is interpolated at every point in freq. 
+        Output array is same shape as l/m, plus an extra frequency axis (number freqaxis)
+    
+    (C) len(freq)>1 and l.shape[freqaxis] == len(freq)
+        l/m has its own freq dependence, so a different l/m/freq is interpolated at every point.
+        Output array is same shape as l/m.
+        
+    And finally (D):
+
+    (D) No dependence on frequency in the beam. 
+        We simply interpolate every l/m value as is. Output array is same shape as l/m.
+
+    'time' is currently ignored -- provided for later compatibility (i.e. beams with time planes)
     """
-    # check inputs
-    if isinstance(l,(float,int)):
-      l = numpy.array([l]);
-    if isinstance(m,(float,int)):
-      m = numpy.array([m]);
-    if l.shape != m.shape:
-      raise ValueError,"shapes of l/m do not match: %s and %s"%(l.shape,m.shape);
+    # make sure inputs are arrays
+    l = numpy.array(l);
+    m = numpy.array(m);
+    freq = numpy.array(freq);
+    # promote l,m to the same shape
+    l,m = unite_shapes(l,m);
     dprint(3,"input l/m is",l,m);
     l = self._lToPixel(l);
     m = self._mToPixel(m);
     dprint(3,"in pixel coordinates this is",l,m);
-    # make coordinate array for map_coordinates
+    # now we make a 2xN coordinate array for map_coordinates
     # lm[0,:] will be flattened L array, lm[1,:] will be flattened M array
-    lm = numpy.vstack((l.ravel(),m.ravel()));
+    # lm[2,:] will be flattened freq array (if we have a freq dependence)
+    # Do we have a frequency axis in the beam? (case A,B,C):
+    if self.hasFrequencyAxis():
+      if freq is None or not len(freq):
+        raise ValueError,"frequencies not specified, but beam has a frequency dependence";
+      freq = self._freqToPixel(freq);
+      # case (A): reuse same frequency for every l/m point
+      if len(freq) == 1:
+        lm = numpy.vstack((l.ravel(),m.ravel(),[freq[0]]*l.size));
+      # case B/C: 
+      else:
+        # first turn freq vector into an array of the proper shape
+        if freqaxis is None:
+          raise ValueError,"frequency axis not specified, but beam has a frequency dependence";
+        freqshape = [1]*(freqaxis+1);
+        freqshape[freqaxis] = len(freq);
+        freq = freq.reshape(freqshape);
+        # now promote freq to same shape as l,m. This takes care of cases B and C.
+        # (the freq axis of l/m will be expanded, and other axes of freq will be expanded)
+        l,freq = unite_shapes(l,freq);
+        m,freq = unite_shapes(m,freq);
+        lm = numpy.vstack((l.ravel(),m.ravel(),freq.ravel()));
+    # case (D): no frequency dependence in the beam
+    else: 
+      lm = numpy.vstack((l.ravel(),m.ravel()));
     # interpolate and reshape back to shape of L
     if output is None:
       output = numpy.zeros(l.shape,complex);
+    elif output.shape != l.shape:
+      output.resize(l.shape);
     output.real = interpolation.map_coordinates(self._beam_real,lm,order=self._spline_order,
                   prefilter=(self._spline_order==1)).reshape(l.shape);
     output.imag = interpolation.map_coordinates(self._beam_imag,lm,order=self._spline_order,
@@ -190,6 +296,7 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     mystate('filename_real',[]);
     mystate('filename_imag',[]);
     mystate('spline_order',3);
+    mystate('normalize',False);
     mystate('verbose',0);
     mystate('missing_is_null',False);
     # Check filename arguments, and init _vb_key for init_voltage_beams() below
@@ -203,6 +310,7 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     # other init
     mequtils.add_axis('l');
     mequtils.add_axis('m');
+    self._freqaxis = mequtils.get_axis_number("freq");
     _verbosity.set_verbose(self.verbose);
 
   def init_voltage_beams (self):
@@ -213,7 +321,7 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     if not '_voltage_beams' in globals():
       _voltage_beams = {};
     # get VoltageBeam object from global dict, or init new one if not already defined
-    vbs = _voltage_beams.get(self._vb_key);
+    vbs,beam_max = _voltage_beams.get(self._vb_key,(None,None));
     if not vbs:
       vbs = [];
       for filename_real,filename_imag in self._vb_key:
@@ -228,13 +336,20 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
           vb.read(filename_real,filename_imag);
         else:
           vb = None;
+        # work out norm of beam
         vbs.append(vb);
-      _voltage_beams[self._vb_key] = vbs;
-    return vbs; 
+      if len(vbs) == 1:
+        beam_max = abs(vbs[0].beam()).max();
+      elif len(vbs) == 4:
+        xx,xy,yx,yy = [ vb.beam() if vb else 0 for vb in vbs ];
+        beam_max = math.sqrt((abs(xx)**2+abs(xy)**2+abs(yx)**2+abs(yy)**2).max()/2);
+      print "beam max is",beam_max;
+      _voltage_beams[self._vb_key] = vbs,beam_max;
+    return vbs,beam_max; 
 
   def get_result (self,request,*children):
     # get list of VoltageBeams
-    vbs = self.init_voltage_beams();
+    vbs,beam_max = self.init_voltage_beams();
     # now, figure out the lm and time/freq grid
     lm = children[0];
     l = lm.vellsets[0].value;
@@ -253,17 +368,22 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
       if vb is None:
         vellsets.append(meq.vellset(meq.sca_vells(0.)));
       else:
-        vells = meq.complex_vells(l.shape);
-        beam = vb.interpolate(output=vells,**grid);
+        beam = vb.interpolate(freqaxis=self._freqaxis,**grid);
+        if self.normalize and beam_max != 0:
+          beam /= beam_max;
+        vells = meq.complex_vells(beam.shape);
+        vells[...] = beam[...];
         # make vells and return result
         vellsets.append(meq.vellset(vells));
     # create result object
-    result = meq.result(vellsets[0],cells=getattr(lm,'cells',None));
+    cells = request.cells if vb.hasFrequencyAxis() else getattr(lm,'cells',None);
+    result = meq.result(vellsets[0],cells=cells);
     # if more than one vellset, then we have 2x2
     if len(vellsets) > 1:
       result.vellsets[1:] = vellsets[1:];
       result.dims = (2,2);
     return result;
+
 
 
 # test clause
@@ -278,4 +398,17 @@ if __name__ == "__main__":
 
   print vb.interpolate(l,l.T);
   
+  vb = LMVoltageBeam(spline_order=3);
+  vb.read("XX_0_Re.fits","XX_0_Im.fits");
+    
+  l0 = numpy.array([-4,-2,0,2,4])*DEG;
+  l = numpy.vstack([l0]*len(l0));
+
+  a = vb.interpolate(l,l.T,freq=[1e+9],freqaxis=2);
+  b = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9],freqaxis=2);
+  c = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9,1.3e+9,1.4e+9],freqaxis=1);
+ 
+  print "A",a.shape,a;
+  print "B",b.shape,b;
+  print "C",c.shape,c;
 

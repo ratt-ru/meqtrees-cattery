@@ -55,6 +55,7 @@ TDLCompileOption("missing_is_null","Use null for missing beam elements",True,doc
   the diagonal elements (XX/YY), or only real beams.
   </P>""");
 TDLCompileOption("spline_order","Spline order for interpolation",[1,2,3,4,5],default=3);
+TDLCompileOption("normalize_gains","Normalize max beam gain to 1",False);
 TDLCompileOption("sky_rotation","Include sky rotation",True,doc="""<P>
   If True, then the beam will rotate on the sky with parallactic angle. Use for e.g. alt-az mounts.)
   </P>""");
@@ -88,7 +89,7 @@ def make_beam_node (beam,pattern,*children):
   # now make interpolator node
   import InterpolatedBeams
   beam << Meq.PyNode(class_name="FITSBeamInterpolatorNode",module_name=InterpolatedBeams.__file__,
-                     filename_real=filename_real,filename_imag=filename_imag,
+                     filename_real=filename_real,filename_imag=filename_imag,normalize=normalize_gains,
                      missing_is_null=missing_is_null,spline_order=spline_order,verbose=0,
                      children=children);
 
