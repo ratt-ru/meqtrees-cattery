@@ -53,6 +53,9 @@ TDLCompileOption("missing_is_null","Use null for missing beam elements",True,doc
   If True, then 0 will be used when a beam file is missing. Useful if you only have beams for
   the diagonal elements (XX/YY), or only real beams.
   </P>""");
+TDLCompileOption("norm_beams","Normalize beams",True,doc="""<P>
+  If True, then the beam gains will be normalized to unity.)
+  </P>""");
 TDLCompileOption("sky_rotation","Include sky rotation",True,doc="""<P>
   If True, then the beam will rotate on the sky with parallactic angle. Use for e.g. alt-az mounts.)
   </P>""");
@@ -92,8 +95,22 @@ def make_beam_nodes (beam):
         raise ValueError,"beam file %s does not exist"%filename;
     # put it together into a complex voltage gain
     beam(corr) << Meq.ToComplex(*[beam(corr,ri) for ri in REIM]);
+    if norm_beams:
+      beam(corr)("pol") << beam(corr,"re") * beam(corr,"re") + beam(corr,"im") * beam(corr,"im")
+  if norm_beams:
+    beam("sqrt_x") << Meq.Sqrt(beam("XX")("pol") + beam("XY")("pol"))
+    beam("norm_x") << Meq.Max(beam("sqrt_x"),reduction_axes=["L", "M"])
+    beam("sqrt_y") << Meq.Sqrt(beam("YX")("pol") + beam("YY")("pol"))
+    beam("norm_y") << Meq.Max(beam("sqrt_y"),reduction_axes=["L", "M"])
+    for corr in CORRS:
+      if corr == "XX" or corr == "XY":
+        beam(corr)("norm") << beam(corr) / beam("norm_x")
+      if corr == "YX" or corr == "YY":
+        beam(corr)("norm") << beam(corr) / beam("norm_y")
+    beam << Meq.Matrix22(*[beam(corr)("norm") for corr in CORRS]);
+  else:
   # now put it together into one beam
-  beam << Meq.Matrix22(*[beam(corr) for corr in CORRS]);
+    beam << Meq.Matrix22(*[beam(corr) for corr in CORRS]);
 
 def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=[],label='E',**kw):
   stations = stations or Context.array.stations;
