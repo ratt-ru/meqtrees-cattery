@@ -100,6 +100,26 @@ class Direction (Parameterization):
     """;
     return self.static;
 
+  def pa (self,xyz=None):
+    """Returns parallactic angle relative to given xyz position
+    """;
+    xyz = xyz or Context.array.xyz0();
+    pa = self.ns.pa(*xyz.quals,**xyz.kwquals);
+    if not pa.initialized():
+      pa << Meq.ParAngle(radec=self.radec(),xyz=xyz);
+    return pa;
+    
+  def pa_rot (self,xyz=None):
+    """Returns rotation matrix for PA relative to given xyz position
+    """;
+    pa = self.pa(xyz);
+    pa_rot = pa('rot');
+    if not pa_rot.initialized():
+      rsin = pa('sin') ** Meq.Sin(pa);
+      rcos = pa('cos') ** Meq.Cos(pa);
+      pa_rot << Meq.Matrix22(rcos,-rsin,rsin,rcos);
+    return pa_rot;
+    
   def azel (self,xyz=None):
     """Returns az-el 2-vector node for this direction.
     """;

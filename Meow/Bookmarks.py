@@ -115,7 +115,7 @@ class Folder (object):
   def __init__ (self,name,folder=None):
     self.name = name;
     # find bookmarks list in Settings, or create new one
-    self._bklist = folder or Settings.forest_state.get('bookmarks',None);
+    self._bklist = folder if folder is not None else Settings.forest_state.get('bookmarks',None);
     if self._bklist is None:
       self._bklist = Settings.forest_state.bookmarks = [];
     self._folder_list = None;
@@ -137,7 +137,31 @@ def _int_or_str(x):
   try: return int(x);
   except: return x;
 
-def make_node_folder (name,nodes,sorted=False,ncol=2,nrow=2,folder=None):
+import math
+
+def _make_folder (folder,nodes,npp,maxmenu):
+  """Does the real work of _make_node_folder. If there's over maxmenu
+  entries in the nodes list, recursively calls itself to create subfolders.""";
+#  print "_make_folder",folder.name,len(nodes);
+  # this is how many menu entries we're going to need
+  nent = int(math.ceil(len(nodes)/float(npp)));
+  # if this is few enough, insert them into folder directly
+  if nent <= maxmenu:
+    for i in range(len(nodes))[0::npp]:
+      i1 = min(i+npp,len(nodes));
+      pg = folder.page("%s - %s"%(nodes[i].name,nodes[i1-1].name));
+      for node in nodes[i:i1]:
+        pg.add(node);
+  else:
+    sublevels = int(math.ceil(math.log(nent)/math.log(maxmenu)))-1;
+    nodes_per_sublevel = (maxmenu**sublevels)*npp;
+#    print nent,sublevels,nodes_per_sublevel;
+    for i in range(len(nodes))[0::nodes_per_sublevel]:
+      i1 = min(i+nodes_per_sublevel,len(nodes));
+      subfolder = folder.subfolder("%s - %s"%(nodes[i].name,nodes[i1-1].name));
+      _make_folder(subfolder,nodes[i:i1],npp,maxmenu);
+
+def make_node_folder (name,nodes,sorted=False,ncol=2,nrow=2,folder=None,maxmenu=25):
   """Creates a sub-folder with bookmarks for a group of nodes.
   """;
   # sort nodes by name
@@ -153,9 +177,5 @@ def make_node_folder (name,nodes,sorted=False,ncol=2,nrow=2,folder=None):
     folder = folder.subfolder(name);
   # figure out # of plots per page
   npp = ncol*nrow;
-  # create and populate pages
-  for i in range(len(nodes))[0::npp]:
-    i1 = min(i+npp,len(nodes));
-    pg = folder.page("%s - %s"%(nodes[i].name,nodes[i1-1].name));
-    for node in nodes[i:i1]:
-      pg.add(node);
+  # call _make_folder() to do the real work
+  _make_folder(folder,nodes,npp,maxmenu);

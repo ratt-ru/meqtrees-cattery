@@ -159,7 +159,7 @@ class PointSource(SkyComponent):
           else:
             coh << Meq.Multiply(self.stokes("I"),self.norm_spectrum(),Context.unitCoherency);
         else:
-          coh << Context.unitCoherency(self.stokes("I"));
+          coh = Context.unitCoherency(self.stokes("I"));
       else:
         coh_els = self.coherency_elements(observation);
         if self._constant_flux:
@@ -173,7 +173,7 @@ class PointSource(SkyComponent):
           if self._has_spi:
             coh << Meq.Multiply(coh1,self.norm_spectrum(),Context.unit_coherency);
           else:
-            coh << Context.unitCoherency(coh1);
+            coh = Context.unitCoherency(coh1);
     return coh;
 
   def make_visibilities (self,nodes,array=None,observation=None,**kw):

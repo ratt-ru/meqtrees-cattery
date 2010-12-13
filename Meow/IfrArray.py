@@ -195,53 +195,53 @@ class IfrArray (object):
 
   def xyz0 (self):
     """Returns array reference position node""";
-    self.xyz();
-    return self.ns.xyz0;
-
-  def xyz (self,*quals):
-    """Returns unqualified station position nodes,
-    If a station is supplied, returns XYZ node for that station""";
     xyz0 = self.ns.xyz0;
-    #print "xyz",  xyz0.initialized(),self.station_index();
     if not xyz0.initialized():
-      for (ip,p) in self.station_index():
+      xyz0 << Meq.Identity(self.xyz(self.stations()[0]));
+    return xyz0;
+
+  def xyz (self,p=None):
+    """Returns unqualified station position nodes, if no argument supplied.
+    Else if a station is supplied, returns XYZ node for that station""";
+    if p is None:
+      stations = self.stations();
+    else:
+      stations = [p];
+    # check that nodes are initialized
+    for p in stations:
+      xyz = self.ns.xyz(p);
+      if not xyz.initialized():
         # since the Meow.ReadVisHeader script knows nothing about
         # our station labels, the x/y/z nodes themselves are
         # indexed with station _numbers_ instead.
         # to avoid confusion, we call them "x:num0", etc.
+        ip = self.number_of_station(p);
         num = 'num'+str(ip);
         # create XYZ nodes
         x,y,z = self.station_position(ip);
         xyz = self.ns.xyz(p) << Meq.Composer(
-          self.ns.x(num) << x,
-          self.ns.y(num) << y,
-          self.ns.z(num) << z
+          self.ns.stx(num) << x,
+          self.ns.sty(num) << y,
+          self.ns.stz(num) << z
         );
-        if not xyz0.initialized():
-          xyz0 << Meq.Selector(xyz); # xyz0 == xyz first station essentially
-    return self.ns.xyz(*quals);
+    if p is None:
+      return self.ns.xyz;
+    else:
+      return self.ns.xyz(p);
 
-  def x_station(self,*quals):
-    self.xyz();
-    if not self.ns.x_station(self.stations()[0]).initialized():
-      for station in  self.stations():
-        self.ns.x_station(station) << Meq.Selector(self.ns.xyz(station),index=0);
-    return self.ns.x_station(*quals);
-
-  def y_station(self,*quals):
-    self.xyz();
-    if not self.ns.y_station(self.stations()[0]).initialized():
-      for station in  self.stations():
-        self.ns.y_station(station) << Meq.Selector(self.ns.xyz(station),index=1);
-    return self.ns.y_station(*quals);
-
-  def z_station(self,*quals):
-    self.xyz();
-    if not self.ns.z_station(self.stations()[0]).initialized():
-      for station in  self.stations():
-        self.ns.z_station(station) << Meq.Selector(self.ns.xyz(station),index=2);
-    return self.ns.z_station(*quals);
-
+  def x_station(self,p):
+    self.xyz(p);
+    num = 'num'+str(self.number_of_station(p));
+    return self.ns.stx(num);
+  def y_station(self,p):
+    self.xyz(p);
+    num = 'num'+str(self.number_of_station(p));
+    return self.ns.sty(num);
+  def z_station(self,p):
+    self.xyz(p);
+    num = 'num'+str(self.number_of_station(p));
+    return self.ns.stz(num);
+    
   def uvw (self,dir0=None,*quals):
     """returns station UVW node(s) for a given phase centre direction,
     or using the global phase center if None is given.

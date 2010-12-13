@@ -236,8 +236,11 @@ class LMVoltageBeam (object):
     # lm[2,:] will be flattened freq array (if we have a freq dependence)
     # Do we have a frequency axis in the beam? (case A,B,C):
     if self.hasFrequencyAxis():
-      if freq is None or not len(freq):
+      if freq is None:
         raise ValueError,"frequencies not specified, but beam has a frequency dependence";
+      freq = numpy.array(freq);
+      if not freq.ndim:
+        freq = freq.reshape(1);
       freq = self._freqToPixel(freq);
       # case (A): reuse same frequency for every l/m point
       if len(freq) == 1:

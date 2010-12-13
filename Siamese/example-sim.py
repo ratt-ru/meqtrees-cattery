@@ -84,9 +84,11 @@ from Lions import ZJones
 from Siamese.OMS import oms_ionosphere,oms_ionosphere2
 meqmaker.add_sky_jones('Z','ionosphere',[oms_ionosphere,oms_ionosphere2,ZJones.ZJones()]);
 
-# L - dipole projection
+# P - Parallactic angle or dipole projection
+from Siamese.OMS.rotation import Rotation
 from Siamese.OMS import oms_dipole_projection
-meqmaker.add_sky_jones('L','dipole projection',oms_dipole_projection);
+meqmaker.add_sky_jones('L','parallactic angle or dipole rotation',[Rotation('L',feed_angle=False),oms_dipole_projection]);
+
 
 # E - beam
 from Siamese.OMS import analytic_beams
@@ -100,8 +102,7 @@ meqmaker.add_sky_jones('E','beam',[analytic_beams,pybeams_fits,fits_beams0,wsrt_
                           pointing=oms_pointing_errors);
 
 # P - Parallactic angle
-from Siamese.OMS import feed_angle
-meqmaker.add_uv_jones('P','feed angle',feed_angle);
+meqmaker.add_uv_jones('P','feed angle',Rotation('P'));
 
 # G - gains
 from Siamese.OMS import oms_gain_models

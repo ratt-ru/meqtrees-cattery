@@ -101,14 +101,6 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
   insp = Jones.scope.inspector(label);
   inspectors += [ insp ];
 
-  # if sky rotation is in effect, make rotation matrices
-  if sky_rotation:
-    for p in stations:
-      pa = ns.pa(p) << Meq.ParAngle(radec=Context.observation.radec0(),xyz=Context.array.xyz(p));
-      ca = ns.cos_pa(p) << Meq.Cos(pa);
-      sa = ns.sin_pa(p) << Meq.Sin(pa);
-      ns.parot(p) << Meq.Matrix22(ca,-sa,sa,ca);
-
   # loop over sources
   for src in sources:
     # If sky rotation and/or pointing offsets are in effect, we have a per-station beam.
@@ -118,7 +110,9 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
         lm = src.direction.lm();
         # apply rotation to put sources into the antenna frame
         if sky_rotation:
-          lm = ns.lmrot(src,p) << Meq.MatrixMultiply(ns.parot(p),src.direction.lm());
+          xyz = Context.array.xyz(p);
+          pa_rot = Context.observation.phase_centre.pa_rot(xyz);
+          lm = ns.lmrot(src,p) <<  Meq.MatrixMultiply(pa_rot,src.direction.lm());
         # apply offset (so pointing offsets are interpreted in the azel frame, if rotating)
         if pointing_offsets:
           lm = ns.lmoff(src,p) << lm + pointing_offsets(p);
