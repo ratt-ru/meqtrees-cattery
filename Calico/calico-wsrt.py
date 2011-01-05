@@ -410,7 +410,7 @@ def _define_forest(ns,parent=None,**kw):
     # according to what has been set above
     outputs = solve_tree.sequencers(inputs=rhs,outputs=outputs);
 
-  StdTrees.make_sinks(ns,outputs,spigots=spigots0,post=meqmaker.get_inspectors() or []);
+  StdTrees.make_sinks(ns,outputs,spigots=spigots0,post=meqmaker.get_inspectors() or [],corr_index=mssel.get_corr_index());
 
   if not do_solve:
     name = "Generate "+output_title.lower();
