@@ -120,8 +120,11 @@ class FITSAxes (object):
 
 class LMVoltageBeam (object):
   """This class implements a complex voltage beam as a function of LM."""
-  def __init__ (self,spline_order=2,verbose=None):
+  def __init__ (self,spline_order=2,l_beam_offset=0.0, m_beam_offset=0.0,ampl_interpolation=False,verbose=None):
     self._spline_order = spline_order;
+    self.l_beam_offset = l_beam_offset * DEG
+    self.m_beam_offset = m_beam_offset * DEG
+    self.ampl_interpolation = ampl_interpolation
     if verbose:
       _verbosity.set_verbose(verbose);
 
@@ -132,14 +135,19 @@ class LMVoltageBeam (object):
     # form up complex beam
     beam = numpy.zeros(ff_re.data.shape,complex);
     beam.real = ff_re.data;
+    beam_ampl = None
     # add imaginary part
     if filename_imag:
       im_data = pyfits.open(filename_imag)[0].data;
       if im_data.shape != ff_re.data.shape:
         raise TypeError,"shape mismatch between FITS files %s and %s"%(filename_real,filename_imag);
       beam.imag = im_data;
+      if self.ampl_interpolation:
+        beam_ampl = numpy.abs(beam) 
     # change order of axis, since FITS has first axis last
     beam = beam.transpose();
+    if not beam_ampl is None:
+      beam_ampl = beam_ampl.transpose()
     # figure out axes
     self._axes = axes = FITSAxes(ff_re.header);
     # find L/M axes
@@ -174,6 +182,10 @@ class LMVoltageBeam (object):
     dprint(1,"beam array has shape",beam.shape);
     beam = beam.transpose(used_axes+other_axes);
     beam = beam.reshape(beam.shape[:len(used_axes)]);
+    if not beam_ampl is None:
+      beam_ampl = beam_ampl.transpose(used_axes+other_axes)
+      beam_ampl = beam_ampl.reshape(beam_ampl.shape[:len(used_axes)]);
+      
     dprint(1,"beam array has shape",beam.shape);
     dprint(2,"l grid is",axes.grid(laxis));
     dprint(2,"m grid is",axes.grid(maxis));
@@ -184,9 +196,14 @@ class LMVoltageBeam (object):
     if self._spline_order > 1:
       self._beam_real = interpolation.spline_filter(beam.real,order=self._spline_order);
       self._beam_imag = interpolation.spline_filter(beam.imag,order=self._spline_order);
+      if not beam_ampl is None:
+        self._beam_ampl = interpolation.spline_filter(beam_ampl,order=self._spline_order);
+      else:
+        self._beam_ampl = beam_ampl
     else:
       self._beam_real = beam.real;
       self._beam_imag = beam.imag;
+      self._beam_ampl = beam_ampl
 
   def hasFrequencyAxis (self):
     return bool(self._freqToPixel);
@@ -222,8 +239,9 @@ class LMVoltageBeam (object):
     'time' is currently ignored -- provided for later compatibility (i.e. beams with time planes)
     """
     # make sure inputs are arrays
-    l = numpy.array(l);
-    m = numpy.array(m);
+    l = numpy.array(l) + self.l_beam_offset
+    m = numpy.array(m) + self.m_beam_offset 
+
     freq = numpy.array(freq);
     # promote l,m to the same shape
     l,m = unite_shapes(l,m);
@@ -270,6 +288,12 @@ class LMVoltageBeam (object):
                   prefilter=(self._spline_order==1)).reshape(l.shape);
     output.imag = interpolation.map_coordinates(self._beam_imag,lm,order=self._spline_order,
                   prefilter=(self._spline_order==1)).reshape(l.shape);
+    if not self._beam_ampl is None:
+      output_ampl = interpolation.map_coordinates(self._beam_ampl,lm,order=self._spline_order,
+                  prefilter=(self._spline_order==1)).reshape(l.shape);
+      phase_array = numpy.arctan2(output.imag,output.real)
+      output.real = output_ampl * numpy.cos(phase_array)
+      output.imag = output_ampl * numpy.sin(phase_array)
     dprint(3,"interpolated value is",output);
     return output;
 
@@ -300,7 +324,10 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     mystate('filename_imag',[]);
     mystate('spline_order',3);
     mystate('normalize',False);
+    mystate('ampl_interpolation',False);
     mystate('verbose',0);
+    mystate('l_beam_offset',0.0);
+    mystate('m_beam_offset',0.0);
     mystate('missing_is_null',False);
     # Check filename arguments, and init _vb_key for init_voltage_beams() below
     # We may be created with a single filename pair (scalar Jones term), or 4 filenames (full 2x2 matrix)
@@ -335,7 +362,7 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
           filename_real = None;
         # now, create VoltageBeam if at least the real part still exists
         if filename_real:
-          vb = LMVoltageBeam(spline_order=self.spline_order,verbose=self.verbose);
+          vb = LMVoltageBeam(l_beam_offset=self.l_beam_offset, m_beam_offset=self.m_beam_offset,ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,verbose=self.verbose);
           vb.read(filename_real,filename_imag);
         else:
           vb = None;
