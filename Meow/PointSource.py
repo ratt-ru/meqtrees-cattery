@@ -59,17 +59,20 @@ class PointSource(SkyComponent):
     self._add_parm('Q',Q or 0.,tags="flux pol");
     self._add_parm('U',U or 0.,tags="flux pol");
     self._add_parm('V',V or 0.,tags="flux pol");
+    self._has_rm = RM != 0 and RM is not None;
+    if self._has_rm:
+      self._add_parm("RM",RM,tags="pol");
     # see if a spectral index is present (freq0!=0 then), create polc
     self._has_spi = spi != 0 and spi is not None;
     if self._has_spi:
       self._add_parm('spi',spi or 0.,tags="spectrum");
+    if self._has_spi or self._has_rm:
       # for freq0, use placeholder node for first MS frequency,
       # unless something else is specified 
       self._add_parm('spi_fq0',freq0 or (ns.freq0 ** 0),tags="spectrum");
+      self._freq0 = freq0
+      
     # see if intrinsic rotation measure is present
-    self._has_rm = RM != 0 and RM is not None;
-    if self._has_rm:
-      self._add_parm("RM",RM,tags="pol");
     # flag: flux is fully defined by constants
     self._constant_flux = not self._has_rm and not \
                           [ flux for flux in STOKES if not self._is_constant(flux) ];
@@ -93,15 +96,26 @@ class PointSource(SkyComponent):
         return stokes;
       q = self._parm("Q");
       u = self._parm("U");
-      # squared wavelength
+      # first rotate back to wavelength 0 lambda
+      # we assume that reference frequency is equal to that of spectral index
+      if self._freq0 is None:
+        farot_ref = self.ns.farot_ref << 0.0;
+      else:
+        lambda_ref2 = self.ns.lambda_ref2 << Meq.Sqr(2.99792458e+8/self._parm('spi_fq0'))
+        farot_ref = self.ns.farot_ref << self._parm("RM")*lambda_ref2 * -1;
+      cosf_ref = self.ns.cos_farot_ref << Meq.Cos(farot_ref);
+      sinf_ref = self.ns.sin_farot_ref << Meq.Sin(farot_ref);
+      self.ns.Q_ref << cosf_ref*q - sinf_ref*u;
+      self.ns.U_ref << sinf_ref*q + cosf_ref*u;
+      # rotate forward to requested wavelength
       freq = self.ns0.freq ** Meq.Freq;
       iwl2 = self.ns0.wavelength2 << Meq.Sqr(2.99792458e+8/freq);
-      # rotation node
       farot = self.ns.farot << self._parm("RM")*iwl2;
       cosf = self.ns.cos_farot << Meq.Cos(farot);
       sinf = self.ns.sin_farot << Meq.Sin(farot);
-      self.ns.Qr << cosf*q - sinf*u;
-      self.ns.Ur << sinf*q + cosf*u;
+      self.ns.Qr << cosf*self.ns.Q_ref - sinf*self.ns.U_ref;
+      self.ns.Ur << sinf*self.ns.Q_ref + cosf*self.ns.U_ref;
+
       return self.ns[st+'r'];
       
   def norm_spectrum (self):

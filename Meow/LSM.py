@@ -301,10 +301,12 @@ class MeowLSM (object):
       src['sy'] = eY*2
       src['phi'] = -eP
       # override zero values with None so that Meow can make smaller trees
-      if not src['spi']:
-        src['spi'] = src['freq0'] = None;
       if not src['RM']:
         src['RM'] = None;
+      if not src['spi']:
+        src['spi'] = None;
+        if src['RM'] is None:
+          src['freq0'] = None;
       ## construct parms or constants for source attributes
       ## if source is in solvable set (solvable_source_set of None means all are solvable),
       ## use the kw dict, else use the nonsolve dict for source parameters
@@ -330,7 +332,7 @@ class MeowLSM (object):
         src = Meow.GaussianSource(ns,name=pu.name,
                 I=src['I'],Q=src['Q'],U=src['U'],V=src['V'],
                 direction=direction,
-                spi=src['spi'],freq0=src['freq0'],
+                spi=src['spi'],freq0=src['freq0'],RM=src['RM'],
                 size=size,phi=phi);
       else:
         src = Meow.PointSource(ns,name=pu.name,
