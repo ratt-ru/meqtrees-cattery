@@ -37,6 +37,7 @@ import os
 import os.path
 import math
 
+_addImagingColumns = None;
 # figure out which table implementation to use -- try pyrap/casacore first
 try:
   import pyrap_tables
@@ -46,6 +47,7 @@ except:
   try:
     import pyrap.tables
     TABLE = pyrap.tables.table
+    _addImagingColumns = pyrap.tables.addImagingColumns
     Meow.dprint("  (Meow.MSUtils: using the pyrap.tables module)");
   except:
     # else try the old pycasatable/aips++ thing
@@ -1334,6 +1336,9 @@ class ImagingSelector (object):
         except:
           pass;
     print "MSUtils: imager args are"," ".join(args);
+    # add imaging columns, if necessary
+    if _addImagingColumns:
+      _addImagingColumns(self.mssel.msname);
     # run script
     return os.spawnvp(os.P_WAIT if wait else os.P_NOWAIT,_IMAGER,args);
 
