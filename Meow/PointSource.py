@@ -102,8 +102,9 @@ class PointSource(SkyComponent):
         farot_ref = self.ns.farot_ref << 0.0;
       else:
         lambda_ref2 = self.ns.lambda_ref2 << Meq.Sqr(2.99792458e+8/self._parm('spi_fq0'))
-        # remember that position angle = 0.5 * arctan(U/Q) so factor 2 needed
-        # when determining actual position angles
+        # remember that polarization position angle = 0.5 * arctan(U/Q) so 
+        # factor 2 needed when determining rotation angles for Q and U 
+        # coordinate system
         farot_ref = self.ns.farot_ref << self._parm("RM")*lambda_ref2 * -2;
       cosf_ref = self.ns.cos_farot_ref << Meq.Cos(farot_ref);
       sinf_ref = self.ns.sin_farot_ref << Meq.Sin(farot_ref);
@@ -112,8 +113,9 @@ class PointSource(SkyComponent):
       # rotate forward to requested wavelength
       freq = self.ns0.freq ** Meq.Freq;
       iwl2 = self.ns0.wavelength2 << Meq.Sqr(2.99792458e+8/freq);
-      # remember that position angle = 0.5 * arctan(U/Q) so factor 2 needed
-      # when determining actual position angles
+      # remember that polarization position angle = 0.5 * arctan(U/Q) so 
+      # factor 2 needed when determining rotation angles for Q and U 
+      # coordinate system
       farot = self.ns.farot << self._parm("RM")*iwl2 * 2.0;
       cosf = self.ns.cos_farot << Meq.Cos(farot);
       sinf = self.ns.sin_farot << Meq.Sin(farot);
