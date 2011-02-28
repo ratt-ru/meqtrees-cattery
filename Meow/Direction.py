@@ -29,7 +29,7 @@ from Timba.Meq import meq
 from Parameterization import *
 import Jones
 import Context
-from math import cos,sin,acos,asin,sqrt,pi
+from math import cos,sin,acos,asin,atan2,sqrt,pi
 
 def radec_to_lmn (ra,dec,ra0,dec0):
   """Returns l,m,n corresponding to direction ra,dec w.r.t. direction ra0,dec0""";
@@ -53,10 +53,13 @@ def lm_to_radec (l,m,ra0,dec0):
   """Returns ra,dec corresponding to l,m w.r.t. direction ra0,dec0""";
   # see formula at http://en.wikipedia.org/wiki/Orthographic_projection_(cartography)
   rho = sqrt(l**2+m**2);
-  cc = asin(rho);
-
-  ra = ra0 + atan2( l*sin(cc),rho*cos(dec0)*cos(cc)-m*sin(dec0)*sin(cc) );
-  dec = asin( cos(cc)*sin(dec0) + m*sin(cc)*cos(dec0)/rho );
+  if rho == 0.0:
+    ra = ra0
+    dec = dec0
+  else:
+    cc = asin(rho);
+    ra = ra0 + atan2( l*sin(cc),rho*cos(dec0)*cos(cc)-m*sin(dec0)*sin(cc) );
+    dec = asin( cos(cc)*sin(dec0) + m*sin(cc)*cos(dec0)/rho );
 
   return ra,dec;
 
