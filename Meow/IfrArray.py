@@ -39,9 +39,11 @@ _uvw_compute_mirror = "compute (VLA convention)";
 _uvw_compute = "compute (WSRT convention)";
 
 uvw_source_opt = TDLOption('uvw_source',"UVW coordinates",
-      [_uvw_from_ms,_uvw_compute_mirror,_uvw_compute],
+#      [_uvw_from_ms,_uvw_compute_mirror,_uvw_compute],
+      [_uvw_compute,_uvw_compute_mirror],
       doc="""UVW coordinates can be read from the MS, or recomputed on the fly.
-      In the latter case, you have a choice of two opposite sign conventions.""");
+      In the latter case, you have a choice of two opposite sign conventions.
+      NB: reading from MS is temporarily not available, see bug 828.""");
 uvw_refant_opt = TDLOption('uvw_refant',"Reference antenna #",0,more=int,
       doc="""This is the reference antenna used to compute antenna-based UVWs.
       Specify a 0-based antenna index. Note that this antenna must be present in
