@@ -1,9 +1,9 @@
 #
-#% $Id: GaussianSource.py 5418 2007-07-19 16:49:13Z oms $ 
+#% $Id: GaussianSource.py 5418 2007-07-19 16:49:13Z oms $
 #
 #
 # Copyright (C) 2002-2007
-# The MeqTree Foundation & 
+# The MeqTree Foundation &
 # ASTRON (Netherlands Foundation for Research in Astronomy)
 # P.O.Box 2, 7990 AA Dwingeloo, The Netherlands
 #
@@ -19,7 +19,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>,
-# or write to the Free Software Foundation, Inc., 
+# or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
@@ -28,7 +28,7 @@ from Timba.TDL import *
 from Timba.Meq import meq
 from PointSource import *
 import Context,Parm
-  
+
 STOKES = ("I","Q","U","V");
 
 class Shapelet(PointSource):
@@ -81,31 +81,30 @@ class Shapelet(PointSource):
     return xfm;
 
 
-  def make_visibilities (self,nodes,array,observation):
+  def coherency (self,array=None,observation=None,nodes=None,**kw):
+    coherency = nodes or self.ns.coh;
     array = Context.get_array(array);
-    observation = Context.get_observation(observation);
-    dir0 = observation.phase_centre;
-    radec0 = dir0.radec();
-    # baseline UVs
-    uv1 = self.ns.uv1.qadd(radec0);
+    if not coherency(*array.ifrs()[0]).initialized():
+      observation = Context.get_observation(observation);
+      dir0 = observation.phase_centre;
+      # baseline UVs
+      uv1 = self.ns.uv1;
 
-    shp=self.ns.shp.qadd(radec0)
+      shp = self.ns.shp;
 
-    # rotation matrix
-    xfm = self.transformation_matrix();
+      # rotation matrix
+      xfm = self.transformation_matrix();
 
-    uv_ifr = array.uv_ifr(dir0);
-    # inverse wavelength 1/wl = freq/c
-    iwl = self.ns0.inv_wavelength << ((self.ns0.freq<<Meq.Freq) / 2.99792458e+8);
+      uv_ifr = array.uv_ifr(dir0);
+      # inverse wavelength 1/wl = freq/c
+      iwl = self.ns0.inv_wavelength << ((self.ns0.freq<<Meq.Freq) / 2.99792458e+8);
 
-    coherency = self.coherency(observation);
-    # flux scale, conserved peak value, times the sqrt(1/scale)
-    fscale=2*math.pi/(self._scale)
-    gcoh = self.ns.shapelet_coh.qadd(radec0);
-    for ifr in array.ifrs():
-      uv=uv1(*ifr)<<Meq.MatrixMultiply(xfm,uv_ifr(*ifr)*iwl) 
-      shptf= shp(*ifr)<<Meq.ShapeletVisTf(modes=self._children,dep_mask=0xff);
-      gcoh(*ifr) << coherency * fscale * Meq.Compounder(children=[uv,shptf],common_axes=[hiid('L'),hiid('M')]);
+      # flux scale, conserved peak value, times the sqrt(1/scale)
+      fluxscale = self.ns.fluxscale << self.brightness(observation)*(2*math.pi/(self._scale));
 
-    # phase shift to source position
-    self.direction.make_phase_shift(nodes,gcoh,array,dir0);
+      for ifr in array.ifrs():
+        uv=uv1(*ifr)     << Meq.MatrixMultiply(xfm,uv_ifr(*ifr)*iwl)
+        shptf= shp(*ifr) << Meq.ShapeletVisTf(modes=self._children,dep_mask=0xff);
+        coherency(*ifr)  << fluxscale*Meq.Compounder(children=[uv,shptf],
+                                            common_axes=[hiid('L'),hiid('M')]);
+    return coherency;

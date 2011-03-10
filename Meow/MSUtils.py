@@ -490,7 +490,7 @@ class MSSelector (object):
     forbid_output: a list of forbidden output columns. "DATA" by default"
     tile_sizes: list of suggested tile sizes. If false, no tile size selector is provided.
     std_ifr_subsets: if provided, this should be a list of standard IFR subset specifications.
-                This will override any default determined by STD_IFR_SUBSETS[obs], where 'obs' 
+                This will override any default determined by STD_IFR_SUBSETS[obs], where 'obs'
                 is taken from the MS.
     ddid:       list of suggested DDIDs, or false for no selector.
     field:      list of suggested fields. or false for no selector.
@@ -830,7 +830,7 @@ class MSSelector (object):
           self.ms_ifr_subsets = ["all"] + list(stdsets);
           self.ifrsel_option.set_option_list(self.ms_ifr_subsets);
         self.ifrsel_option.show();
-        self.ifrsel_option.set_doc(self.ms_ifrset.subset_doc); 
+        self.ifrsel_option.set_doc(self.ms_ifrset.subset_doc);
       # correlations
       # polarization IDs
       pol_tab = TABLE(ms.getkeyword('POLARIZATION'),lockoptions='autonoread');
@@ -881,7 +881,7 @@ class MSSelector (object):
     are passed to the ImagingSelector constructor""";
     return ImagingSelector(self,*args,**kw);
 
-  def create_inputrec (self,tiling=None):
+  def create_inputrec (self,tiling=None,time_step=1):
     """Creates an input record with the selected options""";
     if self.msname is None:
       raise ValueError,"Measurement Set not specified";
@@ -902,6 +902,7 @@ class MSSelector (object):
         rec.tile_size        = tile_size;
     else:
       rec.tile_size = tiling;
+    rec.time_increment = time_step;
     rec.selection = self.subset_selector.create_selection_record();
     if self.ms_apply_hanning is not None:
       rec.apply_hanning = self.ms_apply_hanning;
@@ -941,11 +942,11 @@ class MSSelector (object):
       rec.data_column = self.output_column;
     return record(ms=rec,mt_queue_size=ms_queue_size);
 
-  def create_io_request (self,tiling=None,write_flags=True):
+  def create_io_request (self,tiling=None,time_step=1,write_flags=True):
     """Creates an i/o record with the selected options, suitable for
     passing to a VisDataMux""";
     req = meq.request();
-    req.input = self.create_inputrec(tiling);
+    req.input = self.create_inputrec(tiling,time_step);
     if (self.ms_write_flags and write_flags) or self.output_column is not None:
       req.output = self.create_outputrec(write_flags=write_flags);
     return req;
@@ -1043,9 +1044,9 @@ class ImagingSelector (object):
     # weight options
     weight_opt = TDLOption('imaging_weight',"Imaging weights",
                   ["natural","uniform","briggs","radial",None],namespace=self,
-                 doc="""Selected imaging weights will be recalculated and written to the 
-                  IMAGING_WEIGHT column of the MS. You can select the 'None' option to reuse the 
-                  current weights. This will save some time when re-running the imager on the same MS, 
+                 doc="""Selected imaging weights will be recalculated and written to the
+                  IMAGING_WEIGHT column of the MS. You can select the 'None' option to reuse the
+                  current weights. This will save some time when re-running the imager on the same MS,
                   but will fail if the weights have not been set previously."""
     );
     taper_opt = TDLMenu("Apply Gaussian taper to visibilities",toggle='imaging_taper_gauss',namespace=self,
@@ -1112,7 +1113,7 @@ class ImagingSelector (object):
       mssel.ms_ifr_subsets,
       namespace=self,more=str,
       doc=mssel.ms_ifrset and mssel.ms_ifrset.subset_doc));
-    
+
     # add MS subset selector, if needed
     if subset:
       self.subset_selector = mssel.make_subset_selector(namespace);

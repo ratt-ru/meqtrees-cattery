@@ -1,9 +1,9 @@
 #
-#% $Id$ 
+#% $Id$
 #
 #
 # Copyright (C) 2002-2007
-# The MeqTree Foundation & 
+# The MeqTree Foundation &
 # ASTRON (Netherlands Foundation for Research in Astronomy)
 # P.O.Box 2, 7990 AA Dwingeloo, The Netherlands
 #
@@ -19,7 +19,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>,
-# or write to the Free Software Foundation, Inc., 
+# or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
@@ -35,8 +35,8 @@ def gain_ap_matrix (jones,ampl=1.,phase=0.,tags=[],series=None,solvable=True):
         (     0       ay*e^{i*p_y} )
   'jones' should be a node stub.
   'series' can be a list of qualifiers to make a series of matrices.
-  The x/y amplitudes and phases are created as Meq.Parms (with initial 
-  values 1 and 0, respectively) by qualifying 'jones' with 
+  The x/y amplitudes and phases are created as Meq.Parms (with initial
+  values 1 and 0, respectively) by qualifying 'jones' with
   'xa','xp','ya','yp'. These Parm nodes will be tagged with the given set
   of 'tags', plus 'ampl' and 'phase'.
   """
@@ -71,10 +71,10 @@ def gain_ap_matrix (jones,ampl=1.,phase=0.,tags=[],series=None,solvable=True):
 
 
 def rotation_matrix (jones,rot=0.,tags=[],series=None):
-  """Creates a rotation matrix. 
+  """Creates a rotation matrix.
   'jones' should be a node stub.
   'series' can be a list of qualifiers to make a series of matrices.
-  The rotation angle is created as a Meq.Parm by qualifying 'jones' with 
+  The rotation angle is created as a Meq.Parm by qualifying 'jones' with
   'angle'. These Parm nodes will be tagged with the given set
   of 'tags', plus 'rotation'.
   """
@@ -96,7 +96,7 @@ def decoupled_rotation_matrix (jones,rot=0.,tags=[],series=None):
   """Creates a decoupled rotation matrix (independent angles for x and y)
   'jones' should be a node stub.
   'series' can be a list of qualifiers to make a series of matrices.
-  The rotation angle is created as a Meq.Parm by qualifying 'jones' with 
+  The rotation angle is created as a Meq.Parm by qualifying 'jones' with
   'angle'. These Parm nodes will be tagged with the given set
   of 'tags', plus 'rotation'.
   """
@@ -114,10 +114,10 @@ def decoupled_rotation_matrix (jones,rot=0.,tags=[],series=None):
 
 
 def ellipticity_matrix (jones,ell=0.,tags=[],series=None):
-  """Creates a dipole ellipticity matrix. 
+  """Creates a dipole ellipticity matrix.
   'jones' should be a node stub.
   'series' can be a list of qualifiers to make a series of matrices.
-  The ellipticity angle is created as a Meq.Parm by qualifying 'jones' with 
+  The ellipticity angle is created as a Meq.Parm by qualifying 'jones' with
   'ell'. These Parm nodes will be tagged with the given set
   of 'tags', plus 'ellipticity'.
   """
@@ -139,7 +139,7 @@ def decoupled_ellipticity_matrix (jones,ell=0.,tags=[],series=None):
   """Creates a decoupled ellipticity matrix (independent angles for x and y).
   'jones' should be a node stub.
   'series' can be a list of qualifiers to make a series of matrices.
-  The ellipticity angle is created as a Meq.Parm by qualifying 'jones' with 
+  The ellipticity angle is created as a Meq.Parm by qualifying 'jones' with
   'ell'. These Parm nodes will be tagged with the given set
   of 'tags', plus 'ellipticity'.
   """
@@ -168,14 +168,14 @@ def define_rotation_matrix (angle):
   cos = angle("cos") << Meq.Cos(angle);
   sin = angle("sin") << Meq.Sin(angle);
   return Meq.Matrix22(cos,-sin,sin,cos);
-  
 
-def apply_corruption (vis,vis0,jones,ifrs=None):
+
+def apply_corruption (vis,vis0,jones,extra_term=None,ifrs=None):
   """Creates nodes to corrupt with a set of Jones matrices.
   'vis' is the output node which will be qualified with (p,q)
   'vis0' is an input visibility node which will be qualified with (p,q2)
-  'jones' is either one unqualified Jones matrix, or else a list/tuple of 
-    Jones matrices. In either case each Jones term will be qualified with 
+  'jones' is either one unqualified Jones matrix, or else a list/tuple of
+    Jones matrices. In either case each Jones term will be qualified with
     the station index (p).
   'ifrs' should be a list of p,q pairs; by default Meow.Context is used.
   """;
@@ -197,8 +197,8 @@ def apply_correction (vis,vis0,jones,ifrs=None):
   """Creates nodes to apply the inverse of a set of Jones matrices.
   'vis' is the output node which will be qualified with (sta1,sta2)
   'vis0' is an input visibility node which will be qualified with (sta1,sta2)
-  'jones' is either one unqualified Jones matrix, or else a list/tuple of 
-    Jones matrices. In either case each Jones term will be qualified with 
+  'jones' is either one unqualified Jones matrix, or else a list/tuple of
+    Jones matrices. In either case each Jones term will be qualified with
     the station index (p).
   'ifrs' should be a list of p,q pairs; by default Meow.Context is used.
   """;

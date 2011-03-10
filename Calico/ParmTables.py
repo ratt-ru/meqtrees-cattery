@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python
 
 import time
 import os.path
@@ -99,20 +99,20 @@ class FunkSlice (object):
     return iter(self.funklets);
   def array (self,coeff=0,fill_value=0,masked=True,collapse=True):
     """Returns funklet coefficients arranged into a hypercube.
-    'coeff' is applied as an index into each funklet's coeff array, so coeff=0 or coeff=(0,0) selects 
+    'coeff' is applied as an index into each funklet's coeff array, so coeff=0 or coeff=(0,0) selects
     c00, coeff=(0,1) selects c01, etc. IndexError is raised when a non-existing coeff is selected.
     The return value is an array with the same dimensions as the slice. If funklets for some
-    domains are missing, the missing values will be set to fill_value. If masked=True, the return value 
+    domains are missing, the missing values will be set to fill_value. If masked=True, the return value
     will also be a masked array, with missing values masked. If masked=False, return value
     if an ordinary array.
     If 'collapse' is False, axes of the array will have a one-to-one correspondence with domain axes
         (so e.g. a slice for time=0,freq=0,l=*,m=* will have shape [1,1,nl,nm]
-    If 'collapse' is True, axes not in this slice will be eliminated.  
+    If 'collapse' is True, axes not in this slice will be eliminated.
         (so e.g. the same slice will have shape [nl,nm]
     """
     # convert things like (0,0) into None
     if not coeff or not any(coeff):
-      coeff = None; 
+      coeff = None;
     # initially array is of uncollapsed: one axis for each dimension (up to max_axies), with those not in the
     # slice having a size of 1. Extra axrs will be trimmed later.
     shape = [1]*mequtils.max_axis;
@@ -131,7 +131,7 @@ class FunkSlice (object):
           raise IndexError,"invalid coeff index %s (funklet is scalar)"%coeff;
         val = funk.coeff;
       else:
-        try: 
+        try:
           val = funk.coeff[coeff];
         except:
           raise IndexError,"invalid coeff index %s (funklet coeffs are %s)"%(coeff,funk.coeff.shape);
@@ -250,13 +250,13 @@ class FunkSet (object):
 
   def apply (self,op_func,slicing=[],outtab=None,remove=False):
     """For each funklet in the subset, takes all funklets along the designated slicing axis
-    (i.e. for each slice along the non-listed axes), creates a FunkSlice, and calls 
+    (i.e. for each slice along the non-listed axes), creates a FunkSlice, and calls
     op_func(slice).
-    The return value of op_func() should be either None if no operation was performed, or a list of 
+    The return value of op_func() should be either None if no operation was performed, or a list of
     funklets to be written to the output table. This list may also contain strings, which are
     interpreted as funklet names. The default name is the same as the current FunkSet name; a string at
     any position in the funklet list applies to subsequent funklets.
-    if 'outtab' is None, a new output table is created. Otherwise set outtab to a filename, or a 
+    if 'outtab' is None, a new output table is created. Otherwise set outtab to a filename, or a
     ParmTab, or a FastParmTable.
     If 'remove' is True, input funklets will be removed if an output funklet is returned.
     """;
@@ -315,7 +315,7 @@ class FunkSet (object):
                 dprintf(0,"this slice will be ignored\n");
                 funk = None;
                 break;
-    dprintf(3,"%s: %s() transformed %d input funklets over %d slices into %d output funklets\n",self.name,op_func.__name__,num_infunk,num_slices,num_outfunk); 
+    dprintf(3,"%s: %s() transformed %d input funklets over %d slices into %d output funklets\n",self.name,op_func.__name__,num_infunk,num_slices,num_outfunk);
 
 
 
@@ -336,7 +336,7 @@ class ParmTab (object):
     sys.stderr.write("%s: 00%%\r"%label);
 
   def _report_progress(self,value,maxval=None):
-    maxval = maxval if maxval is not None else self._progress_maxval; 
+    maxval = maxval if maxval is not None else self._progress_maxval;
     sys.stderr.write("%s: %-40s\r"%(self._progress_label,"%02d%%"%(100*value//maxval)));
 
   def _end_progress(self,keep=True):
@@ -389,11 +389,11 @@ class ParmTab (object):
 
   def close (self):
     """Detaches from FastParmTable object (needed when interacting with a meqserver). It is usually a good idea
-    to detach from a aprmtable when not using it for a while (i.e. only reattach for the duration of a lengthy 
+    to detach from a aprmtable when not using it for a while (i.e. only reattach for the duration of a lengthy
     operation.) Table will be reopened on a subsequent call to parmtable() below.""";
     if self._pt:
       self._pt = None;
-    
+
   def parmtable (self,write=False):
     """Returns FastParmTable object, reopening it if needed. Use write=True to reopen for writing.""";
     if not self.filename:
@@ -404,7 +404,7 @@ class ParmTab (object):
       self._pt = FastParmTable(self.filename,write);
       self._pt_write = write;
     return self._pt;
-    
+
   def funklet_names (self):
     """Returns list of funklet names""";
     return self._funklet_names;
@@ -412,7 +412,7 @@ class ParmTab (object):
   def funklet_name_components (self):
     """Returns list of sets of funklet name components""";
     return self._name_components;
-      
+
   def envelope_domain (self):
     """Returns domain object which envelops all of the parmtable""";
     kw = {};
@@ -420,10 +420,10 @@ class ParmTab (object):
       if not stats.empty():
         kw[mequtils.get_axis_id(iaxis)] = stats.minmax;
     return meq.gen_domain(**kw);
-    
+
   def envelope_cells (self,**num_cells):
     """Returns cells object which envelops all of the parmtable, and is regularly spaced. The number of points
-    along each axis is equal to the number of subdomains along that axis, but the cells do not necessarily follow 
+    along each axis is equal to the number of subdomains along that axis, but the cells do not necessarily follow
     the structure of the subdomain if the subdomains are overlapping, spaced out, or irregular.
     """
     dom = self.envelope_domain();
@@ -450,7 +450,7 @@ class ParmTab (object):
   def axis_stats (self,iaxis):
     """Returns _AxisStats object for the specified parmtable.""";
     return self._axis_stats[iaxis];
-      
+
   def _make_axis_index (self):
     """Builds up various indices based on content of the parmtable""";
     # check if cache is up-to-date
@@ -516,7 +516,7 @@ class ParmTab (object):
         self._domain_cell_index[idom] = index;
         self._domain_reverse_index[index] = idom;
       dprintf(2,"elapsed time: %f seconds\n",time.time()-t0); t0 = time.time();
-        
+
       dprintf(2,"loading funklet name list\n");
       self._funklet_names = list(pt.name_list());
       dprintf(2,"elapsed time: %f seconds\n",time.time()-t0); t0 = time.time();
@@ -572,11 +572,11 @@ class ParmTab (object):
 
   def apply (self,op_func,slicing,outtab=None,remove=False,newtab=False):
     """For each funklet in our table, takes all funklets along the designated slicing axis
-    (i.e. for each slice along the non-listed axes), creates a FunkSlice, and calls 
+    (i.e. for each slice along the non-listed axes), creates a FunkSlice, and calls
     op_func(slice).
-    The return value of func() should be a funklet list, which is written to the output table, 
+    The return value of func() should be a funklet list, which is written to the output table,
     or None to ignore.
-    if 'outtab' is None, a new output table is created. Otherwise set outtab to a filename, or a 
+    if 'outtab' is None, a new output table is created. Otherwise set outtab to a filename, or a
     ParmTab, or a FastParmTable.
     If 'remove' is True, input funklets will be removed if an output funklet is returned.
     """;
@@ -586,11 +586,11 @@ class ParmTab (object):
     try:
       outtab = self.resolve_output_table(outtab,newtab);
       dprintf(1,"using output table %s\n",outtab.filename);
-      pt = self.parmtable();  
+      pt = self.parmtable();
       # loop over funklets and slices
-      dprintf(3,"input slicing is %s\n",slicing); 
+      dprintf(3,"input slicing is %s\n",slicing);
       slicing = self.make_slicing(slicing);
-      dprintf(2,"%d slices will be iterated over\n",len(slicing)); 
+      dprintf(2,"%d slices will be iterated over\n",len(slicing));
       for iname,name in enumerate(sort_qualified_names(self.funklet_names())):
         self._report_progress(iname);
         self.funkset(name).apply(op_func,slicing,outtab=outtab,remove=remove);
@@ -622,4 +622,6 @@ if __name__ == '__main__':
       pt.apply(FunkOps.linear_interpol,"time",newtab=True);
     if '-rank0' in sys.argv:
       pt.apply(FunkOps.force_rank0,["time","freq"],newtab=True);
+    if '-infdom' in sys.argv:
+      pt.apply(FunkOps.make_infinite_domain,["time","freq"],newtab=True);
 

@@ -32,17 +32,17 @@ def average (funkslice):
 
 def linear_interpol (funkslice):
   """Reduction function to replace a set of funklets with piecewise linear interpolations. If the original
-  N funklet c00 coefficients C0,C1,... are defined for domains [a0,b0] [a1,b1] ..., then the output N-1 funklets 
-  will be defined on domains [a0,(a1+b1)/2],[(a1+b1)/2,(a2+b2)/2],..., and will correspond to linear slopes 
+  N funklet c00 coefficients C0,C1,... are defined for domains [a0,b0] [a1,b1] ..., then the output N-1 funklets
+  will be defined on domains [a0,(a1+b1)/2],[(a1+b1)/2,(a2+b2)/2],..., and will correspond to linear slopes
   passing through C0 at (a0+b0)/2, C1 at (a1+b1)/2, etc.
   """
-  # transform only available with more than two funklets  
+  # transform only available with more than two funklets
   if len(funkslice) < 2:
     return funkslice;
   if funkslice.rank > 1:
     raise TypeError,"linear interpolation only available for rank-1 slices";
-  iaxis0 = funkslice.slice_iaxes[0]; 
-  axis0 = funkslice.slice_axes[0]; 
+  iaxis0 = funkslice.slice_iaxes[0];
+  axis0 = funkslice.slice_axes[0];
   output = [];
   for ifunk0,funk0 in enumerate(funkslice[:-1]):
     # funklet for next domain
@@ -57,10 +57,10 @@ def linear_interpol (funkslice):
     # make output domain
     out_domain = copy.copy(dom0);
     # output domain boundaries are original subdomains' centers, with the exception of the first
-    # and the last funklet, in which case the domain needs to extend to the edge of the first/last 
+    # and the last funklet, in which case the domain needs to extend to the edge of the first/last
     # subdomain
     a0 = dom0[axis0][0] if funk0 is funkslice[0] else x0;
-    a1 = dom1[axis0][1] if funk1 is funkslice[-1] else x1; 
+    a1 = dom1[axis0][1] if funk1 is funkslice[-1] else x1;
     out_domain[axis0] = (a0,a1);
     # now make output polc
     output.append(meq.polc(coeff=[c0,c1-c0],domain=out_domain,offset=x0,scale=x1-x0,axis_index=iaxis0))
@@ -78,7 +78,7 @@ _sub = dict([(a+b+c,b+c+':'+a) for a in 'ri' for b in 'xy' for c in 'xy' ]);
 
 def rename (funkslice):
   fields = funkslice.name.rsplit(':',1);
-  if len(fields) < 2: 
+  if len(fields) < 2:
     return None;
   global _sub;
   rep = _sub.get(fields[-1]);
@@ -86,4 +86,10 @@ def rename (funkslice):
     fields[-1] = rep;
     return [':'.join(fields)] + list(funkslice);
   return None;
-    
+
+def make_infinite_domain (funkslice):
+  outlist = [];
+  for funk in funkslice:
+    for axis in funkslice.slice_axes:
+      funk.domain[axis] = (-1e+99,1e+99);
+  return list(funkslice);

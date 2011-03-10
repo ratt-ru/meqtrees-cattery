@@ -1,9 +1,9 @@
 #
-#% $Id: DiskSource.py 5418 2007-07-19 16:49:13Z sarod $ 
+#% $Id: DiskSource.py 5418 2007-07-19 16:49:13Z sarod $
 #
 #
 # Copyright (C) 2002-2007
-# The MeqTree Foundation & 
+# The MeqTree Foundation &
 # ASTRON (Netherlands Foundation for Research in Astronomy)
 # P.O.Box 2, 7990 AA Dwingeloo, The Netherlands
 #
@@ -19,7 +19,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>,
-# or write to the Free Software Foundation, Inc., 
+# or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
@@ -28,7 +28,7 @@ from Timba.TDL import *
 from Timba.Meq import meq
 from PointSource import *
 import Context
-  
+
 STOKES = ("I","Q","U","V");
 
 class DiskSource(PointSource):
@@ -44,53 +44,52 @@ class DiskSource(PointSource):
     # order=0, ring, order=1, disk
     self._order=order
     self._add_parm('sigma',size,tags='shape');
-    
+
   def is_symmetric (self):
     return self._symmetric;
-    
+
   def sigma (self):
     """Returns the size for this source,
-    """    
+    """
     return self._parm('sigma');
-      
+
   def phi (self):
     """Returns the orientation node for this source""";
     return self._parm("phi");
-    
+
   def transformation_matrix (self):
     pass
 
-  def make_visibilities (self,nodes,array,observation):
+  def coherency (self,array=None,observation=None,nodes=None,**kw):
+    coherency = nodes or self.ns.coh;
     array = Context.get_array(array);
-    observation = Context.get_observation(observation);
-    dir0 = observation.phase_centre;
-    radec0 = dir0.radec();
-    # 1/wl = freq/c
-    iwl = self.ns.inv_wavelength << ((self.ns.freq<<Meq.Freq) / 2.99792458e+8);
-    # 1/(wl^2): scaling factor applied to exp() argument below
-    m_iwlsq = self.ns.m_inv_wavelength_sq << Meq.Sqr(iwl);
-    # scaling factor of gaussian for unit flux
-    gscale = self.ns.diskcomponent_scale << Meq.Constant(1.0);
-    # baseline UVs
-    uv_ifr = array.uv_ifr(dir0);
-    # flux scale -- coherency multiplied by scale constant above
-    fluxscale = self.ns.fluxscale.qadd(radec0()) \
-          << self.coherency(observation) * gscale;
-    # transformed uv's (rotated and scaled)
-    uv1sq = self.ns.uv1sq.qadd(radec0);
-    u1sq = self.ns.u1sq.qadd(radec0);
-    v1sq = self.ns.v1sq.qadd(radec0);
-    sumuvsq = self.ns.sumuvsq.qadd(radec0);
-    # gaussian coherencies go here
-    gcoh = self.ns.disk_coh.qadd(radec0);
-    # now generate nodes
-    for ifr in array.ifrs():
-      # rotate uvs and scale to wavelength
-      uv1s = uv1sq(*ifr) << Meq.Sqr(uv_ifr(*ifr));
-      u1s = u1sq(*ifr) << Meq.Selector(uv1s,index=0); 
-      v1s = v1sq(*ifr) << Meq.Selector(uv1s,index=1); 
-      rr  = sumuvsq(*ifr) <<Meq.Sqrt((u1s+v1s)*m_iwlsq);
-      sigma=self._parm("sigma");
-      gcoh(*ifr) << fluxscale * Meq.Bessel(rr*2*math.pi*sigma,order=self._order)/rr;
-    # phase shift to source position
-    self.direction.make_phase_shift(nodes,gcoh,array,dir0);
+    if not coherency(*array.ifrs()[0]).initialized():
+      observation = Context.get_observation(observation);
+      dir0 = observation.phase_centre;
+      radec0 = dir0.radec();
+      # 1/wl = freq/c
+      iwl = self.ns.inv_wavelength << ((self.ns.freq<<Meq.Freq) / 2.99792458e+8);
+      # 1/(wl^2): scaling factor applied to exp() argument below
+      m_iwlsq = self.ns.m_inv_wavelength_sq << Meq.Sqr(iwl);
+      # scaling factor of gaussian for unit flux
+      gscale = self.ns.diskcomponent_scale << Meq.Constant(1.0);
+      # baseline UVs
+      uv_ifr = array.uv_ifr(dir0);
+      # flux scale -- coherency multiplied by scale constant above
+      fluxscale = self.ns.fluxscale
+            << self.brightness(observation) * gscale;
+      # transformed uv's (rotated and scaled)
+      uv1sq = self.ns.uv1sq;
+      u1sq = self.ns.u1sq;
+      v1sq = self.ns.v1sq;
+      sumuvsq = self.ns.sumuvsq;
+      sigma = self._parm("sigma");
+      # now generate nodes
+      for ifr in array.ifrs():
+        # rotate uvs and scale to wavelength
+        uv1s = uv1sq(*ifr) << Meq.Sqr(uv_ifr(*ifr));
+        u1s = u1sq(*ifr) << Meq.Selector(uv1s,index=0);
+        v1s = v1sq(*ifr) << Meq.Selector(uv1s,index=1);
+        rr  = sumuvsq(*ifr) <<Meq.Sqrt((u1s+v1s)*m_iwlsq);
+        coherency(*ifr) << fluxscale * Meq.Bessel(rr*2*math.pi*sigma,order=self._order)/rr;
+    return coherency;

@@ -1,9 +1,9 @@
 #
-#% $Id$ 
+#% $Id$
 #
 #
 # Copyright (C) 2002-2007
-# The MeqTree Foundation & 
+# The MeqTree Foundation &
 # ASTRON (Netherlands Foundation for Research in Astronomy)
 # P.O.Box 2, 7990 AA Dwingeloo, The Netherlands
 #
@@ -19,7 +19,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>,
-# or write to the Free Software Foundation, Inc., 
+# or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
@@ -31,12 +31,13 @@ class Patch (SkyComponent):
   def __init__(self,ns,name,direction,components=[]):
     SkyComponent.__init__(self,ns,name,direction);
     self._components = list(components);
-    
+
   def add (self,*comps):
     """adds components to patch""";
     self._components += comps;
-    
-  def make_visibilities (self,nodes,array,observation,**kw):
+
+  def coherency (self,array,observation,nodes=None,**kw):
+    nodes = nodes or self.ns.vis;
     array = Context.get_array(array);
     ifrs = array.ifrs();
     # no components -- use 0
@@ -44,7 +45,7 @@ class Patch (SkyComponent):
       [ nodes(*ifr) << 0.0 for ifr in ifrs ];
     else:
       cv_list = [ (comp,comp.visibilities(array,observation)) for comp in self._components ];
-      # determine which componentsn are now solvable
+      # determine which components are now solvable
       solvables = [ vis for comp,vis in cv_list if comp.get_solvables() ];
       nonsolvables = [ vis for comp,vis in cv_list if not comp.get_solvables() ];
       # if both types are present, add separately for optimum cache reuse

@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-#% $Id$ 
+#% $Id$
 #
 #
 # Copyright (C) 2002-2007
-# The MeqTree Foundation & 
+# The MeqTree Foundation &
 # ASTRON (Netherlands Foundation for Research in Astronomy)
 # P.O.Box 2, 7990 AA Dwingeloo, The Netherlands
 #
@@ -20,7 +20,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>,
-# or write to the Free Software Foundation, Inc., 
+# or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
@@ -29,7 +29,7 @@ from Timba.Meq import meq
 from SkyComponent import *
 import Jones
 import Context
-  
+
 STOKES = ("I","Q","U","V");
 
 class PointSource(SkyComponent):
@@ -37,12 +37,12 @@ class PointSource(SkyComponent):
                I=0.0,Q=None,U=None,V=None,
                spi=None,freq0=None,
                RM=None):
-    """Creates a PointSource with the given name; associates with 
-    direction. 
+    """Creates a PointSource with the given name; associates with
+    direction.
     'direction' is a Direction object or a (ra,dec) tuple
     'I' is I flux (constant, node, or Meow.Parm)
     Optional arguments:
-      'Q','U','V' are constants, nodes, or Meow.Parms. If none of the three 
+      'Q','U','V' are constants, nodes, or Meow.Parms. If none of the three
           are supplied, an unpolarized source representation is used.
       'spi' and 'freq0' are constants, nodes or Meow.Parms. If both are
           supplied, a spectral index is added, otherwise the fluxes are
@@ -68,15 +68,15 @@ class PointSource(SkyComponent):
       self._add_parm('spi',spi or 0.,tags="spectrum");
     if self._has_spi or self._has_rm:
       # for freq0, use placeholder node for first MS frequency,
-      # unless something else is specified 
+      # unless something else is specified
       self._add_parm('spi_fq0',freq0 or (ns.freq0 ** 0),tags="spectrum");
       self._freq0 = freq0
-      
+
     # see if intrinsic rotation measure is present
     # flag: flux is fully defined by constants
     self._constant_flux = not self._has_rm and not \
                           [ flux for flux in STOKES if not self._is_constant(flux) ];
-      
+
   def stokes (self,st):
     """Returns flux node for this source. 'st' must be one of 'I','Q','U','V'.
     (This is the flux after RM has been applied, but without spi).
@@ -123,7 +123,7 @@ class PointSource(SkyComponent):
       self.ns.Ur << sinf*self.ns.Q_ref + cosf*self.ns.U_ref;
 
       return self.ns[st+'r'];
-      
+
   def norm_spectrum (self):
     """Returns spectrum normalized to 1 at the reference frequency.
     Flux should be multiplied by this to get the real spectrum""";
@@ -134,7 +134,7 @@ class PointSource(SkyComponent):
       freq = self.ns0.freq ** Meq.Freq;
       nsp << Meq.Pow(freq/self._parm('spi_fq0'),self._parm('spi'));
     return nsp;
-    
+
   def coherency_elements (self,observation):
     """helper method: returns the four components of the coherency matrix""";
     i,q,u,v = [ self.stokes(st) for st in STOKES ];
@@ -161,15 +161,15 @@ class PointSource(SkyComponent):
         yx = self.ns.yx ** Meq.Conj(xy);
       yy = self.ns.yy ** (self.stokes("I") - self.stokes("Q"));
       return xx,xy,yx,yy;
-    
-  def coherency (self,observation=None):
-    """Returns the coherency matrix for a point source.
+
+  def brightness (self,observation=None,nodes=None):
+    """Returns the brightness matrix for a point source.
     'observation' argument is used to select a linear or circular basis;
     if not supplied, the global context is used.""";
     observation = observation or Context.observation;
     if not observation:
       raise ValueError,"observation not specified in global Meow.Context, or in this function call";
-    coh = self.ns.coherency;
+    coh = nodes or self.ns.brightness;
     if not coh.initialized():
       # if not polarized, just return I
       if not self._polarized:
@@ -196,20 +196,16 @@ class PointSource(SkyComponent):
             coh = Context.unitCoherency(coh1);
     return coh;
 
-  def make_visibilities (self,nodes,array=None,observation=None,**kw):
-    observation = observation or Context.observation;
-    # create lambda to return the same coherency at all baselines
-    cohnode = lambda p,q: self.coherency(observation);
-    # use direction's phase shift method
-    self.direction.make_phase_shift(nodes,cohnode,array,observation.phase_center,smearing=self.smearing);
-    return nodes;
+  def coherency (self,array=None,observation=None,nodes=None,**kw):
+    brightness = self.brightness(observation,nodes=nodes,**kw);
+    return lambda p,q:brightness;
 
   def is_station_decomposable (self):
     """Check the type -- subclasses are not necessarily decomposable.""";
     return type(self) == PointSource;
-  
+
   def sqrt_coherency (self,observation):
-    # Cholesky decomposition of the coherency matrix into 
+    # Cholesky decomposition of the coherency matrix into
     # UU*, where U is lower-triangular
     coh = self.ns.sqrt_coh;
     if not coh.initialized():
@@ -249,7 +245,7 @@ class PointSource(SkyComponent):
           u2 = self.ns.U2 << Meq.Sqr(u);
           v2 = self.ns.V2 << Meq.Sqr(v);
           c22 = self.ns.sqrt_coh(2,2) << Meq.Sqrt(
-            self.ns.I2_QUV2 << self.ns.I2 - (self.ns.QUV2 << Meq.Add(q2,u2,v2)) 
+            self.ns.I2_QUV2 << self.ns.I2 - (self.ns.QUV2 << Meq.Add(q2,u2,v2))
           );
           # create unnormalized matrix + normalization term
           self.ns.sqrt_coh1 << Meq.Matrix22(c11,c12,c21,c22);
@@ -257,7 +253,7 @@ class PointSource(SkyComponent):
           # and finally form up product
           coh << norm * self.ns.sqrt_coh1;
     return coh;
-  
+
   def sqrt_visibilities (self,array=None,observation=None,nodes=None):
     self.using_station_decomposition = True;
     observation = Context.get_observation(observation);

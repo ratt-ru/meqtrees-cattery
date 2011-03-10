@@ -23,7 +23,7 @@ class Subgroup (object):
     self.name = name;
     self.nodes = ParmGroup._sort_members(nodes);
     self.solvable = True;
-  
+
   def set_solvable (self,solvable):
     self.solvable = solvable;
 
@@ -110,8 +110,8 @@ class ParmGroup (object):
         self._option_list += so;
       # now, more common options which are the same for individual/non-individual parms
       self._option_list += [
-        TDLMenu("Use non-default MEP table (default is MS/%s)"%self.pg.default_table_name,
-            TDLOption('nondefault_meptable','MEP table',TDLDirSelect("*mep",default=pg.table_name),namespace=self),
+        TDLMenu("Use non-default MEP table (default is %s%s)"%
+            (self.pg.default_table_name," in MS dir" if pg._table_in_ms else ""),             TDLOption('nondefault_meptable','MEP table',TDLDirSelect("*mep",default=pg.table_name),namespace=self),
           toggle='use_nondefault_meptable',deafult=False,namespace=self),
         TDLOption('use_mep','Initialize with solution from MEP table',True,namespace=self),
         TDLOption('ignore_time',"...even if time domains don't match (e.g. in case of calibrators)",False,namespace=self)
@@ -142,7 +142,7 @@ class ParmGroup (object):
         for opt in sopts:
           opt.show(show);
       self._optmenu.when_changed(show_hide_sopts);
-      
+
     def _add_individual_parm (self,parm):
       opts = self._parm_opts[parm.name] = record();
       opts.tdloption_namespace = (self.label+"."+parm.name).replace(":","_");
@@ -165,12 +165,12 @@ class ParmGroup (object):
           opt.show(show);
       parm_solv.when_changed(show_hide_sopts);
       return parm_solv;
-    
+
     def _add_nonindividual_parm (self,parm):
       opts = self._parm_opts[parm.name] = record();
       opts.tdloption_namespace = (self.label+"."+parm.name).replace(":","_");
       return TDLOption("solvable","Solve for %s"%parm.name,True,namespace=opts);
-                       
+
     def runtime_options (self,submenu=True):
       return [ self._optmenu ];
 
@@ -283,7 +283,7 @@ class ParmGroup (object):
     def get_table_name (self):
       if self.use_nondefault_meptable and self.nondefault_meptable:
         return self.nondefault_meptable;
-      elif Context.mssel and Context.mssel.msname:
+      elif self.pg._table_in_ms and Context.mssel and Context.mssel.msname:
         return os.path.join(Context.mssel.msname,self.pg.default_table_name);
       else:
         return self.pg.default_table_name;
@@ -298,7 +298,7 @@ class ParmGroup (object):
         cmp(map(int_or_str,a.name.split(':')),map(int_or_str,b.name.split(':'))));
     return sorted_members;
   _sort_members = staticmethod(_sort_members);
-  
+
   def __init__ (self,label,members=[],name=None,
                      subgroups=None,
                      individual=False,individual_toggles=True,bookmark=True,
@@ -312,7 +312,7 @@ class ParmGroup (object):
     'individual' is True if individual options are to be provided per parameter. Note that
                 this is incompatible with subgroups
     'individual_toggles' is True if individual solvasbility toggles are to be provided in addition to
-                subgroups. 
+                subgroups.
     'bookmark' is True if bookmarks for the parameters are to be automatically provided
     'table_name' is the name of a MEP table
     'table_in_ms' is True if the table should reside inside the current MS (in which case the MS selector
@@ -320,7 +320,7 @@ class ParmGroup (object):
     """
     self.label = label;
     self.name  = name or label;
-    # sort gropup members by name
+    # sort group members by name
     self.nodes = sorted_nodes = self._sort_members(members);
     # now collect list of subgroups
     self.subgroups = subgroups or [];
@@ -376,10 +376,13 @@ class SolveJob (object):
   def runtime_options (self):
     if self._jobmenu is None:
       opts = [ TDLOption('tile_size',"Tile size, in timeslots",[1,10,100],
-                    doc="""Input data is normally sliced by time, and processed in chunks of the 
-                    indicated size. This will also be the effective parameter solution interval 
+                    doc="""Input data is normally sliced by time, and processed in chunks of the
+                    indicated size. This will also be the effective parameter solution interval
                     (in time), unless you specify a different (smaller) value for the "Solution subinterval (time)" option below.""",
-                    more=int,namespace=self) ];
+                    more=int,namespace=self),
+               TDLOption('time_step',"Time stepping, in timeslots",[1,2,5,10],
+                    doc="""Enter a step size N>1 to only process every Nth timeslot.""",
+                    more=int,namespace=self)      ];
       # add options from parmgroups
       global _all_parmgroups;
       self.pg_controllers = [];
@@ -404,7 +407,7 @@ class SolveJob (object):
       self._jobmenu = TDLMenu(self.name or "Solve for %s"%self.label,*opts);
     return [ self._jobmenu ];
 
-  def run_solution (self,mqs,mssel=None,vdm=None,tiling=None,wait=False):
+  def run_solution (self,mqs,mssel=None,vdm=None,tiling=None,time_step=1,wait=False):
     """Helper function to put together TDL jobs.
     Starts a solution, setting the group to solvable""";
     mssel = mssel or Context.mssel;
@@ -415,10 +418,10 @@ class SolveJob (object):
     self.solver_control.update_state(mqs,cmdlist=cmdlist);
     # run the VisDataMux
     vdm = namify(vdm or Context.vdm or 'VisDataMux')
-    return mqs.execute(vdm,mssel.create_io_request(tiling),wait=wait);
+    return mqs.execute(vdm,mssel.create_io_request(tiling,time_step=time_step),wait=wait);
 
   def _run_solve_job (self,mqs,parent,wait=False,**kw):
-    return self.run_solution(mqs,tiling=self.tile_size,wait=wait);
+    return self.run_solution(mqs,tiling=self.tile_size,time_step=self.time_step,wait=wait);
 
 def num_solvejobs ():
   global _all_solvejobs;

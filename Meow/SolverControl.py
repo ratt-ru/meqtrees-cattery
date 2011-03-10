@@ -24,12 +24,12 @@ class SolverControl (object):
     self._opts.tdloption_namespace = label+'.solver';
     self._option_list = [
       TDLOption('debug_level',"Solver debug level",[0,1,10],namespace=self._opts),
-      TDLOption('colin_factor',"Collinearity factor",[1e-8,1e-6,1e-3,1e-1],default=1,more=float,namespace=self._opts),
+      TDLOption('colin_factor',"Collinearity factor",[0,1e-8,1e-6,1e-3,1e-1],default=0,more=float,namespace=self._opts),
       TDLOption('lm_factor',"Initial LM factor",[1,.1,.01,.001],default=3,more=float,namespace=self._opts),
       TDLOption('balanced_equations',"Assume balanced equations",False,namespace=self._opts),
-      TDLOption('epsilon',"Convergence threshold",[.01,.001,.0001,1e-5,1e-6],default=2,more=float,namespace=self._opts),
-      TDLOption('num_iter',"Max iterations",[10,30,50,100,1000],default=1,more=int,namespace=self._opts),
-      TDLOption('convergence_quota',"Subtiling convergence quota",[.8,.9,1.],more=float,namespace=self._opts), \
+      TDLOption('epsilon',"Convergence threshold",[.001,.0001,1e-5,1e-6],default=2,more=float,namespace=self._opts),
+      TDLOption('num_iter',"Max iterations",[5,10,15,30,50,100,1000],default=2,more=int,namespace=self._opts),
+      TDLOption('convergence_quota',"Subtiling convergence quota",[.9,1.],more=float,namespace=self._opts), \
       TDLOption('mt_solve',"Multithread solver if possible",True,namespace=self._opts) \
     ];
 

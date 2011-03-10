@@ -78,6 +78,9 @@ SKYJONES_RADEC    = "RA-Dec full sky";
 SKYJONES_AZEL     = "Az-El half sky";
 SKYJONES_AZEL_FULL = "Az-El full sky";
 
+PER_SOURCE = "each source";
+PER_ALL_SOURCES = "entire model";
+
 class MeqMaker (object):
   def __init__ (self,namespace='me',solvable=False,
       use_decomposition=None,
@@ -98,6 +101,7 @@ class MeqMaker (object):
     self._inspectors = [];
     self._skyjones_visualizer_mux = [];
     self._skyjones_visualizer_source = False;
+    self._module_toggles = {};
     other_opt = [];
     if use_decomposition is None:
       self.use_decomposition = False;
@@ -276,23 +280,32 @@ class MeqMaker (object):
       extra_options += [ self._module_selector("Apply pointing errors to %s"%label,
                                               label+"pe",pointing,nonexclusive=True) ];
     # extra options for per-station Jones term
-    sta_opt = TDLOption(self._make_attr('all_stations',label),"Use same %s-Jones for all stations"%label,False,namespace=self,nonexclusive=True,
+    sta_opt = TDLOption(self._make_attr('all_stations',label),"Use same %s-Jones for all stations"%label,False,
+        namespace=self,nonexclusive=True,
         doc="""If checked, then the same %s-Jones term will be used for all stations in the array. This may
         make your trees smaller and/or faster. Whether this is a valid approximation or not depends on your
         physics; typically this is valid if your array is small, and the effect arises far from the receivers."""%label);
     if is_uvplane:
+      # force-set the advanced options to True, since we omit a control for them (unlike the sky-Jones case)
+      setattr(self,self._make_attr('advanced',label),True);
       extra_options.append(sta_opt);
-      setattr(self,self._make_attr('all_sources',label),False);
+#      setattr(self,self._make_attr('all_sources',label),False);
       jt = self.JonesTerm(label,name,modules);
     else:
       jt = self.SkyJonesTerm(label,name,modules,pointing);
-      tdloption_namespace = "%s.subset_%s"%(self.tdloption_namespace,label);
-      jt.subset_selector = SourceSubsetSelector ("Apply %s-Jones to subset of sources"%label,tdloption_namespace,annotate=False);
-      opts =  [ sta_opt, TDLOption(self._make_attr('all_sources',label),"Use same %s-Jones for all sources"%label,False,namespace=self,nonexclusive=True,
-          doc="""If checked, then the same %s-Jones term will be used for all source in the model. This is a valid
-          approximation for narrow fields, and will make your trees smaller and/or faster."""%label) ];
+      tdloption_namespace = "%s.%s"%(self.tdloption_namespace,self._make_attr('subset',label));
+      jt.subset_selector = SourceSubsetSelector("Apply %s-Jones to subset of sources"%label,tdloption_namespace,annotate=False);
+      opts =  [ sta_opt,
+        TDLOption(self._make_attr('per_source',label),"Use a unique %s-Jones term per"%label,[PER_SOURCE,PER_ALL_SOURCES],
+                more=str,namespace=self,doc=
+                """<P>If you specify '%s', each source will receive an independent %s-Jones term. If you specify '%s',
+                the same %s-Jones term will be used for all sources in the model. Alternatively, you may specify a tag name
+                to group sources by tag. That is, assuming a tag name of "foo": if source A does not have the tag "foo",
+                it receives its own %sJones term. If it has the tag "foo=B", then source A will use the Jones term
+                associated with source B.</P>"""%(PER_SOURCE,label,PER_ALL_SOURCES,label,label)) ];
       opts += jt.subset_selector.options;
-      extra_options.append(TDLMenu("Advanced options",toggle='%s_advanced'%label,*opts));
+      extra_options.append(TDLMenu("Advanced options",
+                            toggle=self._make_attr('advanced',label),nonexclusive=True,namespace=self,*opts));
     # make option menus for selecting a jones module
     mainmenu = self._module_selector("Use %s Jones (%s)"%(label,name),
                                      label,modules,extra_opts=extra_options);
@@ -367,13 +380,10 @@ class MeqMaker (object):
     """Returns list of inspector nodes created by this MeqMaker""";
     return self._inspectors or [];
 
-  def _make_attr (*comps):
+  def _make_attr (c1,label,*comps):
     """Forms up the name of an 'enabled' attribute for a given module group (e.g. a Jones term)"""
-    return "_".join(comps);
+    return "_".join([label,c1]+list(comps));
   _make_attr = staticmethod(_make_attr);
-
-  def _module_togglename (self,label,mod):
-    return self._make_attr("enable",label,_modname(mod).replace('.',"_"));
 
   def _group_togglename (self,label):
     return self._make_attr("enable",label);
@@ -384,7 +394,7 @@ class MeqMaker (object):
 
   def is_module_enabled (self,label,mod):
     """Returns true if the given module is enabled for the given group label"""
-    return self.is_group_enabled(label) and getattr(self,self._module_togglename(label,mod),False);
+    return self.is_group_enabled(label) and self._module_toggles.get(label,{}).get(_modname(mod).replace(".","_"));
 
   def _module_selector (self,menutext,label,modules,extra_opts=[],use_toggle=True,exclusive=True,**kw):
     # Forms up a "module selector" submenu for the given module set.
@@ -398,20 +408,23 @@ class MeqMaker (object):
       toggle = None;
     # exclusive option. If True, modules are mutually exclusive
     if exclusive:
-      exclusive = self._make_attr("use",label,"module");
+      exclusive = self._make_attr("module",label);
     else:
       exclusive = None;
     if len(modules) == 1:
+      # make single entry
       doc = getattr(modules[0],'__doc__',None);
       modname = _modname(modules[0]);
       mainmenu = TDLMenu(menutext,toggle=toggle,namespace=self,name=modname,doc=doc,
                          *(_modopts(modules[0],'compile')+list(extra_opts)),**kw);
       # set the module's toggle to always on (will be controlled by outer toggle attribute)
-      setattr(self,self._module_togglename(label,modules[0]),True);
+      self._module_toggles[label] = { modname.replace(".","_"):True };
     else:
+      # make menu of module options
+      self._module_toggles[label] = dict(tdloption_namespace=self.tdloption_namespace+"."+label);
       submenus = [ TDLMenu("Use '%s' module"%_modname(mod),name=_modname(mod),
-                            toggle=self._module_togglename(label,mod),
-                            namespace=self,
+                            toggle=_modname(mod).replace(".","_"),
+                            namespace=self._module_toggles[label],
                             doc=getattr(mod,'__doc__',None),
                             *_modopts(mod,'compile'))
                     for mod in modules ];
@@ -591,34 +604,57 @@ class MeqMaker (object):
     If basenode==None, the given JonesTerm is not implemented and may be omitted from the ME.
     """;
     if jt.base_node is None:
+      advanced_opt = getattr(self,self._make_attr("advanced",jt.label),False);
       if isinstance(jt,self.SkyJonesTerm):
-        sources = jt.subset_selector.filter(sources);
+        # for sky-jones terms, apply subset selector to finalize list of sources
+        if advanced_opt:
+          sources = jt.subset_selector.filter(sources);
         if not sources:
           return None,False;
-      all_sources,all_stations = sources,(stations or Context.array.stations());
-      # for sky-jones terms, apply subset selector to finalize list of sources
-      # are we doing a per-source and per-station Jones term?
-      same_all_sources = sources and getattr(self,self._make_attr('all_sources',jt.label),False);
-      same_all_stations = getattr(self,self._make_attr('all_stations',jt.label),False);
-      if same_all_sources:
-        sources = [ all_sources[0] ];
+        # Depending on the per_sources option, make mapping between source names and the names of the Jones nodes
+        # actually used.
+        # sources_with_jones_nodes will be a list of sources for which unique Jones terms will actually be made.
+        # jones_mapping[name] will give the name of a source from the above list, which is associated with this name
+        per_source = advanced_opt and getattr(self,self._make_attr('per_source',jt.label),None);
+        if per_source is PER_SOURCE or not per_source:
+          sources_with_jones_node = sources;
+          jones_mapping = dict();
+        elif per_source is PER_ALL_SOURCES:
+          sources_with_jones_node = [ sources[0] ];
+          jones_mapping = dict([(src.name,sources[0].name) for src in sources[1:]]);
+        else:
+          sources_with_jones_node = [ src for src in sources if not src.get_attr(per_source) ];
+          their_names = set([src.name for src in sources_with_jones_node]);
+          jones_mapping = dict();
+          for src in sources:
+            tagval = src.get_attr(per_source);
+            if tagval:
+              if not tagval in their_names:
+                sources_with_jones_node.append(src);
+                their_names.add(src.name);
+              else:
+                jones_mapping[src.name] = tagval;
+      else:
+        sources_with_jones_node = None;
+      # are we doing a per-station Jones term?
+      all_stations = stations or Context.array.stations();
+      same_all_stations = advanced_opt and getattr(self,self._make_attr('all_stations',jt.label),False);
       if same_all_stations:
         stations = [ all_stations[0] ];
       # now get the module
       module = self._get_selected_module(jt.label,jt.modules);
       if not module:
         return None,False;
-      prev_num_solvejobs = ParmGroup.num_solvejobs();  # to keep track of whether module creates its own
       jones_inspectors = [];
       jt.solvable = False;
-      sources0 = sources;
       skyvis = None;
       # For sky-Jones terms, see if this module has pointing offsets enabled
       if isinstance(jt,self.SkyJonesTerm):
+        sources0 = sources_with_jones_node;
         # is visualization enabled? insert extra source then for the visualization
         if self.use_skyjones_visualizers:
           skyvis = self._make_skyjones_visualizer_source(ns);
-          sources = [ skyvis ] + list(sources);
+          sources_with_jones_node.insert(0,skyvis);
         dlm = None;
         if jt.pointing_modules:
           pointing_module = self._get_selected_module(jt.label+"pe",jt.pointing_modules);
@@ -642,7 +678,7 @@ class MeqMaker (object):
       # this is to keep the extra corruption qualifiers from creeping into their names
       Jj = ns[jt.label];    # create name hint for nodes
       inspectors = [];
-      jt.base_node = Jj = module.compute_jones(Jj,sources=sources,stations=stations,
+      jt.base_node = Jj = module.compute_jones(Jj,sources=sources_with_jones_node,stations=stations,
                                           pointing_offsets=dlm,solvable_sources=solvable_sources,
                                           tags=jt.label,label=jt.label,
                                           meqmaker=self,
@@ -670,7 +706,7 @@ class MeqMaker (object):
             vissq = ns.visualizer_sq(jt.label) << Meq.Composer(dims=[0],*[jones(p)('a2tr') for p in vis_stations]);
             self._add_sky_visualizer(vis,vissq,jt.label,jt.name);
           # remove skyvis from list of sources
-          sources = sources[1:];
+          sources_with_jones_node = sources0;
         if inspectors:
           for node in inspectors:
             self.add_inspector_node(node);
@@ -681,28 +717,20 @@ class MeqMaker (object):
             self.make_bookmark_set(Jj,quals,"%s-Jones: inspector"%jt.label);
           else:
             self.make_per_station_bookmarks(Jj,"%s-Jones"%jt.label,stations);
-        # expand into per-station, per-source terms as needed
-        if same_all_sources and same_all_stations:
-          jj0 = Jj(all_sources[0],all_stations[0]);
-          for isrc,src in enumerate(all_sources):
-            for ip,p in enumerate(all_stations):
-              if isrc or ip:
-                Jj(src,p) << Meq.Identity(jj0);
-        elif same_all_sources:
-          for p in stations:
-            jj0 = Jj(all_sources[0],p);
-            for src in all_sources[1:]:
-              Jj(src,p) << Meq.Identity(jj0);
-        elif same_all_stations:
-          if sources:
-            for src in sources:
-              jj0 = Jj(src,all_stations[0]);
+        # if same for all stations, loop over other stations and create identity nodes
+        if same_all_stations:
+          if sources_with_jones_node:
+            for src in sources_with_jones_node:
               for p in all_stations[1:]:
-                Jj(src,p) << Meq.Identity(jj0);
+                Jj(src,p) << Meq.Identity(Jj(src,all_stations[0]));
           else:
-            jj0 = Jj(all_stations[0]);
             for p in all_stations[1:]:
-              Jj(p) << Meq.Identity(jj0);
+              Jj(p) << Meq.Identity(Jj(all_stations[0]));
+        # if some sources need to map to these Jones nodes, do it here
+        if sources_with_jones_node:
+          for src,src0 in jones_mapping.iteritems():
+            for p in all_stations:
+              Jj(src,p) << Meq.Identity(Jj(src0,p));
     return jt.base_node,jt.solvable;
 
     ## create TDL job
@@ -719,6 +747,7 @@ class MeqMaker (object):
       added to the sky model, before applying any uv terms.
     Returns a base node which should be qualified with a station pair.
     """;
+    Meow.Context.array.enable_uvw_derivatives(self.use_smearing);
     stations = Meow.Context.array.stations();
     ifrs = ifrs or Meow.Context.array.ifrs();
     # use sky model if no source list is supplied

@@ -63,7 +63,8 @@ class IfrArray (object):
 
   def __init__(self,ns,station_list,station_index=None,uvw_table=None,
                observatory=None,
-               ms_uvw=None,mirror_uvw=None,resamplers=False,positions=None):
+               ms_uvw=None,mirror_uvw=None,include_uvw_deriv=False,
+               resamplers=False,positions=None):
     """Creates an IfrArray object, representing an interferometer array.
     'station_list' is a list of station IDs, not necessarily numeric.
         It can also be a list of (index,ID) tuples, when a subset of antennas
@@ -103,8 +104,12 @@ class IfrArray (object):
     self._uvw_table = uvw_table;
     self._ms_uvw = ms_uvw;
     self._mirror_uvw = mirror_uvw;
+    self._include_uvw_deriv = include_uvw_deriv;
     self._resamplers = resamplers;
     self._jones = [];
+
+  def enable_uvw_derivatives (self,enable=True):
+    self._include_uvw_deriv = enable;
 
   @staticmethod
   def WSRT (ns,stations=14,uvw_table=None,mirror_uvw=False):
@@ -144,20 +149,20 @@ class IfrArray (object):
   def num_ifrs (self):
     return len(self.ifrs());
 
-  ifr_spec_syntax = """<P>Specify interferometers as a list of tokens, separated by commas or spaces. 
+  ifr_spec_syntax = """<P>Specify interferometers as a list of tokens, separated by commas or spaces.
   The format of each token is as follows:</P>
 
   <P>"*" or "all": selects all ifrs.</P>
 
   <P>"&lt;=N", "&lt;N", "&gt;=N", "&gt;N": selects by baseline length.</P>
 
-  <P>"P-Q" or "P:Q" or "PQ": selects interferometer P-Q. (The third form is useful when 
-  station names are a single character, as for WSRT.) Q may be "*", in which case all 
+  <P>"P-Q" or "P:Q" or "PQ": selects interferometer P-Q. (The third form is useful when
+  station names are a single character, as for WSRT.) Q may be "*", in which case all
   interferometers formed with antenna P are selected.</P>
 
-  <P>"-xxx": excludes baselines specified by token xxx. E.g. "all -4* -&lt;144 0-1 AB" selects all 
-  baselines, then throws out those with antenna 4 and those shorter than 144m, then adds 0-1 
-  and A-B. Note also that as a shortcut, if the first token in the list is negated, then a "*" 
+  <P>"-xxx": excludes baselines specified by token xxx. E.g. "all -4* -&lt;144 0-1 AB" selects all
+  baselines, then throws out those with antenna 4 and those shorter than 144m, then adds 0-1
+  and A-B. Note also that as a shortcut, if the first token in the list is negated, then a "*"
   is implicitly prepended. That is, a "-AB" at the start is equivalent to "all -AB".</P>
   """;
 
@@ -200,15 +205,11 @@ class IfrArray (object):
       xyz0 << Meq.Identity(self.xyz(self.stations()[0]));
     return xyz0;
 
-  def xyz (self,p=None):
+  def xyz (self,station=None):
     """Returns unqualified station position nodes, if no argument supplied.
     Else if a station is supplied, returns XYZ node for that station""";
-    if p is None:
-      stations = self.stations();
-    else:
-      stations = [p];
     # check that nodes are initialized
-    for p in stations:
+    for p in (self.stations() if station is None else [station]):
       xyz = self.ns.xyz(p);
       if not xyz.initialized():
         # since the Meow.ReadVisHeader script knows nothing about
@@ -219,15 +220,12 @@ class IfrArray (object):
         num = 'num'+str(ip);
         # create XYZ nodes
         x,y,z = self.station_position(ip);
-        xyz = self.ns.xyz(p) << Meq.Composer(
+        xyz << Meq.Composer(
           self.ns.stx(num) << x,
           self.ns.sty(num) << y,
           self.ns.stz(num) << z
         );
-    if p is None:
-      return self.ns.xyz;
-    else:
-      return self.ns.xyz(p);
+    return self.ns.xyz if station is None else self.ns.xyz(station);
 
   def x_station(self,p):
     self.xyz(p);
@@ -241,7 +239,7 @@ class IfrArray (object):
     self.xyz(p);
     num = 'num'+str(self.number_of_station(p));
     return self.ns.stz(num);
-    
+
   def uvw (self,dir0=None,*quals):
     """returns station UVW node(s) for a given phase centre direction,
     or using the global phase center if None is given.
@@ -287,9 +285,8 @@ class IfrArray (object):
         xyz0 = self.xyz0();
         xyz = self.xyz();
         for station in self.stations():
-          uvw_def = Meq.UVW(radec = radec0,
-                            xyz_0 = xyz0,
-                            xyz   = xyz(station));
+          uvw_def = Meq.UVW(radec=radec0,xyz_0= xyz0,xyz=xyz(station),
+            include_deriv=self._include_uvw_deriv);
           if self._mirror_uvw:
             uvw(station) << Meq.Negate(self.ns.m_uvw(station) << uvw_def );
           else:

@@ -71,7 +71,7 @@ class FITSAxes (object):
       ax = str(i+1);
       nx = self._naxis[i] = hdr.get('NAXIS'+ax);
       # CTYPE is axis name
-      self._type[i] = hdr.get('CTYPE'+ax,None);  
+      self._type[i] = hdr.get('CTYPE'+ax,None);
       if self._type[i] is not None:
         self._axis[self._type[i]] = i;
       # axis gridding
@@ -120,10 +120,10 @@ class FITSAxes (object):
 
 class LMVoltageBeam (object):
   """This class implements a complex voltage beam as a function of LM."""
-  def __init__ (self,spline_order=2,l_beam_offset=0.0, m_beam_offset=0.0,ampl_interpolation=False,verbose=None):
+  def __init__ (self,spline_order=2,l0=0,m0=0,
+    ampl_interpolation=False,verbose=None):
     self._spline_order = spline_order;
-    self.l_beam_offset = l_beam_offset * DEG
-    self.m_beam_offset = m_beam_offset * DEG
+    self.l0,self.m0 = l0,m0;
     self.ampl_interpolation = ampl_interpolation
     if verbose:
       _verbosity.set_verbose(verbose);
@@ -143,7 +143,7 @@ class LMVoltageBeam (object):
         raise TypeError,"shape mismatch between FITS files %s and %s"%(filename_real,filename_imag);
       beam.imag = im_data;
       if self.ampl_interpolation:
-        beam_ampl = numpy.abs(beam) 
+        beam_ampl = numpy.abs(beam)
     # change order of axis, since FITS has first axis last
     beam = beam.transpose();
     if not beam_ampl is None:
@@ -185,7 +185,7 @@ class LMVoltageBeam (object):
     if not beam_ampl is None:
       beam_ampl = beam_ampl.transpose(used_axes+other_axes)
       beam_ampl = beam_ampl.reshape(beam_ampl.shape[:len(used_axes)]);
-      
+
     dprint(1,"beam array has shape",beam.shape);
     dprint(2,"l grid is",axes.grid(laxis));
     dprint(2,"m grid is",axes.grid(maxis));
@@ -207,7 +207,7 @@ class LMVoltageBeam (object):
 
   def hasFrequencyAxis (self):
     return bool(self._freqToPixel);
-    
+
   def beam (self):
     return self._beam;
 
@@ -216,31 +216,31 @@ class LMVoltageBeam (object):
     l,m may be arrays (both must be the same shape, or will be promoted to the same shape)
 
     If beam has a freq dependence, then an array of frequency coordinates (freq) must be given,
-    and freqaxis must be set to the number of the frequency axis. Then the following 
+    and freqaxis must be set to the number of the frequency axis. Then the following
     possibilities apply:
-    
+
     (A) len(freq)==1  (freqaxis need not be set)
         l/m is interpolated at the same frequency point.
         Output array is same shape as l/m.
-        
+
     (B) len(freq)>1 and l.shape[freqaxis] == 1:
-        The same l/m is interpolated at every point in freq. 
+        The same l/m is interpolated at every point in freq.
         Output array is same shape as l/m, plus an extra frequency axis (number freqaxis)
-    
+
     (C) len(freq)>1 and l.shape[freqaxis] == len(freq)
         l/m has its own freq dependence, so a different l/m/freq is interpolated at every point.
         Output array is same shape as l/m.
-        
+
     And finally (D):
 
-    (D) No dependence on frequency in the beam. 
+    (D) No dependence on frequency in the beam.
         We simply interpolate every l/m value as is. Output array is same shape as l/m.
 
     'time' is currently ignored -- provided for later compatibility (i.e. beams with time planes)
     """
     # make sure inputs are arrays
-    l = numpy.array(l) + self.l_beam_offset
-    m = numpy.array(m) + self.m_beam_offset 
+    l = numpy.array(l) + self.l0;
+    m = numpy.array(m) + self.m0;
 
     freq = numpy.array(freq);
     # promote l,m to the same shape
@@ -263,7 +263,7 @@ class LMVoltageBeam (object):
       # case (A): reuse same frequency for every l/m point
       if len(freq) == 1:
         lm = numpy.vstack((l.ravel(),m.ravel(),[freq[0]]*l.size));
-      # case B/C: 
+      # case B/C:
       else:
         # first turn freq vector into an array of the proper shape
         if freqaxis is None:
@@ -277,7 +277,7 @@ class LMVoltageBeam (object):
         m,freq = unite_shapes(m,freq);
         lm = numpy.vstack((l.ravel(),m.ravel(),freq.ravel()));
     # case (D): no frequency dependence in the beam
-    else: 
+    else:
       lm = numpy.vstack((l.ravel(),m.ravel()));
     # interpolate and reshape back to shape of L
     if output is None:
@@ -344,7 +344,7 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     _verbosity.set_verbose(self.verbose);
 
   def init_voltage_beams (self):
-    """initializes VoltageBeams for the given set of FITS files (per each _vb_key, that is). 
+    """initializes VoltageBeams for the given set of FITS files (per each _vb_key, that is).
     Returns list of 1 or 4 VoltageBeam objects."""
     # maintain a global dict of VoltageBeam objects per each filename set, so that we reuse them
     global _voltage_beams;
@@ -362,7 +362,10 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
           filename_real = None;
         # now, create VoltageBeam if at least the real part still exists
         if filename_real:
-          vb = LMVoltageBeam(l_beam_offset=self.l_beam_offset, m_beam_offset=self.m_beam_offset,ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,verbose=self.verbose);
+          vb = LMVoltageBeam(
+                l_beam_offset=self.l_beam_offset,m_beam_offset=self.m_beam_offset,
+                ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,
+                verbose=self.verbose);
           vb.read(filename_real,filename_imag);
         else:
           vb = None;
@@ -373,9 +376,9 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
       elif len(vbs) == 4:
         xx,xy,yx,yy = [ vb.beam() if vb else 0 for vb in vbs ];
         beam_max = math.sqrt((abs(xx)**2+abs(xy)**2+abs(yx)**2+abs(yy)**2).max()/2);
-      print "beam max is",beam_max;
+      dprint(1,"beam max is",beam_max);
       _voltage_beams[self._vb_key] = vbs,beam_max;
-    return vbs,beam_max; 
+    return vbs,beam_max;
 
   def get_result (self,request,*children):
     # get list of VoltageBeams
@@ -422,22 +425,22 @@ if __name__ == "__main__":
 
   vb = LMVoltageBeam(spline_order=3);
   vb.read("beam_xx_re.fits","beam_xx_im.fits");
-    
+
   l0 = numpy.array([-2,-1,0,1,2])*DEG;
   l = numpy.vstack([l0]*len(l0));
 
   print vb.interpolate(l,l.T);
-  
+
   vb = LMVoltageBeam(spline_order=3);
   vb.read("XX_0_Re.fits","XX_0_Im.fits");
-    
+
   l0 = numpy.array([-4,-2,0,2,4])*DEG;
   l = numpy.vstack([l0]*len(l0));
 
   a = vb.interpolate(l,l.T,freq=[1e+9],freqaxis=2);
   b = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9],freqaxis=2);
   c = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9,1.3e+9,1.4e+9],freqaxis=1);
- 
+
   print "A",a.shape,a;
   print "B",b.shape,b;
   print "C",c.shape,c;

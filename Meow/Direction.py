@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-#% $Id$ 
+#% $Id$
 #
 #
 # Copyright (C) 2002-2007
-# The MeqTree Foundation & 
+# The MeqTree Foundation &
 # ASTRON (Netherlands Foundation for Research in Astronomy)
 # P.O.Box 2, 7990 AA Dwingeloo, The Netherlands
 #
@@ -20,7 +20,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>,
-# or write to the Free Software Foundation, Inc., 
+# or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
@@ -79,7 +79,7 @@ class Direction (Parameterization):
       self.static_lmn = {};
     else:
       self.static = None;
-    
+
   def radec (self):
     """Returns ra-dec 2-vector node for this direction.
     """;
@@ -97,7 +97,7 @@ class Direction (Parameterization):
   def dec (self):
     """Returns dec node for this direction.""";
     return self.ns.dec ** Meq.Selector(self.radec(),index=1);
-    
+
   def radec_static (self):
     """Returns ra-dec tuple for this direction if static, None if not.
     """;
@@ -111,7 +111,7 @@ class Direction (Parameterization):
     if not pa.initialized():
       pa << Meq.ParAngle(radec=self.radec(),xyz=xyz);
     return pa;
-    
+
   def pa_rot (self,xyz=None):
     """Returns rotation matrix for PA relative to given xyz position
     """;
@@ -122,7 +122,7 @@ class Direction (Parameterization):
       rcos = pa('cos') ** Meq.Cos(pa);
       pa_rot << Meq.Matrix22(rcos,-rsin,rsin,rcos);
     return pa_rot;
-    
+
   def azel (self,xyz=None):
     """Returns az-el 2-vector node for this direction.
     """;
@@ -141,7 +141,7 @@ class Direction (Parameterization):
     """Returns el node for this direction.""";
     azel = self.azel(xyz);
     return self.ns.el(*azel.quals,**azel.kwquals) ** Meq.Selector(azel,index=1);
-    
+
   def lmn (self,dir0=None):
     """Returns LMN 3-vector node for this direction, given a reference
     direction dir0, or using the global phase center if not supplied.
@@ -161,10 +161,10 @@ class Direction (Parameterization):
         else:
           lmn << Meq.LMN(radec_0=dir0.radec(),radec=self.radec());
     return lmn;
-  
+
   def lmn_static (self,dir0=None):
-    """Returns static LMN tuple, given a reference direction dir0, or using the global phase 
-    center if not supplied. 
+    """Returns static LMN tuple, given a reference direction dir0, or using the global phase
+    center if not supplied.
     Both this direction and the reference direction must be static, otherwise None is returned.
     """;
     dir0 = Context.get_dir0(dir0);
@@ -177,7 +177,7 @@ class Direction (Parameterization):
       ra,dec = self.radec_static();
       lmn = self.static_lmn[(ra0,dec0)] = radec_to_lmn(ra,dec,ra0,dec0);
     return lmn;
-    
+
   def _lmn_component (self,name,dir0,index):
     """Helper method for below, returns part of the LMN vector.""";
     lmn = self.lmn(dir0);
@@ -206,7 +206,7 @@ class Direction (Parameterization):
   def n (self,dir0=None):
     """Returns an N node for this direction. All args are as per lmn().""";
     return self._lmn_component('n',dir0,2);
-    
+
   def lmn_1 (self,dir0=None):
     """Returns L,M,N-1 3-vector node for this direction.
      All args are as per lmn().""";
@@ -220,14 +220,14 @@ class Direction (Parameterization):
         lmn = self.lmn(dir0);
         lmn_1 << Meq.Paster(lmn,self.n(dir0)-1,index=2);
     return lmn_1;
-    
-  def KJones (self,array=None,dir0=None,smearing=False):
+
+  def KJones (self,array=None,dir0=None):
     """makes and returns a series of Kjones (phase shift) nodes
     for this direction, given a reference direction dir0, or using
     the global phase center if not supplied.
-    Return value is an under-qualified node K, which should be 
+    Return value is an under-qualified node K, which should be
     qualified with a station index.
-    If 'smearing' is True, then uses an alternative implementation of K -- 
+    If 'smearing' is True, then uses an alternative implementation of K --
     makes a separate node K('arg'), which holds the complex argument of K. This argument node
     can be used to compute smearing factors.
     """;
@@ -239,25 +239,57 @@ class Direction (Parameterization):
       Kj = self.ns.K;
       if dir0:
         Kj = Kj.qadd(dir0.radec());
-      if smearing:
-        Kjarg = Kj('arg');
       array = Context.get_array(array);
       stations = array.stations();
+      Kjarg = Kj('arg');
       if not Kj(stations[0]).initialized():
-        # use L,M,(N-1) for lmn. NB: this could be made an option in the future
-        lmn_1 = self.lmn_1(dir0);
-        uvw = array.uvw(dir0);
-        for p in stations:
-          if smearing:
-            Kj(p) << Meq.Polar(1,
-              Kjarg(p) << Meq.VisPhaseShiftArg(lmn=lmn_1,uvw=uvw(p)));
-          else:
+        if Kjarg(stations[0]).initialized():
+          for p in stations:
+            Kj(p) << Meq.VisPhaseShift(Kjarg(p));
+        else:
+          lmn_1 = self.lmn_1(dir0);
+          uvw = array.uvw(dir0);
+          for p in stations:
             Kj(p) << Meq.VisPhaseShift(lmn=lmn_1,uvw=uvw(p));
       return Kj;
 
-  def make_phase_shift (self,vis,vis0,array=None,dir0=None,smearing=False):
-    """phase-shifts visibilities given by vis0(p,q) from dir0 
-    (the global phase center by default) to the given direction. 
+  def _KJonesArg (self,Kj,array,dir0):
+    # if direction is same, K is identity for all stations
+    Kjarg = Kj('arg');
+    if self is dir0:
+      Kjarg << 0;
+      return lambda p: Kjarg;
+    else:
+      stations = array.stations();
+      if not Kjarg(stations[0]).initialized():
+        lmn_1 = self.lmn_1(dir0);
+        uvw = array.uvw(dir0);
+        for p in stations:
+          Kjarg(p) << Meq.MatrixMultiply(uvw(p),lmn_1);
+      return Kjarg;
+
+  def smear_factor (self,array=None,dir0=None):
+    """Returns smearing factor associated with this direction.
+    Returns something that must be qualified with p,q, or can be None if there's no smearing.
+    By default, uses the Direction implementation."""
+    if self is dir0:
+      return None;
+    else:
+      Kj = self.ns.K;
+      if dir0:
+        Kj = Kj.qadd(dir0.radec());
+      Kjsm = Kj('smear');
+      array = Context.get_array(array);
+      ifrs = array.ifrs();
+      if not Kjsm(*ifrs[0]).initialized():
+        Kjarg = self._KJonesArg(Kj,array,dir0);
+        for p,q in ifrs:
+          Kjsm(p,q) << Meq.TFSmearFactor(Kjarg(p),Kjarg(q));
+      return Kjsm;
+
+  def make_phase_shift (self,vis,vis0,array=None,dir0=None):
+    """phase-shifts visibilities given by vis0(p,q) from dir0
+    (the global phase center by default) to the given direction.
     Shifted visibilities are created as vis(p,q).
     """;
     dir0 = Context.get_dir0(dir0);
@@ -266,16 +298,7 @@ class Direction (Parameterization):
     if self is dir0:
       for p,q in array.ifrs():
         vis(p,q) << Meq.Identity(vis0(p,q));
-    # else apply KJones
+    # else apply KJones and smear, if need be
     else:
-      Kj = self.KJones(array=array,dir0=dir0,smearing=smearing);
-      if smearing:
-        Karg = Kj('arg');
-        Ksmear = Kj('smear');
-        vis1 = vis('unsmeared');
-        Jones.apply_corruption(vis1,vis0,Kj,array.ifrs());
-        for p,q in array.ifrs():
-          sf = Ksmear(p,q) << Meq.TFSmearFactor(Karg(p),Karg(q));
-          vis(p,q) << sf*vis1(p,q);
-      else:
-        Jones.apply_corruption(vis,vis0,Kj,array.ifrs());
+      Kj = self.KJones(array=array,dir0=dir0);
+      Jones.apply_corruption(vis,vis0,Kj,array.ifrs());

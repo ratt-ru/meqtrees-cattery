@@ -126,7 +126,7 @@ output_option = TDLCompileOption('do_output',"Output visibilities",
   <li><B>Corrected data</B> is the input data corrected for the instrumental model (by applying the inverse of the
   M.E.)</li>
 
-  <li><B>Uncorrected residuals</B> refer to input data minus predict. This corresponds to whatever signal is 
+  <li><B>Uncorrected residuals</B> refer to input data minus predict. This corresponds to whatever signal is
   left in your data that is <b>not</b> represented by the model, and still subject to instrumental corruptions.</li>
 
   <li><B>Corrected residuals</B> are residuals corrected for the instrumental model. This is what you usually
@@ -146,12 +146,12 @@ output_option = TDLCompileOption('do_output',"Output visibilities",
 
 flag_jones_opt = TDLMenu("Flag on out-of-bounds Jones terms",toggle='flag_jones',
     doc="""<P>If selected, your tree will flag visibility points where the norm of the
-    overall Jones term (i.e. the product of all Jones terms in the M.E.) is above or below 
+    overall Jones term (i.e. the product of all Jones terms in the M.E.) is above or below
     a threshold. The norm of a Jones term is defined as </P>
 
     <P align="center"><BIG><I>&#x2225;J&#x2225; = </I>tr<I>(JJ<sup>&dagger;</sup>)<sup>&frac12;</sup>,</I></BIG></P>
 
-    <P>where <I><BIG>J<sup>&dagger;</sup></BIG></I> is the conjugate transpose, and </I>tr()</I> is the trace 
+    <P>where <I><BIG>J<sup>&dagger;</sup></BIG></I> is the conjugate transpose, and </I>tr()</I> is the trace
     operator.</P>
     """,
     *(
@@ -201,14 +201,10 @@ from Siamese.OMS import fitsimage_sky,gridded_sky
 models = [central_point_source,fitsimage_sky,gridded_sky]
 
 try:
-  import Meow.LSM
-  models.insert(0,Meow.LSM.MeowLSM(include_options=False));
-except:
-  pass;
-try:
   from Siamese.OMS.tigger_lsm import TiggerSkyModel
   models.insert(0,TiggerSkyModel());
 except:
+  traceback.print_exc();
   pass;
 
 meqmaker.add_sky_models(models);
@@ -216,9 +212,7 @@ meqmaker.add_sky_models(models);
 # E - beam
 # add a fixed primary beam first
 from Calico.OMS import wsrt_beams
-from Calico.OMS import solvable_pointing_errors
-meqmaker.add_sky_jones('E','primary beam',[wsrt_beams],
-  pointing=solvable_pointing_errors);
+meqmaker.add_sky_jones('E','primary beam',[wsrt_beams]);
 ## add solvable refraction
 # from Calico.OMS import solvable_position_shifts
 # meqmaker.add_sky_jones('R','position shifts',solvable_position_shifts);
@@ -226,7 +220,9 @@ meqmaker.add_sky_jones('E','primary beam',[wsrt_beams],
 from Calico.OMS import solvable_sky_jones
 meqmaker.add_sky_jones('dE','differential gains',
   [ solvable_sky_jones.DiagRealImag('dE'),
-    solvable_sky_jones.FullRealImag('dE') ]);
+    solvable_sky_jones.FullRealImag('dE'), 
+    solvable_sky_jones.DiagAmplPhase('dE')
+  ]);
 
 # P - feed angle
 from Siamese.OMS import feed_angle
@@ -264,7 +260,7 @@ def _define_forest(ns,parent=None,**kw):
   # setup contexts from MS
   mssel.setup_observation_context(ns);
   array = Meow.Context.array;
-  
+
   # make spigot nodes for data
   if do_solve or do_output not in [CORRUPTED_MODEL]:
     mssel.enable_input_column(True);
@@ -291,17 +287,6 @@ def _define_forest(ns,parent=None,**kw):
     else:
       uvdata = None;
     predict = meqmaker.make_predict_tree(ns,uvdata=uvdata);
-    # make a ParmGroup and solve jobs for source parameters, if we have any
-    if do_solve:
-      parms = {};
-      for src in meqmaker.get_source_list(ns):
-        parms.update([(p.name,p) for p in src.get_solvables()]);
-      if parms:
-        pg_src = ParmGroup.ParmGroup("source",parms.values(),
-                    table_name="sources.fmep",
-                    individual=True,bookmark=True);
-        # now make a solvejobs for the source
-        ParmGroup.SolveJob("cal_source","Calibrate source model",pg_src);
   else:
     predict = None;
   output_title = "Uncorrected residuals";
@@ -353,7 +338,7 @@ def _define_forest(ns,parent=None,**kw):
         ns.flagres(p,q) << Meq.ZeroFlagger(ns.absres(p,q)-flag_res,oper='gt',flag_bit=Meow.MSUtils.FLAGMASK_OUTPUT);
       flaggers.append(ns.flagres);
       # ...and an inspector for them
-      meqmaker.make_per_ifr_bookmarks(ns.flagres,"Residual amplitude flags"); 
+      meqmaker.make_per_ifr_bookmarks(ns.flagres,"Residual amplitude flags");
     # make flagger for mean residuals
     if flag_mean_res is not None:
       ns.meanabsres << Meq.Mean(*[ns.absres(p,q) for p,q in array.ifrs()]);
