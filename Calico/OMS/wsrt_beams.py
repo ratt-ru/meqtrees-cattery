@@ -45,7 +45,7 @@ DEG = math.pi/180.;
 ARCMIN = DEG/60;
 ARCSEC = DEG/3600;
 
-def WSRT_cos3_beam (E,lm,bf,*dum):
+def WSRT_cos3_beam (E,lm,bf,deriv=False):
   """computes a cos^3 beam for the given direction, using NEWSTAR's
   cos^^(fq*B*r) model (thus giving a cos^6 power beam).
   r=sqrt(l^2+m^2), which is not entirely accurate (in terms of angular distance), but close enough
@@ -56,14 +56,23 @@ def WSRT_cos3_beam (E,lm,bf,*dum):
   ns = E.Subscope();
   if isinstance(lm,(list,tuple)):
     l,m = lm;
-    r = ns.r << sqrt(l*l+m*m);
-  else:
-    r = ns.r << Meq.Norm(lm);
+    lm = ns.r << sqrt(l*l+m*m);
   clip = wsrt_beam_clip;
   if wsrt_newstar_mode:
     clip = -clip;
-  E << Meq.WSRTCos3Beam(bf,r,clip=clip);
+  E << Meq.WSRTCos3Beam(bf,lm,clip=clip,deriv=deriv);
   return E;
+
+def make_beam_jones (Ej,ns,lm,p):
+  if solve_shape is BEAM_POLARIZED:
+    WSRT_cos3_beam(Ej("x"),lm/ns.beamshape(p,"x"),ns.beamscale);
+    WSRT_cos3_beam(Ej("y"),lm/ns.beamshape(p,"y"),ns.beamscale);
+    Ej << Meq.Matrix22(Ej("x"),0,0,Ej("y"));
+  elif solve_shape is BEAM_CIRCULAR:
+    WSRT_cos3_beam(Ej,lm/ns.beamshape(p),ns.beamscale);
+  else:
+    WSRT_cos3_beam(Ej,lm,ns.beamscale);
+
 
 def compute_jones (Jones,sources,stations=None,label="beam",inspectors=[],
                    solvable_sources=set(),**kw):
@@ -109,15 +118,17 @@ def compute_jones (Jones,sources,stations=None,label="beam",inspectors=[],
   if make_solvable:
     parms = [];
     parmgroups = [];
-
+    # is a subset specified?
+    pe_sources = [ src.name for src in _pe_subset_selector.filter(sources) ];
+    all_sources -= set(pe_sources);
+    bf = ns.beamscale << wsrt_beam_size_factor*1e-9;
+    # create solvable parameters
     if solve_shape is BEAM_CIRCULAR:
-      parmdef = Meq.Parm(wsrt_beam_size_factor*1e-9,tags="beam solvable");
+      parmdef = Meq.Parm(1,tags="beam solvable");
       for p in stations:
-        bf = ns.beamscale(p) << parmdef;
-        parms.append(bf);
-      parmsgroups.append(ParmGroup.Subgroup("beam shape",list(parms)));
+        parms.append(ns.beamshape(p) << parmdef);
+      parmgroups.append(ParmGroup.Subgroup("beam shape",list(parms)));
     elif solve_shape is BEAM_POLARIZED:
-      bf = ns.beamscale << wsrt_beam_size_factor*1e-9;
       parmdef = Meq.Parm(1,tags="beam solvable");
       for p in stations:
         for xy in "xy":
@@ -126,15 +137,22 @@ def compute_jones (Jones,sources,stations=None,label="beam",inspectors=[],
             parms.append(bs(lm) << parmdef);
           bs << Meq.Composer(*[bs(lm) for lm in "lm"]);
       parmgroups.append(ParmGroup.Subgroup("beam shape",list(parms)));
-    # is a subset specified?
-    pe_sources = [ src.name for src in _pe_subset_selector.filter(sources) ];
-    all_sources -= set(pe_sources);
     # call the pointings module
     if solve_pointings:
       pparms = [];
-      solvable_pointing_errors.compute_pointings(ns.dlm,stations,label=label+"pnt",return_parms=pparms);
+      for p in stations:
+        dl = ns.dl(p) << Meq.Parm(0,tags="pointing solvable");
+        dm = ns.dm(p) << Meq.Parm(0,tags="pointing solvable");
+        ns.dlm(p) << Meq.Composer(dl,dm);
+        pparms += [dl,dm];
+        if solve_pointings is PNT_SOLVABLE_SCALE:
+          dls = ns.dl_scale(p) << Meq.Parm(1,tags="pointing solvable");
+          dms = ns.dm_scale(p) << Meq.Parm(1,tags="pointing solvable");
+          ns.dlm_scale(p) << Meq.Composer(dls,dms);
+          pparms += [dls,dms];
       parmgroups.append(ParmGroup.Subgroup("pointing offsets",pparms));
       parms += pparms;
+
     # create nodes to compute actual pointing per source, per antenna
     for name in pe_sources:
       solvable_sources.add(name);
@@ -142,21 +160,23 @@ def compute_jones (Jones,sources,stations=None,label="beam",inspectors=[],
       # if LM is a static constant still, make constant node for it
       if isinstance(lm,(list,tuple)):
         lm = ns.lm(name) << Meq.Constant(value=Timba.array.array(lm));
+      # if using a scaled model for pointing offsets, make nominal beam gain
+      if solve_pointings is PNT_SOLVABLE_SCALE:
+        WSRT_cos3_beam(Jones(name),lm,ns.beamscale);
+      # now loop over stations
       for p in stations:
         Ej = Jones(name,p);
         # make offset lm
-        if solve_pointings:
+        if solve_pointings is None:
+          make_beam_jones(Ej,ns,lm,p);
+        elif solve_pointings is PNT_SOLVABLE:
           lm1 = lm(p) << lm - ns.dlm(p);
-        else:
-          lm1 = lm;
-        if solve_shape is BEAM_POLARIZED:
-          WSRT_cos3_beam(Ej("x"),lm1/ns.beamshape(p,"x"),ns.beamscale);
-          WSRT_cos3_beam(Ej("y"),lm1/ns.beamshape(p,"y"),ns.beamscale);
-          Ej << Meq.Matrix22(Ej("x"),0,0,Ej("y"));
-        elif solve_shape is BEAM_CIRCULAR:
-          WSRT_cos3_beam(Ej,lm1,ns.beamscale(p));
-        else:
-          WSRT_cos3_beam(Ej,lm1,ns.beamscale);
+          make_beam_jones(Ej,ns,lm1,p);
+        elif solve_pointings is PNT_SOLVABLE_SCALE:
+          lm1 = lm(p) << ns.dlm_scale(p) * lm;
+          WSRT_cos3_beam(Ej("dlm"),lm1,ns.beamscale,deriv=True);
+          Ej("d") << Meq.MatrixMultiply(Meq.Composer(ns.dlm(p),dims=[1,2]),Ej("dlm"));
+          Ej << Jones(name) + Ej("d");
     # add parameters
     if parms:
       global pg_beam;
@@ -169,13 +189,17 @@ def compute_jones (Jones,sources,stations=None,label="beam",inspectors=[],
       inspectors.append(ns.inspector("shape") << StdTrees.define_inspector(
             ns.beamshape,stations,"xy",label=label));
     if solve_shape is BEAM_CIRCULAR:
-      inspectors.append(ns.inspector("scale") << StdTrees.define_inspector(
-            ns.beamscale,stations,label=label));
+      inspectors.append(ns.inspector("shape") << StdTrees.define_inspector(
+            ns.beamshape,stations,label=label));
     if solve_pointings:
       inspectors.append(ns.inspector('dlm') << StdTrees.define_inspector(ns.dlm,stations,label=label));
+      if solve_pointings is PNT_SOLVABLE_SCALE:
+        inspectors.append(ns.inspector('dlm_scale') << \
+            StdTrees.define_inspector(ns.dlm_scale,stations,label=label));
 
-    inspectors.append(ns.inspector << StdTrees.define_inspector(
-            Jones,pe_sources,stations,label=label));
+    if pe_sources:
+      inspectors.append(ns.inspector << StdTrees.define_inspector(
+              Jones,pe_sources,stations,label=label));
 
   # Now, all_sources is the set of sources for which we haven't computed the beam yet
   # (the ones that are not solvable, presumably.)
@@ -194,13 +218,17 @@ from Meow.MeqMaker import SourceSubsetSelector
 # this will be set to True on a per-source basis, or if beam scale is solvable
 solvable = False;
 
+PNT_SOLVABLE = "solvable offset";
+PNT_SOLVABLE_SCALE = "solvable offset and scale";
+
 BEAM_CIRCULAR = "circular, unpolarized";
 BEAM_POLARIZED = "elliptic, polarized";
 
 _pe_subset_selector = SourceSubsetSelector("Apply to subset of sources",'wsrt_beams',annotate=False);
 TDLCompileMenu("Enable solvable beam parameters",
-  TDLOption("solve_pointings","Solve for pointing offsets",False),
-  TDLOption("solve_shape","Solvable for beam shape",
+  TDLOption("solve_pointings","Include pointing offsets",
+          [None,PNT_SOLVABLE,PNT_SOLVABLE_SCALE]),
+  TDLOption("solve_shape","Include beam shape",
           [None,BEAM_CIRCULAR,BEAM_POLARIZED]),
   toggle='make_solvable',
   *_pe_subset_selector.options);
