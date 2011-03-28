@@ -183,6 +183,6 @@ class Rotation (object):
     if sources:
       for src in sources[1:]:
         for p in stations:
-           Jones(src,p) << Meq.Indentity(Jones(sources[0],p));
+           Jones(src,p) << Meq.Identity(Jones(sources[0],p));
         
     return Jones;
