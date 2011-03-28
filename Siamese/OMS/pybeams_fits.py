@@ -58,10 +58,12 @@ TDLCompileOption("spline_order","Spline order for interpolation",[1,2,3,4,5],def
 TDLCompileOption("normalize_gains","Normalize max beam gain to 1",False);
 TDLCompileOption("ampl_interpolation","Use amplitude interpolation for beams",False,doc="""<P>
 Check the box if you want beam interpolation done with amplitude. The default is to just do real and imaginary voltages separately.</P>""");
-TDLCompileOption("l_beam_offset","Amount to adjust field in L for beam offset (deg)",[0.0], more=float,doc="""<P>
-Use if phase centre position and beam reference position are different but you want them aligned for beam (E Jones) attenuation.</P>""");
-TDLCompileOption("m_beam_offset","Amount to adjust field in M for beam offset (deg)",[0.0], more=float,doc="""<P>
-Use if phase centre position and beam reference position are different but you want them aligned for beam (E Jones) attenuation.</P>""");
+TDLCompileOption("l_beam_offset","Offset beam pattern in L (deg)",[0.0], more=float,
+doc="""<P>By default,the beam reference position (as given by the FITS header) is placed at l=m=0 on the sky, i.e. 
+at the phase centre. You can use this option to offset the beam pattern.</P>"""),
+TDLCompileOption("m_beam_offset","Offset beam pattern in M (deg)",[0.0], more=float,
+doc="""<P>By default,the beam reference position (as given by the FITS header) is placed at l=m=0 on the sky, i.e. 
+at the phase centre. You can use this option to offset the beam pattern.</P>"""),
 TDLCompileOption("sky_rotation","Include sky rotation",True,doc="""<P>
   If True, then the beam will rotate on the sky with parallactic angle. Use for e.g. alt-az mounts.)
   </P>""");
@@ -96,7 +98,9 @@ def make_beam_node (beam,pattern,*children):
   import InterpolatedBeams
   beam << Meq.PyNode(class_name="FITSBeamInterpolatorNode",module_name=InterpolatedBeams.__file__,
                      filename_real=filename_real,filename_imag=filename_imag,normalize=normalize_gains,
-                     missing_is_null=missing_is_null,spline_order=spline_order,verbose=0, l_beam_offset=l_beam_offset, m_beam_offset = m_beam_offset, ampl_interpolation=ampl_interpolation,
+                     missing_is_null=missing_is_null,spline_order=spline_order,verbose=0,
+                     l_beam_offset=l_beam_offset,m_beam_offsets=m_beam_offset, 
+                     ampl_interpolation=ampl_interpolation,
                      children=children);
 
 def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=[],label='E',**kw):

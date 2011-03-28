@@ -363,7 +363,7 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
         # now, create VoltageBeam if at least the real part still exists
         if filename_real:
           vb = LMVoltageBeam(
-                l_beam_offset=self.l_beam_offset,m_beam_offset=self.m_beam_offset,
+                l0=self.l_beam_offset,m0=self.m_beam_offset,
                 ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,
                 verbose=self.verbose);
           vb.read(filename_real,filename_imag);
