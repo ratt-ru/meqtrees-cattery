@@ -133,7 +133,7 @@ class SkyComponent (Parameterization):
       smear = (smear or self.is_smeared()) and \
               self.smear_factor(array,observation.phase_centre);
       if smear:
-        cohsm = cohnodes('smear');
+        cohsm = visnodes('smear');
         for p,q in array.ifrs():
           cohsm(p,q) << smear(p,q)*cohnodes(p,q);
         cohnodes = cohsm;

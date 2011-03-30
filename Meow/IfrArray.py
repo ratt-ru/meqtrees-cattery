@@ -39,8 +39,8 @@ _uvw_compute_mirror = "compute (VLA convention)";
 _uvw_compute = "compute (WSRT convention)";
 
 uvw_source_opt = TDLOption('uvw_source',"UVW coordinates",
-#      [_uvw_from_ms,_uvw_compute_mirror,_uvw_compute],
-      [_uvw_compute,_uvw_compute_mirror],
+      [_uvw_from_ms,_uvw_compute_mirror,_uvw_compute],
+#      [_uvw_compute,_uvw_compute_mirror],
       doc="""UVW coordinates can be read from the MS, or recomputed on the fly.
       In the latter case, you have a choice of two opposite sign conventions.
       NB: reading from MS is temporarily not available, see bug 828.""");
@@ -259,14 +259,17 @@ class IfrArray (object):
         # read UVWs from MS
         # first station gets (0,0,0), the rest is via subtraction
         ip0,p0 = self.station_index()[uvw_refant];
-        uvw(p0) << Meq.Composer(0,0,0);
+        if self._include_uvw_deriv:
+          uvw(p0) << Meq.Constant([0,0,0,0,0,0],dims=[2,3]);
+        else:
+          uvw(p0) << Meq.Constant([0,0,0],dims=[3]);
         uvw(p0)._multiproc = True; # hint to parallelizer to clone this node on all processors
         for iq,q in self.station_index():
           if iq < ip0:
-            m_uvw(q) << Meq.Spigot(station_1_index=iq,station_2_index=ip0,input_col='UVW');
+            m_uvw(q) << Meq.Spigot(station_1_index=iq,station_2_index=ip0,input_col='UVW',include_deriv=self._include_uvw_deriv);
             spigdef = -m_uvw(q);
           elif iq > ip0:
-            spigdef = Meq.Spigot(station_1_index=ip0,station_2_index=iq,input_col='UVW');
+            spigdef = Meq.Spigot(station_1_index=ip0,station_2_index=iq,input_col='UVW',include_deriv=self._include_uvw_deriv);
           else:
             continue;
           if self._resamplers:
@@ -287,7 +290,7 @@ class IfrArray (object):
         xyz0 = self.xyz0();
         xyz = self.xyz();
         for station in self.stations():
-          uvw_def = Meq.UVW(radec=radec0,xyz_0= xyz0,xyz=xyz(station),
+          uvw_def = Meq.UVW(radec=radec0,xyz_0=xyz0,xyz=xyz(station),
             include_deriv=self._include_uvw_deriv);
           if self._mirror_uvw:
             uvw(station) << Meq.Negate(self.ns.m_uvw(station) << uvw_def );
