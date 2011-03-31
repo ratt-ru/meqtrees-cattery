@@ -27,6 +27,7 @@
 from Timba.TDL import *
 from Timba.Meq import meq
 import math
+import random
 
 import Meow
 import Meow.StdTrees
@@ -114,11 +115,17 @@ TDLCompileOptions(*meqmaker.compile_options());
 # noise option
 TDLCompileOption("noise_stddev","Add noise, Jy",[None,1e-6,1e-3],more=float);
 
+TDLCompileOption("random_seed","Random generator seed",["time",0],more=int,
+  doc="""<P>To get a reproducible distribution for noise (and other "random" errors), supply a fixed seed value 
+  here. The default setting of "time" uses the current time to seed the generator, so the distribution
+  is different upon every run.</P>""");
+
 # MPI options
 # from Meow import Parallelization
 # TDLCompileOptions(*Parallelization.compile_options());
 
 def _define_forest (ns):
+  random.seed(random_seed if isinstance(random_seed,int) else None);
   if not mssel.msname:
     raise RuntimeError,"MS not set up in compile-time options";
   if run_purr:
