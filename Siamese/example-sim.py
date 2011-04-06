@@ -51,6 +51,11 @@ ADD_MS   = "add to MS";
 SUB_MS   = "subtract from MS";
 simmode_opt = TDLCompileOption("sim_mode","Simulation mode",[SIM_ONLY,ADD_MS,SUB_MS]);
 simmode_opt.when_changed(lambda mode:mssel.enable_input_column(mode!=SIM_ONLY));
+model_opt = TDLCompileOption("read_ms_model","Read additional uv-model visibilities from MS",False,doc="""
+  <P>If enabled, then an extra set of model visibilities will be read from a column
+  of the MS, and added to whatever is predicted by the sky model <i>in the uv-plane</i> (i.e. subject to uv-Jones but not sky-Jones corruptions).</P>
+  """);
+simmode_opt.when_changed(mssel.enable_model_column);
 
 # now load optional modules for the ME maker
 from Meow import MeqMaker
@@ -140,8 +145,15 @@ def _define_forest (ns):
   imsel = mssel.imaging_selector(npix=512,arcmin=meqmaker.estimate_image_size());
   TDLRuntimeMenu("Imaging options",*imsel.option_list());
 
+  # reading in model?
+  if read_ms_model:
+    model_spigots = array.spigots(column="PREDICT",corr=mssel.get_corr_index());
+    meqmaker.make_per_ifr_bookmarks(model_spigots,"UV-model visibilities");
+  else:
+    model_spigots = None;
+
   # get a predict tree from the MeqMaker
-  output = meqmaker.make_predict_tree(ns);
+  output = meqmaker.make_predict_tree(ns,uvdata=model_spigots);
 
   # throw in a bit of noise
   if noise_stddev:

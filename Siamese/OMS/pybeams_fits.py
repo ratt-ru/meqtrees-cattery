@@ -90,6 +90,11 @@ def make_beam_node (beam,pattern,*children):
     # make FITS images or nulls for real and imaginary part
     filename_real.append(make_beam_filename(pattern,corr,'re'));
     filename_imag.append(make_beam_filename(pattern,corr,'im'));
+  # check that files exist
+  if not missing_is_null:
+    for f in filename_real+filename_imag:
+      if not os.path.exists(f):
+	raise RuntimeError,"Can't find beam pattern file %s"%f;
   # if we end up with only one unique filename, make a scalar-mode interpolator
   if len(set(filename_real)) == 1 and len(set(filename_imag)) == 1:
     filename_real = filename_real[0];

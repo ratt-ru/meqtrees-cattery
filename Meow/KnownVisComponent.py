@@ -39,6 +39,6 @@ class KnownVisComponent (SkyComponent):
     SkyComponent.__init__(self,ns,name,direction or Context.observation.phase_center);
     self.visnodes = visnodes;
 
-  def visibilities (self,array,observation,nodes=None,**kw):
+  def visibilities (self,array=None,observation=None,nodes=None,**kw):
     return self.visnodes;
 
