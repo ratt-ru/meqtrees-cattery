@@ -1338,8 +1338,10 @@ class ImagingSelector (object):
           pass;
     print "MSUtils: imager args are"," ".join(args);
     # add imaging columns, if necessary
-    if _addImagingColumns:
-      _addImagingColumns(self.mssel.msname);
+    try:
+      _addImagingColumns and _addImagingColumns(self.mssel.msname);
+    except:
+      pass;
     # run script
     return os.spawnvp(os.P_WAIT if wait else os.P_NOWAIT,_IMAGER,args);
 
