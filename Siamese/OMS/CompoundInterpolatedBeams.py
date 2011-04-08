@@ -24,8 +24,8 @@ def _cells_grid (obj,axis):
     return None;
 
 class FITSCompoundBeamInterpolatorNode (pynode.PyNode):
-  """This reads a list of 2N complex voltage beams (as real/imaginary parts, all Xs then all Ys), and interpolates the lm coordinates of the 
-  children through them. The result is [2,N] vellsets. 
+  """This reads a list of 2N complex voltage beams (as real/imaginary parts, all Xs then all Ys), and interpolates the lm coordinates of the
+  children through them. The result is [2,N] vellsets.
   """
   def __init__ (self,*args):
     pynode.PyNode.__init__(self,*args);
@@ -42,6 +42,8 @@ class FITSCompoundBeamInterpolatorNode (pynode.PyNode):
     mystate('spline_order',3);
     mystate('normalize',False);
     mystate('ampl_interpolation',False);
+    mystate('l_0',0.0);
+    mystate('m_0',0.0);
     mystate('verbose',0);
     mystate('missing_is_null',False);
     # Check filename arguments: we must be created with two identical-length lists
@@ -57,7 +59,7 @@ class FITSCompoundBeamInterpolatorNode (pynode.PyNode):
     _verbosity.set_verbose(self.verbose);
 
   def init_voltage_beams (self):
-    """initializes VoltageBeams for the given set of FITS files (per each _vb_key, that is). 
+    """initializes VoltageBeams for the given set of FITS files (per each _vb_key, that is).
     Returns list of 1 or 4 VoltageBeam objects."""
     # maintain a global dict of VoltageBeam objects per each filename set, so that we reuse them
     global _voltage_beams;
@@ -75,7 +77,10 @@ class FITSCompoundBeamInterpolatorNode (pynode.PyNode):
           filename_real = None;
         # now, create VoltageBeam if at least the real part still exists
         if filename_real:
-          vb = LMVoltageBeam(ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,verbose=self.verbose);
+          vb = LMVoltageBeam(
+                  l0=self.l_0,m0=self.m_0,
+                  ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,
+                  verbose=self.verbose);
           vb.read(filename_real,filename_imag);
         else:
           vb = None;
@@ -85,7 +90,7 @@ class FITSCompoundBeamInterpolatorNode (pynode.PyNode):
       yy = [ vb.beam() if vb else numpy.array([0]) for vb in vbs[len(vbs)/2:] ];
       beam_max = math.sqrt(max([ (abs(x)**2+abs(y)**2).max() for x,y in zip(xx,yy)]));
       _voltage_beams[self._vb_key] = vbs,beam_max;
-    return vbs,beam_max; 
+    return vbs,beam_max;
 
   def get_result (self,request,*children):
     # get list of VoltageBeams
@@ -130,22 +135,22 @@ if __name__ == "__main__":
 
   vb = LMVoltageBeam(spline_order=3);
   vb.read("beam_xx_re.fits","beam_xx_im.fits");
-    
+
   l0 = numpy.array([-2,-1,0,1,2])*DEG;
   l = numpy.vstack([l0]*len(l0));
 
   print vb.interpolate(l,l.T);
-  
+
   vb = LMVoltageBeam(spline_order=3);
   vb.read("XX_0_Re.fits","XX_0_Im.fits");
-    
+
   l0 = numpy.array([-4,-2,0,2,4])*DEG;
   l = numpy.vstack([l0]*len(l0));
 
   a = vb.interpolate(l,l.T,freq=[1e+9],freqaxis=2);
   b = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9],freqaxis=2);
   c = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9,1.3e+9,1.4e+9],freqaxis=1);
- 
+
   print "A",a.shape,a;
   print "B",b.shape,b;
   print "C",c.shape,c;
