@@ -38,6 +38,9 @@ from Meow import StdTrees
 
 import os
 import os.path
+import math
+
+DEG = math.pi/180;
 
 TDLCompileOption("filename_pattern","Filename pattern",["beam_$(xy)_$(reim).fits"],more=str,doc="""<P>
   Pattern for beam FITS filenames. The real and imaginary parts of each element of the beam Jones matrix should be stored in a separate FITS file. A number of variables will be substituted in the beam pattern, these may be introduced as
@@ -104,7 +107,7 @@ def make_beam_node (beam,pattern,*children):
   beam << Meq.PyNode(class_name="FITSBeamInterpolatorNode",module_name=InterpolatedBeams.__file__,
                      filename_real=filename_real,filename_imag=filename_imag,normalize=normalize_gains,
                      missing_is_null=missing_is_null,spline_order=spline_order,verbose=0,
-                     l_beam_offset=l_beam_offset,m_beam_offsets=m_beam_offset, 
+                     l_beam_offset=l_beam_offset*DEG,m_beam_offsets=m_beam_offset*DEG, 
                      ampl_interpolation=ampl_interpolation,
                      children=children);
 

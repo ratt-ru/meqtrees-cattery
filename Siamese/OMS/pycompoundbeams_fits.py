@@ -24,9 +24,9 @@
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-"""<P>This module implements voltage beam patterns that are read in from FITS files and interpolated
-via a PyNode. This implementation allows for a lot of flexibility in how the beam  is
-interpolated.</P>
+"""<P>This module implements voltage beam patterns for a PAF that are read in 
+from FITS files and interpolated via a PyNode. Multiple beam patterns are read
+in, and put together using a weights vector.</P>
 
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
 
@@ -74,24 +74,20 @@ TDLCompileOption("weight_filename_x","Initial weights for X beam",TDLFileSelect(
   Beam weights for X beam will be read from this file -- this is expected to be a pickle of a
   complex array of size NBeams x NElems.</P>""");
 TDLCompileOption("weight_filename_y","Initial weights for Y beam",TDLFileSelect("*.bw"),more=int);
-TDLCompileOption("beam_number","Number of compound beam",0,more=int,doc="""<P>If the beam files contain more than one set of weights, specify which compound beam you need here</P>""",more=int);
+TDLCompileOption("beam_number","Number of compound beam",0,more=int,doc="""<P>If the beam files contain more than one set of weights, specify which compound beam you need here</P>""");
 TDLCompileMenu("Read and apply beam offset from file",
-    TDLCompileOption("offsets_file","File with offsets",TDLFileSelect("*.txt")),
-    TDLCompileOption("invert_l","L axis increases to the West",False,doc="""<P>The conventional definition of L increases to the East (opposite RA). Enable
+    TDLOption("offsets_file","File with offsets",TDLFileSelect("*.txt")),
+    TDLOption("invert_l","L axis increases to the West",False,doc="""<P>The conventional definition of L increases to the East (opposite RA). Enable
       this to reverse the sense of L.</P>"""),
     toggle="read_offsets_file"
   );
 TDLCompileMenu("Simulate element gain errors",
-  TDLCompileOption("min_ampl_var","Minimum amplitude variation, dB",[0,0.2],more=float),
-  TDLCompileOption("max_ampl_var","Maximum amplitude variation, dB",[0,0.5],more=float),
-  TDLCompileOption("min_phase_var","Minimum phase variation, deg",[0,5],more=float),
-  TDLCompileOption("max_phase_var","Maximum phase variation, deg",[0,10],more=float),
-  TDLCompileOption("min_period_var","Minimum variation period, hours",2,more=float),
-  TDLCompileOption("max_period_var","Maximum variation period, hours",24,more=float),
-  TDLCompileOption("random_seed","Random generator seed",[None],more=int,doc="""<P>
-    Specify an integer seed for the random generator to get a repeatable error pattern.
-    If None is specified, uses the system time.
-  </P>"""),
+  TDLOption("min_ampl_var","Minimum amplitude variation, dB",[0,0.2],more=float),
+  TDLOption("max_ampl_var","Maximum amplitude variation, dB",[0,0.5],more=float),
+  TDLOption("min_phase_var","Minimum phase variation, deg",[0,5],more=float),
+  TDLOption("max_phase_var","Maximum phase variation, deg",[0,10],more=float),
+  TDLOption("min_period_var","Minimum variation period, hours",2,more=float),
+  TDLOption("max_period_var","Maximum variation period, hours",24,more=float),
   toggle='sim_element_errors');
 TDLCompileOption("do_normalize","Renormalize gain towards each source",False,doc="""<P>If true,       the gain towards each source is dividied by the nominal gain in that direction
     (so that each source is effectively put in with an apparent flux that is equal to the
@@ -196,7 +192,6 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
   ns.w0('y') << Meq.Constant(value=wy[beam_number,:]);
 
   if sim_element_errors:
-    random.seed(random_seed);
     # create perturbed weights
     a0 = 10**(min_ampl_var/20)-1;
     a1 = 10**(max_ampl_var/20)-1;
@@ -221,8 +216,8 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
   else:
     quallist = [ [src] for src in sources ];
   for qq in quallist:
-    ex0 = Jones(*(qq+["x0"])) << Meq.MatrixMultiply(JE(qq[0]),ns.w0("x"));
-    ey0 = Jones(*(qq+["y0"])) << Meq.MatrixMultiply(JE(qq[0]),ns.w0("y"));
+    ex0 = Jones(*(qq+["x0"])) << Meq.MatrixMultiply(JE(*qq),ns.w0("x"));
+    ey0 = Jones(*(qq+["y0"])) << Meq.MatrixMultiply(JE(*qq),ns.w0("y"));
     J0 = Jones(*(qq+["nominal"])) << Meq.Composer(ex0,ey0,dims=[2,2]);
     if do_normalize or (qq[0] is sources[0] and not do_correct):
       make_norm(J0,Jones(*(qq+["norm"])));
