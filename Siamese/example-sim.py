@@ -187,7 +187,7 @@ def _define_forest (ns):
 
   # make sinks and vdm.
   # The list of inspectors comes in handy here
-  Meow.StdTrees.make_sinks(ns,output,spigots=spigots,post=meqmaker.get_inspectors());
+  Meow.StdTrees.make_sinks(ns,output,spigots=spigots,post=meqmaker.get_inspectors(),corr_index=mssel.get_corr_index());
 
   # very important -- insert meqmaker's options properly
   TDLRuntimeOptions(*meqmaker.runtime_options());
