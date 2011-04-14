@@ -177,7 +177,15 @@ class Direction (Parameterization):
       ra,dec = self.radec_static();
       lmn = self.static_lmn[(ra0,dec0)] = radec_to_lmn(ra,dec,ra0,dec0);
     return lmn;
-
+    
+  def is_phase_centre (self):
+    dir0 = Context.observation.phase_centre;
+    if self is dir0:
+      return True;
+    if not self.static or not dir0.static:
+      return False;
+    return dir0.radec_static() == self.radec_static();
+    
   def _lmn_component (self,name,dir0,index):
     """Helper method for below, returns part of the LMN vector.""";
     lmn = self.lmn(dir0);

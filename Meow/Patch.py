@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$
 #
@@ -36,7 +37,7 @@ class Patch (SkyComponent):
     """adds components to patch""";
     self._components += comps;
 
-  def coherency (self,array,observation,nodes=None,**kw):
+  def coherency (self,array=None,observation=None,nodes=None,**kw):
     nodes = nodes or self.ns.vis;
     array = Context.get_array(array);
     ifrs = array.ifrs();
@@ -44,10 +45,12 @@ class Patch (SkyComponent):
     if not self._components:
       [ nodes(*ifr) << 0.0 for ifr in ifrs ];
     else:
-      cv_list = [ (comp,comp.visibilities(array,observation)) for comp in self._components ];
+      # each component is either a SkyComponent, else a visibility basenode
+      # for up list of (component,visibility_node) pairs, where component=None if component is directly a node
+      cv_list = [ (comp,comp.visibilities(array,observation)) if isinstance(comp,SkyComponent) else (None,comp) for comp in self._components ];
       # determine which components are now solvable
-      solvables = [ vis for comp,vis in cv_list if comp.get_solvables() ];
-      nonsolvables = [ vis for comp,vis in cv_list if not comp.get_solvables() ];
+      solvables    = [ vis for comp,vis in cv_list if comp and comp.get_solvables() ];
+      nonsolvables = [ vis for comp,vis in cv_list if not (comp and comp.get_solvables()) ];
       # if both types are present, add separately for optimum cache reuse
       if solvables and nonsolvables:
         solv = nodes('solv');

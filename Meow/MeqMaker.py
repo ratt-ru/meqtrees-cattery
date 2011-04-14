@@ -844,26 +844,46 @@ class MeqMaker (object):
 
     # apply all sky Jones terms
     if sourcelist:
+      # make list of (J,solvable) pairs per each enabled Jones term
+      joneslist = [];
       for jt in self._sky_jones_list:
         Jj,solvable = self._get_jones_nodes(ns,jt,stations,sources=sources,solvable_sources=solvable_skyjones);
         # if this Jones is enabled (Jj not None), corrupt each source
-        if Jj:
-          newlist = [];
-          # print jt.label,solvable,len(solvable_skyjones);
-          for name,src in sourcelist:
-            # if Jones term is initialized, corrupt and append to corr_sources
-            # if not initialized, then append to uncorr_sources
-            jones = Jj(name);
-            if jones(stations[0]).initialized():
-              src = src.corrupt(jones);
-              if solvable:
-                solvable_skyjones.add(name);
-            newlist.append((name,src));
-          # update list
-          sourcelist = newlist;
+        if Jj: 
+          joneslist.append((Jj,solvable));
+      # now make multiplication node per each source
+      for name,src in sourcelist:
+        # get KJones and smear factor for source
+        if not src.direction.is_phase_centre():
+          Kj = src.direction.KJones();
+          smear = src.is_smeared() and src.smear_factor();
+        else:
+          Kj = smear = None;
+        # add solvables
+        if src.get_solvables():
+          solvable_skyjones.add(name);
+        coh = src.coherency();
+        # loop over baselines
+        for p,q in ifrs:
+          mulops = [ coh(p,q) ];
+          # add KJones and smear factor to list of multiplication operands
+          if Kj:
+            mulops.insert(0,Kj(p));
+            mulops.append(Kj(q)('conj') ** Meq.ConjTranspose(Kj(q)));
+            if smear:
+              mulops.insert(0,smear(p,q));
+          # add other Jones terms to list
+          for Jones,solvable in joneslist:
+            J = Jones(name);
+            if J(p).initialized():
+              mulops.insert(0,J(p));
+              mulops.append(J(q,'conj') ** Meq.ConjTranspose(J(q)));
+              solvable and solvable_skyjones.add(name);
+          # now make multiply node to compute sky visibility
+          ns.sky(name,p,q) << Meq.MatrixMultiply(*mulops);
     # now make two separate lists of sources with solvable corruptions, and sources without
-    corrupted_sources = [ src for name,src in sourcelist if name in solvable_skyjones ];
-    uncorrupted_sources = [ src for name,src in sourcelist if name not in solvable_skyjones ];
+    corrupted_sources   =  [ ns.sky(name) for name,src in sourcelist if name in solvable_skyjones ];
+    uncorrupted_sources =  [ ns.sky(name) for name,src in sourcelist if name not in solvable_skyjones ];
     # if we're solvable, and both lists are populated, make two patches
     if self._solvable and corrupted_sources and uncorrupted_sources:
       sky_sources = [
@@ -877,32 +897,40 @@ class MeqMaker (object):
       sky_sources.append(Meow.KnownVisComponent(ns,'uvdata',uvdata));
 
     # If >1 source, form up patch. Call it "sky1" if this is not the final output
-    if len(sky_sources) == 1:
-      allsky = sky_sources[0];
+    if len(sky_sources) > 1:
+      sky = Meow.Patch(ns,'sky1' if dec_sky else 'sky',Meow.Context.observation.phase_centre,components=sky_sources);
+      skyvis = sky.visibilities();
     else:
-      allsky = Meow.Patch(ns,'sky1' if dec_sky else 'sky',Meow.Context.observation.phase_centre,components=sky_sources);
+      skyvis = sky_sources[0].visibilities() if isinstance(sky_sources[0],Meow.SkyComponent) else sky_sources[0];
 
     # add uv-plane effects
+    # first make list of Jones basenodes
+    joneslist = [];
     for jt in self._uv_jones_list:
       Jj,solvable = self._get_jones_nodes(ns,jt,stations);
-      if Jj:
-        allsky = allsky.corrupt(Jj);
+      if Jj: 
+        joneslist.append(Jj);
+    # now make matrix multiplication nodes
+    if joneslist:
+      for p,q in ifrs:
+        mulops = [ skyvis(p,q) ];
+        for Jones in joneslist:
+          mulops.insert(0,Jones(p));
+          mulops.append(Jones(q,'conj') ** Meq.ConjTranspose(Jones(q)));
+        # now make multiply node to compute sky visibility
+        ns.visibility(p,q) << Meq.MatrixMultiply(*mulops);
+      skyvis = ns.visibility;
 
     # form up list of visibility contributions
-    terms = [ allsky.visibilities() ];
+    terms = [ skyvis ];
     if dec_sky:
-      terms.append(dec_sky);
-
-    # add a Meq.Add node on top of that, if needed
-    if len(terms) > 1:
-      vis = ns.visibility('sky');
+      vis = ns.visibility1;
       for p,q in ifrs:
-        vis(p,q) << Meq.Add(*[term(p,q) for term in terms]);
-    else:
-      vis = terms[0];
+        vis(p,q) << Meq.Add(skyvis(p,q),dec_sky(p,q));
+      skyvis = vis;
 
     # now chain up any visibility processors
-    return self._apply_vpm_list(ns,vis,ifrs=ifrs);
+    return self._apply_vpm_list(ns,skyvis,ifrs=ifrs);
 
   def _apply_vpm_list (self,ns,vis,ifrs=None):
     # chains up any visibility processors, and applies them to the visibilities.
