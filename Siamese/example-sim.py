@@ -74,6 +74,8 @@ try:
   from Siamese.OMS.tigger_lsm import TiggerSkyModel
   models.insert(0,TiggerSkyModel());
 except:
+  print 'Failure to import TiggerSkyModel module'
+  print 'Is the location of Tigger defined in your PYTHONPATH environment variable?'
   pass;
       
 meqmaker.add_sky_models(models);
