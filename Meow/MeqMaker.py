@@ -678,13 +678,19 @@ class MeqMaker (object):
       # this is to keep the extra corruption qualifiers from creeping into their names
       Jj = ns[jt.label];    # create name hint for nodes
       inspectors = [];
+      solvable_sources_from_module = set();
       jt.base_node = Jj = module.compute_jones(Jj,sources=sources_with_jones_node,stations=stations,
-                                          pointing_offsets=dlm,solvable_sources=solvable_sources,
+                                          pointing_offsets=dlm,solvable_sources=solvable_sources_from_module,
                                           tags=jt.label,label=jt.label,
                                           meqmaker=self,
                                           inspectors=inspectors);
       # ignoring the pointing-solvable attribute for now
       jt.solvable = getattr(module,'solvable',True);
+      if isinstance(jt,self.SkyJonesTerm) and Jj and jt.solvable:
+        if solvable_sources_from_module:
+          solvable_sources += solvable_sources_from_module;
+        else:
+          solvable_sources.update(sources_with_jones_node);
       # Jj will be None if module is not active for some reason
       if Jj:
         # add sky-Jones visualizer if asked to
@@ -880,7 +886,10 @@ class MeqMaker (object):
               mulops.append(J(q,'conj') ** Meq.ConjTranspose(J(q)));
               solvable and solvable_skyjones.add(name);
           # now make multiply node to compute sky visibility
-          ns.sky(name,p,q) << Meq.MatrixMultiply(*mulops);
+          if len(mulops) > 1:
+            ns.sky(name,p,q) << Meq.MatrixMultiply(*mulops);
+          else:
+            ns.sky(name,p,q) << Meq.Identity(*mulops);
     # now make two separate lists of sources with solvable corruptions, and sources without
     corrupted_sources   =  [ ns.sky(name) for name,src in sourcelist if name in solvable_skyjones ];
     uncorrupted_sources =  [ ns.sky(name) for name,src in sourcelist if name not in solvable_skyjones ];
@@ -918,7 +927,10 @@ class MeqMaker (object):
           mulops.insert(0,Jones(p));
           mulops.append(Jones(q,'conj') ** Meq.ConjTranspose(Jones(q)));
         # now make multiply node to compute sky visibility
-        ns.visibility(p,q) << Meq.MatrixMultiply(*mulops);
+        if len(mulops) > 1:
+          ns.visibility(p,q) << Meq.MatrixMultiply(*mulops);
+        else:
+          ns.visibility(p,q) << Meq.Identity(*mulops);
       skyvis = ns.visibility;
 
     # form up list of visibility contributions

@@ -1935,12 +1935,13 @@ class LSM:
   self.setNodeScope(ns)
   self.setFileName(infile_name)
   
-  
 
  ## build from a text file with extended sources
  ## format:
  ## NAME RA(hours, min, sec) DEC(degrees, min, sec) sI sQ sU sV SI RM eX eY eP f0(optional)
- def build_from_extlist(self,infile_name,ns,ignore_pol=False,f0=None):
+ def build_from_extlist_orig(self,infile_name,ns,ignore_pol=False,f0=None):
+#def build_from_extlist(self,infile_name,ns,ignore_pol=False,f0=None):
+  print 'should be reading ',infile_name
   infile=open(infile_name,'r')
   all=infile.readlines()
   infile.close()
@@ -1985,7 +1986,9 @@ class LSM:
 
   kk=0
   for eachline in all:
+   print 'eachline is ', eachline
    v=pp.search(eachline)
+   print '** v is ', v
    if v!=None:
     #### if we have negative RA, we have to subtract min,sec!!
     source_RA=float(v.group('col2'))
@@ -2001,6 +2004,7 @@ class LSM:
     else:
       source_Dec=float(v.group('col5'))+(float(v.group('col7'))/60.0+float(v.group('col6')))/60.0
     source_Dec*=math.pi/180.0
+    print 'source pos ', source_RA, source_Dec
 
     sI=float(v.group('col8'))
     #convert to percentages
@@ -2024,9 +2028,10 @@ class LSM:
 
     kk=kk+1
 
-    # print sI,sQ,sU,sV,SI,RM;
+    print 'extlist parms ', sI,sQ,sU,sV,SI,RM;
     freq0 = v.group('col17');
     freq0 = (freq0 and eval(freq0)) or f0 or 1e6; 
+    print 'sI, sQ, sU, sV, RM, ref freq', sI, sQ, sU, sV, RM, freq0
     if (ignore_pol==True or (sQ==0 and sU==0 and sV==0 and RM==0)):
      my_sixpack=LSM_Sixpack.newstar_source(ns,punit=s.name,I0=sI, SI=SI, f0=freq0, RA=source_RA, Dec=source_Dec,trace=0)
     elif (SI==0 and RM==0):
@@ -2038,6 +2043,82 @@ class LSM:
  
    # first compose the sixpack before giving it to the LSM
     self.add_source(s,brightness=eval(v.group('col8')),
+     sixpack=my_sixpack,
+     ra=source_RA, dec=source_Dec)
+ 
+  self.setNodeScope(ns)
+  self.setFileName(infile_name)
+
+ ## build from a text file with extended sources
+ ## format:
+ ## NAME RA(hours, min, sec) DEC(degrees, min, sec) sI sQ sU sV SI RM eX eY eP f0(optional)
+ def build_from_extlist(self,infile_name,ns,ignore_pol=False,f0=None):
+  
+
+  from string import split, strip
+  print 'should be reading ',infile_name
+  infile=open(infile_name,'r')
+  all=infile.readlines()
+  infile.close()
+
+  kk=0
+  for eachline in all:
+   if True:
+    info = split(strip(eachline))
+    print 'info is ', info
+    #### if we have negative RA, we have to subtract min,sec!!
+    source_RA=float(info[1])
+    if source_RA<0:
+      source_RA=float(info[1])-(float(info[3])/60.0+float(info[2]))/60.0
+    else:
+      source_RA=float(info[1])+(float(info[3])/60.0+float(info[2]))/60.0
+    source_RA*=math.pi/12.0
+    #### if we have negative dec, we have to subtract min,sec!!
+    source_Dec=float(info[4])
+    if source_Dec<0:
+      source_Dec=float(info[4])-(float(info[6])/60.0+float(info[5]))/60.0
+    else:
+      source_Dec=float(info[4])+(float(info[6])/60.0+float(info[5]))/60.0
+    source_Dec*=math.pi/180.0
+    print 'source pos ', source_RA, source_Dec
+
+    sI=float(info[7])
+    #convert to percentages
+    if (sI > 0):
+     sQ=float(info[8])
+     sU=float(info[9])
+     sV=float(info[10])
+    else:
+     sQ=sU=sV=0
+
+    SI=eval(info[11])
+    RM=eval(info[12])
+    eX=eval(info[13])
+    eY=eval(info[14])
+    eP=eval(info[15])
+
+    if (eX==0 and eY==0 and eP==0):
+     s=Source(info[0])
+    else:
+     s=Source(info[0], major=eX, minor=eY, pangle=eP)
+
+    kk=kk+1
+
+    print 'extlist parms ', sI,sQ,sU,sV,SI,RM;
+    freq0 = info[16];
+    freq0 = (freq0 and eval(freq0)) or f0 or 1e6; 
+    print 'sI, sQ, sU, sV, RM, ref freq', sI, sQ, sU, sV, RM, freq0
+    if (ignore_pol==True or (sQ==0 and sU==0 and sV==0 and RM==0)):
+     my_sixpack=LSM_Sixpack.newstar_source(ns,punit=s.name,I0=sI, SI=SI, f0=freq0, RA=source_RA, Dec=source_Dec,trace=0)
+    elif (SI==0 and RM==0):
+     my_sixpack=LSM_Sixpack.newstar_source(ns,punit=s.name,I0=sI, f0=freq0,RA=source_RA, Dec=source_Dec,stokesQ=sQ, stokesU=sU, stokesV=sV,trace=0)
+    elif (SI==0):
+     my_sixpack=LSM_Sixpack.newstar_source(ns,punit=s.name,I0=sI, f0=freq0,RA=source_RA, Dec=source_Dec,stokesQ=sQ, stokesU=sU, stokesV=sV, RM=RM, trace=0)
+    else :
+     my_sixpack=LSM_Sixpack.newstar_source(ns,punit=s.name,I0=sI, f0=freq0,RA=source_RA, Dec=source_Dec,stokesQ=sQ, stokesU=sU, stokesV=sV, SI=SI, RM=RM, trace=0)
+ 
+   # first compose the sixpack before giving it to the LSM
+    self.add_source(s,brightness=eval(info[7]),
      sixpack=my_sixpack,
      ra=source_RA, dec=source_Dec)
  
