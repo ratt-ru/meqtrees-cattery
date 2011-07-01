@@ -70,7 +70,7 @@ if __name__ == '__main__':
     print "========== Simulating MODEL_DATA ";
     mod._tdl_job_1_simulate_MS(mqs,None,wait=True);
     print "========== Imaging MODEL_DATA ";
-    TDLOptions.get_job_func('Make a dirty image')(mqs,None,wait=True,run_viewer=False);
+    TDLOptions.get_job_func('make_dirty_image')(mqs,None,wait=True,run_viewer=False);
 
     ## compare against reference image
     print "========== Verifying test image ";
@@ -78,23 +78,23 @@ if __name__ == '__main__':
 
     print "========== Compiling script with modified config";
     TDLOptions.init_options("simulate-model",save=False);
-    TDLOptions.set_option("me.enable_G",True);
+    TDLOptions.set_option("me.g_enable",True);
     mod,ns,msg = Compile.compile_file(mqs,script,config=None);
     print "========== Simulating DATA ";
     TDLOptions.set_option("ms_sel.output_column","DATA");
     mod._tdl_job_1_simulate_MS(mqs,None,wait=True);
     print "========== Imaging DATA ";
     TDLOptions.set_option("img_sel.imaging_column","DATA");
-    TDLOptions.get_job_func('Make a dirty image')(mqs,None,wait=True,run_viewer=False);
+    TDLOptions.get_job_func('make_dirty_image')(mqs,None,wait=True,run_viewer=False);
 
     ## calibrate
     script = path("testing-cal.py");
     print "========== Compiling",script;
     mod,ns,msg = Compile.compile_file(mqs,script,config="calibrate");
     print "========== Calibrating ";
-    TDLOptions.get_job_func('Calibrate G diagonal terms')(mqs,None,wait=True);
+    TDLOptions.get_job_func('cal_G_diag')(mqs,None,wait=True);
     print "========== Imaging MODEL_DATA ";
-    TDLOptions.get_job_func('Make a dirty image')(mqs,None,wait=True,run_viewer=False);
+    TDLOptions.get_job_func('make_dirty_image')(mqs,None,wait=True,run_viewer=False);
 
     ## compare against reference image
     print "========== Verifying residual image ";
