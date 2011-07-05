@@ -266,8 +266,8 @@ class IfrArray (object):
         uvw(p0)._multiproc = True; # hint to parallelizer to clone this node on all processors
         for iq,q in self.station_index():
           if iq < ip0:
-            m_uvw(q) << Meq.Spigot(station_1_index=iq,station_2_index=ip0,input_col='UVW',include_deriv=self._include_uvw_deriv);
-            spigdef = -m_uvw(q);
+            muvw = uvw('minus',q) << Meq.Spigot(station_1_index=iq,station_2_index=ip0,input_col='UVW',include_deriv=self._include_uvw_deriv);
+            spigdef = -muvw;
           elif iq > ip0:
             spigdef = Meq.Spigot(station_1_index=ip0,station_2_index=iq,input_col='UVW',include_deriv=self._include_uvw_deriv);
           else:

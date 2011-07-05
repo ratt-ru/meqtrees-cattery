@@ -211,8 +211,8 @@ meqmaker.add_sky_models(models);
 
 # E - beam
 # add a fixed primary beam first
-from Calico.OMS import wsrt_beams
-meqmaker.add_sky_jones('E','primary beam',[wsrt_beams]);
+from Calico.OMS import wsrt_beams,wsrt_beams_zernike
+meqmaker.add_sky_jones('E','primary beam',[wsrt_beams,wsrt_beams_zernike]);
 ## add solvable refraction
 # from Calico.OMS import solvable_position_shifts
 # meqmaker.add_sky_jones('R','position shifts',solvable_position_shifts);
@@ -220,7 +220,7 @@ meqmaker.add_sky_jones('E','primary beam',[wsrt_beams]);
 from Calico.OMS import solvable_sky_jones
 meqmaker.add_sky_jones('dE','differential gains',
   [ solvable_sky_jones.DiagRealImag('dE'),
-    solvable_sky_jones.FullRealImag('dE'), 
+    solvable_sky_jones.FullRealImag('dE'),
     solvable_sky_jones.DiagAmplPhase('dE')
   ]);
 
