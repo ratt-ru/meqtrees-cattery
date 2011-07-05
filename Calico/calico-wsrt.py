@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 #% $Id$
 #
@@ -211,8 +210,8 @@ meqmaker.add_sky_models(models);
 
 # E - beam
 # add a fixed primary beam first
-from Calico.OMS import wsrt_beams,wsrt_beams_zernike
-meqmaker.add_sky_jones('E','primary beam',[wsrt_beams,wsrt_beams_zernike]);
+from Calico.OMS import wsrt_beams  #,wsrt_beams_zernike
+meqmaker.add_sky_jones('E','primary beam',[wsrt_beams]); # ,wsrt_beams_zernike]);
 ## add solvable refraction
 # from Calico.OMS import solvable_position_shifts
 # meqmaker.add_sky_jones('R','position shifts',solvable_position_shifts);
