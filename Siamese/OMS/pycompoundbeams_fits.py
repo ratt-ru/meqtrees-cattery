@@ -82,6 +82,7 @@ TDLCompileMenu("Read and apply beam offset from file",
     toggle="read_offsets_file"
   );
 TDLCompileMenu("Simulate element gain errors",
+  TDLOption("start_phased_up","Start with phased-up beams",False),
   TDLOption("min_ampl_var","Minimum amplitude variation, dB",[0,0.2],more=float),
   TDLOption("max_ampl_var","Maximum amplitude variation, dB",[0,0.5],more=float),
   TDLOption("min_phase_var","Minimum phase variation, deg",[0,5],more=float),
@@ -201,8 +202,12 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
         # amplitude and phase period and offset
         for ap in 'ampl','phase':
           p0 = werr("period",ap) << Meq.Constant(value=[random.uniform(min_period_var*3600,max_period_var*3600)/(2*math.pi) for i in range(num_elements)]);
-          t0 = werr("offset",ap) << Meq.Constant(value=[random.uniform(0,2*math.pi) for i in range(num_elements)]);
-          werr("sin",ap) << Meq.Sin((Meq.Time()/p0)+t0);
+          if start_phased_up:
+            werr("sin",ap) << Meq.Sin(Meq.Time()/p0);
+          else:
+            t0 = werr("offset",ap) << Meq.Constant(value=[random.uniform(0,2*math.pi) for i in range(num_elements)]);
+            werr("sin",ap) << Meq.Sin((Meq.Time()/p0)+t0);
+          
         # amplitude excursion
         e0 = werr("maxampl") << Meq.Constant(value=[random.uniform(a0,a1) for i in range(num_elements)]);
         ep = werr("maxphase") << Meq.Constant(value=[random.uniform(min_phase_var*DEG,max_phase_var*DEG) for i in range(num_elements)]);
