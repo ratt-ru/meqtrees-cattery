@@ -5,7 +5,7 @@ import os
 import os.path
 
 # close open FDs to release sockets etc. inherited from parent process
-for fd in range(3,256):
+for fd in range(3,1024):
   try:
     os.close(fd);
   except:

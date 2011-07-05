@@ -8,6 +8,7 @@ import os
 import Meow
 import Meow.MSUtils
 import Purr.Pipe
+import Timba.Apps
 
 from Meow.MSUtils import TABLE
     
@@ -139,7 +140,7 @@ class Flagger (Timba.dmi.verbosity):
         raise RuntimeError,"cannot find addbitflagcol utility in $PATH";
       self.close();
       self.dprintf(1,"running addbitflagcol\n");
-      if os.spawnvp(os.P_WAIT,_addbitflagcol,['addbitflagcol',self.msname]):
+      if Timba.Apps.spawnvp_wait(_addbitflagcol,['addbitflagcol',self.msname]):
         raise RuntimeError,"addbitflagcol failed";
       # report to purr
       if purr:

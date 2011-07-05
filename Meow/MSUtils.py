@@ -1343,7 +1343,10 @@ class ImagingSelector (object):
     except:
       pass;
     # run script
-    return os.spawnvp(os.P_WAIT if wait else os.P_NOWAIT,_IMAGER,args);
+    if wait:
+      return Timba.Apps.spawnvp_wait(_IMAGER,args);
+    else:
+      return Timba.Apps.spawnvp_nowait(_IMAGER,args);
 
 # keep a global map of flagsets associated with each MS,
 # so that different "customers" can always deal with the same flagset object

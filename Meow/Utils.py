@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -25,6 +26,7 @@
 
 from Timba.TDL import *
 from Timba.Meq import meq
+import Timba.Apps
 import Timba.array
 import math
 import random
@@ -495,7 +497,7 @@ def make_dirty_image (npix=None,cellsize=None,arcmin=None,channels=None,**kw):
     'chanstep='+str(chanstep)
   ];
   print args;
-  os.spawnvp(os.P_NOWAIT,'glish',args);
+  Timba.Apps.spawnvp_nowait('glish',args);
   
 
 class ListOptionParser (object):
