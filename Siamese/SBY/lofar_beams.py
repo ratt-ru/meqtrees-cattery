@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-#% $Id$ 
+#% $Id$
 #
 #
 # Copyright (C) 2002-2007
-# The MeqTree Foundation & 
+# The MeqTree Foundation &
 # ASTRON (Netherlands Foundation for Research in Astronomy)
 # P.O.Box 2, 7990 AA Dwingeloo, The Netherlands
 #
@@ -20,7 +20,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>,
-# or write to the Free Software Foundation, Inc., 
+# or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
@@ -67,7 +67,7 @@ TDLCompileMenu("Dipole configuration",
 
 station_menu = TDLCompileMenu("Station configuration",
   TDLCompileOption('station_config_path',
-    "Station configuration file",TDLFileSelect(default=os.path.join(dirname,'AntennaCoords.lba')),
+    "Station configuration files",['%s.coords','AntennaCoords.lba','AntennaCoords.hba'],more=str,
     doc="""This file specifies the layout of dipoles within a station."""
   ),
   TDLCompileOption('station_phi0',"Station orientation, deg",[45],more=float,
@@ -145,6 +145,11 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,**kw):
   # get reference frequency
   ns.ref_freq << (freq1 + freq0)/2;
 
+  if "%" in station_config_path:
+    make_filename = lambda p:station_config_path%p;
+  else:
+    make_filename = lambda p:station_config_path;
+
   # create per-direction, per-station E Jones matrices
   for src in sources:
     for station in stations:
@@ -161,7 +166,10 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,**kw):
         # station gains: scalar matrix
         # if independent X/Y beams are formed, then this will become a disgonal
         # matrix (and B*S will need to be a Meq.MatrixMultiply)
-        S << Meq.StationBeam(filename=station_config_path,
+        filename = make_filename(station);
+        if not os.path.exists(filename):
+          raise RuntimeError,"Cannot find station layout file %s"%filename;
+        S << Meq.StationBeam(filename=filename,
                               azel_0=obs.phase_center.azel(Context.array.xyz(station)),
                               azel=src.direction.azel(Context.array.xyz(station)),
                               phi_0=station_phi0,

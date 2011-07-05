@@ -906,7 +906,7 @@ class MeqMaker (object):
       sky_sources.append(Meow.KnownVisComponent(ns,'uvdata',uvdata));
 
     # If >1 source, form up patch. Call it "sky1" if this is not the final output
-    if len(sky_sources) > 1:
+    if len(sky_sources) > 1 or len(sky_sources) == 0:
       sky = Meow.Patch(ns,'sky1' if dec_sky else 'sky',Meow.Context.observation.phase_centre,components=sky_sources);
       skyvis = sky.visibilities();
     else:
