@@ -134,7 +134,7 @@ class FullRealImag (object):
     is_complex = self.matrix_type != "real";
     # set up qualifier labels depending on polarization definition
     if Context.observation.circular():
-      x,y,X,Y = 'R','L','R','L';
+      x,y,X,Y = 'r','l','R','L';
     else:
       x,y,X,Y = 'x','y','X','Y';
     xx,xy,yx,yy = x+x,x+y,y+x,y+y;
