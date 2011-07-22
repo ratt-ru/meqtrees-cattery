@@ -688,7 +688,7 @@ class MeqMaker (object):
       jt.solvable = getattr(module,'solvable',True);
       if isinstance(jt,self.SkyJonesTerm) and Jj and jt.solvable:
         if solvable_sources_from_module:
-          solvable_sources += solvable_sources_from_module;
+          solvable_sources.update(solvable_sources_from_module);
         else:
           solvable_sources.update(sources_with_jones_node);
       # Jj will be None if module is not active for some reason
