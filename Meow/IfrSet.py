@@ -73,7 +73,7 @@ class IfrSet (object):
     self.observatory = observatory = observatory if not parent else parent.observatory;
     self.label_sep = label_sep = label_sep if not parent else parent.label_sep;
     # init station list
-    if station_list:
+    if station_list is not None:
       # make _station_index: list of (ip,p) pairs.
       if isinstance(station_list[0],(list,tuple)):
         self._station_index = list(station_list);
@@ -82,7 +82,7 @@ class IfrSet (object):
       # _ifr_index is a list of all IFRs, as (ip,p),(iq,q) pairs.
       self._ifr_index = [ ((ip,p),(iq,q)) for ip,p in self._station_index
                                           for iq,q in self._station_index if ip<iq ];
-    elif ifr_index:
+    elif ifr_index is not None:
       self._ifr_index = list(sorted(ifr_index));
       # rebuild station index from that
       stations = set([ ifrs[0] for ifrs in self._ifr_index ]);
@@ -290,7 +290,7 @@ class IfrSet (object):
         if strict:
           raise ValueError,"invalid ifr specification '%s' (station '%s' not found)"%(spec,p);
         print "Ignoring invalid ifr specification '%s' (station '%s' not found)"%(spec,p);
-        traceback.print_stack();
+#        traceback.print_stack();
         continue;
       # second token may be a wildcard
       if q == "*":

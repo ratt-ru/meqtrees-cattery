@@ -40,26 +40,12 @@ import math
 _addImagingColumns = None;
 # figure out which table implementation to use -- try pyrap/casacore first
 try:
-  import pyrap_tables
-  TABLE = pyrap_tables.table
-  Meow.dprint("  (Meow.MSUtils: using the pyrap_tables module)");
+  import pyrap.tables
+  TABLE = pyrap.tables.table
+  _addImagingColumns = pyrap.tables.addImagingColumns
 except:
-  try:
-    import pyrap.tables
-    TABLE = pyrap.tables.table
-    _addImagingColumns = pyrap.tables.addImagingColumns
-    Meow.dprint("  (Meow.MSUtils: using the pyrap.tables module)");
-  except:
-    # else try the old pycasatable/aips++ thing
-    try:
-      import pycasatable
-      TABLE = pycasatable.table
-      Meow.dprint("  (Meow.MSUtils: using the pycasatable module. WARNING: this is deprecated.)");
-      Meow.dprint("  (Please install pyrap and casacore!)");
-    except:
-      TABLE = None;
-      Meow.dprint("  (Meow.MSUtils: no tables module found, GUI functionality will be reduced.)");
-      Meow.dprint("  (Please install pyrap and casacore!)");
+  Meow.dprint("  Meow.MSUtils: import pyrap.tables failed. Is pyrap installed?");
+  raise RuntimeError,"failed to import pyrap.tables. Please install pyrap!";
 
 def find_exec (execname):
   path = os.environ.get('PATH') or os.defpath;
@@ -74,7 +60,8 @@ _lwimager = find_exec('lwimager');
 if _lwimager:
   Meow.dprint("  (Meow.MSUtils: found %s, can use it for imaging.)"%_lwimager);
 
-_glish = find_exec('glish');
+_glish = None;  # deprecating glish
+#find_exec('glish');
 if _glish:
   Meow.dprint("  (Meow.MSUtils: found %s, can use AIPS++ imager.)"%_glish);
 
@@ -1107,7 +1094,7 @@ class ImagingSelector (object):
     self._opts.append(TDLOption('imaging_phasecenter',"Phase center",["default"],namespace=self,more=str,
         doc="""You can center the image on a particular point in the sky. The default is
         the phase center of the observation. To override this, enter a direction string
-        of the form, e.g., 'J2000,05h35m10s,-30deg15m30s'"""));
+        of the form, e.g., 'J2000,05h35m10s,-30d15m30s'"""));
     # add baseline selector
     self._opts.append(TDLOption('imaging_ifrs',"Interferometers to use",
       mssel.ms_ifr_subsets,
