@@ -33,7 +33,7 @@ import Meow
 import Meow.StdTrees
 
 # MS options first
-mssel = Meow.Context.mssel = Meow.MSUtils.MSSelector(has_input=False,tile_sizes=[8,16,32],flags=False);
+mssel = Meow.Context.mssel = Meow.MSUtils.MSSelector(has_input=False,has_model=False,tile_sizes=[8,16,32],flags=False);
 # MS compile-time options
 TDLCompileOptions(*mssel.compile_options());
 TDLCompileOption("run_purr","Start Purr on this MS",True);
@@ -55,7 +55,7 @@ model_opt = TDLCompileOption("read_ms_model","Read additional uv-model visibilit
   <P>If enabled, then an extra set of model visibilities will be read from a column
   of the MS, and added to whatever is predicted by the sky model <i>in the uv-plane</i> (i.e. subject to uv-Jones but not sky-Jones corruptions).</P>
   """);
-simmode_opt.when_changed(mssel.enable_model_column);
+model_opt.when_changed(mssel.enable_model_column);
 
 # now load optional modules for the ME maker
 from Meow import MeqMaker
