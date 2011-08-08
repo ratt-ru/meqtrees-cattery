@@ -42,12 +42,17 @@ uvw_source_opt = TDLOption('uvw_source',"UVW coordinates",
       [_uvw_from_ms,_uvw_compute_mirror,_uvw_compute],
 #      [_uvw_compute,_uvw_compute_mirror],
       doc="""UVW coordinates can be read from the MS, or recomputed on the fly.
-      In the latter case, you have a choice of two opposite sign conventions.
-      NB: reading from MS is temporarily not available, see bug 828.""");
-uvw_refant_opt = TDLOption('uvw_refant',"Reference antenna #",0,more=int,
-      doc="""This is the reference antenna used to compute antenna-based UVWs.
-      Specify a 0-based antenna index. Note that this antenna must be present in
-      all timeslots where data is available.""");
+      In the latter case, you have a choice of two opposite sign conventions.""");
+UVW_REFANT_DEFAULT = "default";
+uvw_refant_opt = TDLOption('uvw_refant',"Reference antenna",[UVW_REFANT_DEFAULT],more=str,
+      doc="""<P>This is the reference antenna used to compute antenna-based UVWs.
+      Any antenna will do, as long as correlations to it are present in all timeslots 
+      where data is available. This is the case for most sensible MSs; however, it is possible 
+      to produce an MS with missing correlations by importing a UVFITS file that has had AIPS flagging
+      applied to it (with flagged data having been excised completely).</P>
+      
+      <P>The default option is to use the first antenna; if this fails because you have such an oddball MS,
+      you will need to look for another suitable antenna.</P>""");
 
 _options = [ uvw_source_opt,uvw_refant_opt ];
 uvw_source_opt.when_changed(lambda x:uvw_refant_opt.show(x==_uvw_from_ms));
@@ -257,8 +262,16 @@ class IfrArray (object):
     if not uvw(self.stations()[0]).initialized():
       if self._ms_uvw:
         # read UVWs from MS
-        # first station gets (0,0,0), the rest is via subtraction
-        ip0,p0 = self.station_index()[uvw_refant];
+        # find the reference station
+        if uvw_refant is UVW_REFANT_DEFAULT:
+          ip0,p0 = self.station_index()[0];
+        else:
+          try:
+            num = self.stations().index(uvw_refant);
+          except KeyError:
+            raise ValueError,"reference antenna %s not found"%uvw_refant;
+          ip0,p0 = self.station_index()[num];
+        # reference station gets (0,0,0), the rest is via subtraction
         if self._include_uvw_deriv:
           uvw(p0) << Meq.Constant([0,0,0,0,0,0],dims=[2,3]);
         else:
