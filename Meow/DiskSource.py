@@ -76,8 +76,7 @@ class DiskSource(PointSource):
       # baseline UVs
       uv_ifr = array.uv_ifr(dir0);
       # flux scale -- coherency multiplied by scale constant above
-      fluxscale = self.ns.fluxscale
-            << self.brightness(observation) * gscale;
+      fluxscale = self.ns.fluxscale << self.brightness(observation) * gscale;
       # transformed uv's (rotated and scaled)
       uv1sq = self.ns.uv1sq;
       u1sq = self.ns.u1sq;
