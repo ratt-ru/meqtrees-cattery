@@ -10,9 +10,10 @@ Locations = [ os.path.expanduser("~/Tigger"),"/usr/lib/meqtrees/Tigger" ];
 def importTigger (verbose=0):
   # tries to find and import Tigger, returns SkyModel class
   try:
+    import Tigger
     import Tigger.SiameseInterface
-    if verbose:
-      print "Found Tigger interface in Python path";
+    print "Using LSM module from Tigger (%s) %s at %s (in path)"%(Tigger.release_string,
+        Tigger.svn_revision_string,os.path.dirname(Tigger.__file__));
     return Tigger.SiameseInterface.TiggerSkyModel;
   except ImportError:
     pass;
@@ -26,9 +27,10 @@ def importTigger (verbose=0):
       path = os.path.abspath(path);
       sys.path.insert(0,os.path.dirname(path));
       try:
+        import Tigger
         import Tigger.SiameseInterface
-        if verbose:
-          print "Found Tigger interface in",path;
+        print "Using LSM module from Tigger (%s) %s at %s"%(Tigger.release_string,
+            Tigger.svn_revision_string,os.path.dirname(Tigger.__file__));
         del sys.path[0];
         return Tigger.SiameseInterface.TiggerSkyModel;
       except ImportError:

@@ -311,7 +311,7 @@ class IfrArray (object):
             uvw(station) << uvw_def;
     return uvw(*quals);
 
-  def uvw_ifr (self,dir0,*quals):
+  def uvw_ifr (self,dir0=None,*quals):
     """returns interferometer UVW node(s) for a given phase centre direction,
     or using the global phase center if None is given.
     If an IFR is supplied, returns UVW node for that IFR""";
