@@ -31,11 +31,7 @@ import math
 import Meow
 import Meow.StdTrees
 
-try:
-  import pyrap_tables
-except:
-  import pyrap.tables
-  
+import pyrap.tables
 
 # MS options first
 mssel = Meow.Context.mssel = Meow.MSUtils.MSSelector(has_input=False,tile_sizes=[8,16,32],flags=False);
@@ -67,9 +63,10 @@ from Siamese.OMS import gridded_sky
 from Siamese.OMS import transient_sky
 from Siamese.OMS import fitsimage_sky
 import Meow.LSM
+from Siamese.OMS.tigger_lsm import TiggerSkyModel
 lsm = Meow.LSM.MeowLSM(include_options=False);
 
-meqmaker.add_sky_models([gridded_sky,transient_sky,fitsimage_sky,lsm]);
+meqmaker.add_sky_models([gridded_sky,transient_sky,fitsimage_sky,lsm,TiggerSkyModel(verbose=2)]);
 
 # now add optional Jones terms
 # these will show up in the menu automatically

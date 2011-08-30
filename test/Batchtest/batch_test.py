@@ -16,7 +16,7 @@ def run (*commands):
   code = os.system(cmd);
   if code:
     raise RuntimeError,"failed with exit code %x"%code;
-
+  
 def verify_image (file1,file2,maxdelta=1e-6):
   import pyfits
   im1 = pyfits.open(file1)[0].data;
@@ -28,8 +28,21 @@ def verify_image (file1,file2,maxdelta=1e-6):
   if delta > maxdelta:
     raise RuntimeError,"%s and %s differ by %g"%(file1,file2,delta);
   print "%s and %s differ by %g, this is within tolerance"%(file1,file2,delta);
+  
+trace_sync = None;
+
+def trace_lines (frame,event, arg):
+  global trace_file;
+  global trace_sync;
+  print "%s %s:%d"%(event,frame.f_code.co_filename,frame.f_lineno);
+  if trace_sync:
+    sys.stdout.flush();
+  return trace_lines;
 
 if __name__ == '__main__':
+  trace_sync = True;
+#  sys.settrace(trace_lines);
+  
   if len(sys.argv) > 1:
     newdir = sys.argv[-1];
     print "========== Changing working directory to",newdir;
@@ -51,9 +64,20 @@ if __name__ == '__main__':
   run("mv WSRT.MS_p0 WSRT.MS");
   run("ls WSRT.MS");
   run("lwimager ms=WSRT.MS data=CORRECTED_DATA mode=channel weight=natural npix=10");
+  # make test LSMs
+  run("""tigger-convert test-lsm.txt --rename --format "ra_d dec_d i q u v" -f""");
+  run("""tigger-convert test-lsm.lsm.html test-lsm1.txt --output-format "name ra_h dec_d i q u v freq0 spi rm tags..." -f""");
+  run("""cut -d " " -f 1-10 test-lsm1.txt >test-lsm1.txt.tmp""");
+  run("""diff test-lsm1.txt.tmp test-lsm1.txt.reference""");
+  run("""tigger-convert test-lsm1.txt --format "name ra_h dec_d i q u v freq0 spi rm tags..." -f""");
+  run("""owlcat plot-ms WSRT.MS DATA:I -o data_i.png""");
+  run("""owlcat run-imager ms=WSRT.MS name_dirty=tmp""");
 
+  print "importing meqserver"
   from Timba.Apps import meqserver
+  print "importing Compile"
   from Timba.TDL import Compile
+  print "importing TDLOptions"
   from Timba.TDL import TDLOptions
 
   # This starts a meqserver. Note how we pass the "-mt 2" option to run two threads.
@@ -95,18 +119,25 @@ if __name__ == '__main__':
     TDLOptions.get_job_func('cal_G_diag')(mqs,None,wait=True);
     print "========== Imaging MODEL_DATA ";
     TDLOptions.get_job_func('make_dirty_image')(mqs,None,wait=True,run_viewer=False);
-
-    ## compare against reference image
-    print "========== Verifying residual image ";
-    verify_image('WSRT.MS.CORRECTED_DATA.channel.1ch.fits',path('test-refresidual.fits'),maxdelta=1e-3);
-
-    ## all tests succeeded
-    print "========== Break out the bubbly, this hog is airborne!";
-
+    
   finally:
     print "Stopping meqserver";
     # this halts the meqserver
     meqserver.stop_default_mqs();
-    # now we can exit
-    print "Bye!";
+    
+  print "========== Making plots of solutions ";
+  run("""owlcat plot-ms WSRT.MS CORRECTED_DATA:I -I ">0" -o corrected_data_i.png""");
+  run("""owlcat plot-parms -l WSRT.MS/G_diag.fmep""");
+  run("""owlcat plot-parms WSRT.MS/G_diag.fmep G:*/norm -o parmplot.png""");
+  run("""owlcat downweigh-redundant-baselines WSRT.MS""");
+
+  ## compare against reference image
+  print "========== Verifying residual image ";
+  verify_image('WSRT.MS.CORRECTED_DATA.channel.1ch.fits',path('test-refresidual.fits'),maxdelta=1e-3);
+
+  ## all tests succeeded
+  print "========== Break out the bubbly, this hog is airborne!";
+
+  # now we can exit
+  print "Bye!";
 
