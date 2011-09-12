@@ -68,7 +68,7 @@ if __name__ == '__main__':
   run("""tigger-convert test-lsm.txt --rename --format "ra_d dec_d i q u v" -f""");
   run("""tigger-convert test-lsm.lsm.html test-lsm1.txt --output-format "name ra_h dec_d i q u v freq0 spi rm tags..." -f""");
   run("""cut -d " " -f 1-10 test-lsm1.txt >test-lsm1.txt.tmp""");
-  run("""diff test-lsm1.txt.tmp test-lsm1.txt.reference""");
+  run("""diff test-lsm1.txt.tmp %s"""%path('test-lsm1.txt.reference'));
   run("""tigger-convert test-lsm1.txt --format "name ra_h dec_d i q u v freq0 spi rm tags..." -f""");
   run("""owlcat plot-ms WSRT.MS DATA:I -o data_i.png""");
   run("""owlcat run-imager ms=WSRT.MS name_dirty=tmp""");
