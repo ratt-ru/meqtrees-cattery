@@ -3,6 +3,7 @@
 import os.path
 import math
 import numpy
+import pyfits
 from scipy.ndimage import interpolation
 from scipy import interpolate
 
@@ -10,10 +11,6 @@ import Kittens.utils
 _verbosity = Kittens.utils.verbosity(name="vb");
 dprint = _verbosity.dprint;
 dprintf = _verbosity.dprintf;
-
-## ugly hack to get around UGLY FSCKING ARROGNAT (misspelling fully intentional) pyfits-2.3 bug
-pyfits = Kittens.utils.import_pyfits();
-
 
 DEG = math.pi/180;
 
@@ -214,7 +211,7 @@ class LMVoltageBeam (object):
 
   def hasFrequencyAxis (self):
     return bool(self._freqToPixel);
-
+    
   def beam (self):
     return self._beam;
 
@@ -248,25 +245,25 @@ class LMVoltageBeam (object):
     # make sure inputs are arrays
     l = numpy.array(l) + self.l0;
     m = numpy.array(m) + self.m0;
-
     freq = numpy.array(freq);
+    
     # promote l,m to the same shape
     l,m = unite_shapes(l,m);
     dprint(3,"input l/m is",l,m);
-    l = self._lToPixel(l);
-    m = self._mToPixel(m);
-    dprint(3,"in pixel coordinates this is",l,m);
+    l,m = self.beam.lmToBeam();
+    dprint(3,"in beam coordinates this is",l,m);
     # now we make a 2xN coordinate array for map_coordinates
     # lm[0,:] will be flattened L array, lm[1,:] will be flattened M array
     # lm[2,:] will be flattened freq array (if we have a freq dependence)
     # Do we have a frequency axis in the beam? (case A,B,C):
-    if self.hasFrequencyAxis():
+    if self.beam.hasFrequencyAxis():
       if freq is None:
         raise ValueError,"frequencies not specified, but beam has a frequency dependence";
       freq = numpy.array(freq);
       if not freq.ndim:
         freq = freq.reshape(1);
-      freq = self._freqToPixel(freq);
+        print freq;
+      freq = self.beam.freqToBeam(freq);
       # case (A): reuse same frequency for every l/m point
       if len(freq) == 1:
         lm = numpy.vstack((l.ravel(),m.ravel(),[freq[0]]*l.size));
@@ -291,6 +288,11 @@ class LMVoltageBeam (object):
       output = numpy.zeros(l.shape,complex);
     elif output.shape != l.shape:
       output.resize(l.shape);
+      
+    self.beam.interpolate(output,lm);
+    
+    return output;
+    
     output.real = interpolation.map_coordinates(self._beam_real,lm,order=self._spline_order,
                   prefilter=(self._spline_order==1)).reshape(l.shape);
     output.imag = interpolation.map_coordinates(self._beam_imag,lm,order=self._spline_order,

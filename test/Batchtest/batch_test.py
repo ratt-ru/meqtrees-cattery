@@ -4,6 +4,9 @@
 import os
 import os.path
 import sys
+## ugly hack to get around UGLY FSCKING ARROGNAT (misspelling fully intentional) pyfits-2.3 bug
+import Kittens.utils
+pyfits = Kittens.utils.import_pyfits();
 
 dir0 = os.getcwd();
 
@@ -18,7 +21,6 @@ def run (*commands):
     raise RuntimeError,"failed with exit code %x"%code;
   
 def verify_image (file1,file2,maxdelta=1e-6):
-  import pyfits
   im1 = pyfits.open(file1)[0].data;
   im2 = pyfits.open(file2)[0].data;
   # trim corners, as these may have differences due to modifications of the tapering scheme

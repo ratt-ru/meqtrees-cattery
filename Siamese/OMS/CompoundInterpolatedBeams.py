@@ -3,10 +3,11 @@
 import os.path
 import math
 import numpy
-import pyfits
 from scipy.ndimage import interpolation
 
 import Kittens.utils
+## ugly hack to get around UGLY FSCKING ARROGNAT (misspelling fully intentional) pyfits-2.3 bug
+pyfits = Kittens.utils.import_pyfits();
 
 import Siamese.OMS.InterpolatedBeams
 
