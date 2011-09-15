@@ -9,10 +9,10 @@ import copy
 import numpy
 import numpy.ma
 
-from Timba.parmtables import FastParmTable
-from Timba.Meq import meq
 from Timba import dmi
 from Timba import mequtils
+from Timba.parmtables import FastParmTable
+from Timba.Meq import meq
 
 # debug printing
 import Kittens.utils
