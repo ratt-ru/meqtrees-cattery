@@ -74,7 +74,7 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,**kw):
   # are pointing errors configured?
   if pointing_offsets:
     # create nodes to compute actual pointing per source, per antenna
-    for p in Context.array.stations():
+    for p in stations:
       for src in sources:
         lm = ns.lm(src.direction,p) << src.direction.lm() + pointing_offsets(p);
         beam_model(Jones(src,p),lm,p);
