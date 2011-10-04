@@ -38,6 +38,8 @@ separate the per-component groups with '+'.""");
                     help="radius of FITS file, in pixels. Resulting NAXISn will be 2*radius+1.");
   parser.add_option("-R","--resolution",metavar="DEG",type="float",default=0.01,
                     help="resolution of FITS file, in degrees. Default is %default.");
+  parser.add_option("--scale",type="float",default=1.,
+                    help="rescale the beam by the given factor.");
   parser.add_option("-f","--frequency",metavar="MHz",type="float",default=0,
                     help="first frequency plane, MHz.");
   parser.add_option("-n","--num-freq",type="int",default=1,
@@ -115,11 +117,11 @@ separate the per-component groups with '+'.""");
     # create coordinates for interpolation
     # note that the interpolator classes expect direction cosines (i.e. sines w.r.t. sin centre),
     # whereas here we make a regularly-gridded image in degrees
-    l0 = numpy.sin(numpy.arange(-options.radius,options.radius+1)*options.resolution*DEG);
+    l0 = numpy.sin(numpy.arange(-options.radius,options.radius+1)*options.resolution*DEG*options.scale);
     l0,m0 = numpy.meshgrid(l0,l0);
     images = [ vb.interpolate(l0,m0,freq=freq,freqaxis=2) for vb in beam_components ];
   elif options.interpolator == "grid":
-    l0 = numpy.arange(-options.radius,options.radius+1)*options.resolution*DEG;
+    l0 = numpy.arange(-options.radius,options.radius+1)*options.resolution*DEG*options.scale;
     images = [ vb.grid(l0,l0,freq) for vb in beam_components ];
 
   dprint(1,"generating FITS images");
