@@ -75,6 +75,10 @@ for viewer in [ "tigger","tigger.py","kvis","ds9" ]:
   if vpath:
     Meow.dprint("  (Meow.MSUtils: found image viewer %s)"%vpath);
     _image_viewers.append(viewer);
+
+# find addbitflagcol
+_addbitflagcol = find_exec("addbitflagcol");
+
 # also look in $HOME/Tigger/tigger.py
 vpath = "~/Tigger/tigger";
 if os.access(os.path.expanduser(vpath),os.R_OK|os.X_OK):
@@ -364,8 +368,8 @@ class MSReadFlagSelector (MSFlagSelector):
     # option to read legacy flags
     if legacy:
       self.read_legacy_flag_opt = TDLOption('read_legacy_flags',
-          "Include legacy FLAG column",True,namespace=self,
-          doc="""If enabled, then data flags in the standard AIPS++ FLAG column will
+          "Include standard FLAG column",True,namespace=self,
+          doc="""If enabled, then data flags in the standard CASA FLAG column will
           be included in the overall set of data flags.
           Normally you would only work with flagsets and ignore the FLAG column.
           """);
@@ -405,41 +409,43 @@ class MSReadFlagSelector (MSFlagSelector):
 
 
 class MSWriteFlagSelector (MSFlagSelector):
+  doc_flagset = """If new data flags are generated within the tree, they may be stored 
+    in an existing or new flagset. Select the output flagset name here.""";
+  doc_flagset_none = """<P>This MS appears to be missing a BITFLAG column, so 
+    separate output flagsets are not available, and you may only write flags to the 
+    CASA-standard FLAG and FLAG_ROW columns. This severely restricts MeqTrees-related flagging functionality.</P>
+    
+    <P>It is highly recommended that you add a BITFLAG column to this MS by running the 
+    "addbitflagcol" utility, then reload this TDL script.</P>""";
+  
   def __init__ (self,namespace='ms_wfl'):
     """Creates options for selecting an output flagset of an MS.
     namespace:  the TDLOption namespace name, used to qualify TDL options created here.
         If making multiple selectors, you must give them different namespace names
     """;
     MSFlagSelector.__init__(self,namespace);
-    if TABLE is not None:
-      # For the output, either we already have a BITFLAG column, in which
-      # case we'll get a list of bitflag labels from there when the MS is selected,
-      # or we don't, in which case we need only provide one default name
-      self.write_bitflag_opt = TDLOption("write_bitflag","Output flagset",
-                                          ["FLAG0"],more=str,namespace=self,
-        doc="""If new data flags are generated within the tree, they may be stored in an existing
-        or new flagset. Select the output flagset here""");
-    else:
-      # No table support, so we'll just ask for a bit number
-      self.write_bitflag_opt = TDLOption("write_bitflag","Output bitflag",
-                                          range(16),more=int,namespace=self,
-        doc="""If new data flags are generated within the tree, they may be stored in an existing
-        or new flagset. Select the output flagset here by specifying a bit number.""");
+    self.write_bitflag_opt = TDLOption("write_bitflag","Write to flagset",["FLAG0"],
+                                       more=str,namespace=self,doc=self.doc_flagset);
     self._has_new_bitflag_label = self.flagsets = None;
     self._opts.append(self.write_bitflag_opt);
+    self._has_bitflags = False;
 
   def update (self):
+    self._has_bitflags = self.flagsets.names() is not None;
     self.bitflag_labels = self.flagsets.names() or [];
     self.bitflag_bits   = [ self.flagsets.flagmask(name) for name in self.bitflag_labels ];
     self.write_bitflag_opt.set_option_list(self.bitflag_labels);
+    self.write_bitflag_opt.set_doc(self.doc_flagset if self._has_bitflags else self.doc_flagset_none);
+    self.write_bitflag_opt.enable(self._has_bitflags);
 
   def get_flagmask (self):
+    if not self._has_bitflags:
+      return 0;
     bitflag = self.write_bitflag;
     if isinstance(bitflag,str):
       return self.flagsets.flagmask(bitflag,create=True);
     else:
       return 1<<bitflag;
-
 
 
 class MSSelector (object):
@@ -580,12 +586,19 @@ class MSSelector (object):
       # add into submenu
       self.read_flags_opt = TDLMenu("Read flags from MS",
         toggle="ms_read_flags",default=True,namespace=self,open=False,
-        doc="""If the Measurement Set contains data flags, enable this option to propagate the flags
-        into the tree. Flagged data is (normally) ignored in all calculations.
-        There may exist multiple sets of data flags. One set is stored in the legacy FLAG column
-        defined by AIPS++/casa. With MeqTrees, you may create a number of additional flagsets with
-        arbitrary labels. Via the suboptions within this menu, you may choose to include or exclude
-        each flagset from the overall set of active data flags.
+        doc="""<P>If the MS contains data flags, enable this option to propagate the flags
+        into the tree. Flagged data is (normally) ignored in all calculations.</P>
+        
+        <P>MeqTrees supports multiple independent sets of data flags (called <I>flagsets</I>) by extending
+        the MS standard with a custom BITFLAG column. This may be added to any existing MS by running
+        the "addbitflagcol" utility. Multiple flagsets allow for easy revision and "backing out" of 
+        flags if e.g. too much data has been flagged -- a situation that is very difficult to
+        undo when only a single FLAG column is used. </P>
+        
+        <P>The CASA-standard FLAG column is treated as a single flagset called <I>legacy</I> or <I>standard</I> flags. 
+        Bitflags can provide up to 32 additional flagsets with user-defined labels. This menu allows you 
+        to include or exclude each flagset from the overall "active" set of data flags that affects calculations
+        within the tree.</P>
         """,
         *self.read_flag_selector.option_list()
         );
@@ -594,26 +607,25 @@ class MSSelector (object):
       self.ms_read_flags = self.read_flag_selector = None;
     if flags or write_flags:
       self.write_flag_selector = self.make_write_flag_selector('ms_wfl');
-      self.write_flags_opt = TDLMenu("Write output flagset",
-        toggle='ms_write_flags',default=False,namespace=self,
-        doc="""If new data flags are generated within the tree, they may be written out to the
-        Measurement Set. Enable this option to write flags to the MS.""",
-        *( self.write_flag_selector.option_list() +
-           [ TDLOption("ms_write_flag_policy",
+      self.write_flag_policy_opt = TDLOption("ms_write_flag_policy",
                     "Output flagset policy",[FLAG_ADD,FLAG_REPLACE],namespace=self,
                     doc="""<P>Flags generated within the tree may be added to an existing flagset, or may
-                    replace a flagset.</P>"""),
-             TDLOption("ms_fill_legacy_flags","Update legacy FLAG/FLAG_ROW columns",True,namespace=self,
-                    doc="""<P>If set, then the leagcy FLAG/FLAG_ROW columns will be updated on-the-fly,
-                    using the flagsets read in, plus the flagset generated here.</P>""")
-           ]
+                    replace a flagset.</P>""");
+      self.write_legacy_flags_opt = TDLOption("ms_fill_legacy_flags",
+                    "Update standard FLAG column",True,namespace=self,
+                    doc="""<P>If set, then the CASA-standard FLAG and FLAG_ROW columns will be updated on-the-fly,
+                    using the flags read in, plus the flags generated here.</P>""");
+      self.write_flags_opt = TDLMenu("Write flags to MS",
+        toggle='ms_write_flags',default=False,namespace=self,
+        doc="""<P>If new data flags are generated within the tree, they may be written out to the
+        MS. Enable this option to do so.""",
+        *( self.write_flag_selector.option_list() +
+           [ self.write_flag_policy_opt,self.write_legacy_flags_opt ]
          )
         );
       self._opts.append(self.write_flags_opt);
     else:
-      self.ms_write_flags = False;
-      self.ms_write_flag_selector = None;
-      self.ms_write_replace_flags = False;
+      self.ms_write_flags = self.write_flag_selector = None;
     # add callbacks
     self._when_changed_callbacks = [];
     # if TABLE exists, set up interactivity for MS options
@@ -834,6 +846,8 @@ class MSSelector (object):
       # get flagsets and notify flag selectors
       self.flagsets = get_flagsets(ms);
       self.flagsets.load(ms);
+      if self.write_flag_selector:
+        self.write_flag_policy_opt.show(self.flagsets.names() is not None);
       for sel in self._flag_selectors:
         sel.update_flagsets(self.flagsets);
       # notify content selectors
@@ -1424,7 +1438,7 @@ class Flagsets (object):
     """;
     # lookup flagbit, return if found
     if self.order is None:
-      raise TypeError,"MS does not contain a BITFLAG column, cannot use flagsets""";
+      raise TypeError,"MS does not contain a BITFLAG column. Please run the addbitflagcol utility on this MS.""";
     bit = self.bits.get(name,None);
     if bit is not None:
       return bit;
