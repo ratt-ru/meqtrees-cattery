@@ -298,14 +298,23 @@ class MeqMaker (object):
       opts =  [ sta_opt,
         TDLOption(self._make_attr('per_source',label),"Use a unique %s-Jones term per"%label,[PER_SOURCE,PER_ALL_SOURCES],
                 more=str,namespace=self,doc=
-                """<P>If you specify '%s', each source will receive an independent %s-Jones term. If you specify '%s',
-                the same %s-Jones term will be used for all sources in the model. Alternatively, you may specify a tag name
-                to group sources by tag. That is, assuming a tag name of "foo": if source A does not have the tag "foo",
-                it receives its own %sJones term. If it has the tag "foo=B", then source A will use the Jones term
-                associated with source B.</P>"""%(PER_SOURCE,label,PER_ALL_SOURCES,label,label)) ];
+                """<P>If you specify '%s', each source will receive an independent %s-Jones term. 
+                If you specify '%s', the same %s-Jones term will be used for the entire sky (making it
+                effectively direction-independent).</P>
+                <P>Alternatively, you may specify a tag name to group sources by tag. For example, 
+                if you enter the name of "foo", and source A does not have the tag "foo",
+                it will receive its own %s-Jones term. If source B then has the tag "foo=A", 
+                then it will use the Jones term associated with source A. This is commonly
+                used with the "cluster" tag assigned by Tigger (see the tigger-convert script for details) to associate a single Jones term with a whole cluster of closely located sources. </P>"""%(PER_SOURCE,label,PER_ALL_SOURCES,label,label)) ];
       opts += jt.subset_selector.options;
       extra_options.append(TDLMenu("Advanced options",
-                            toggle=self._make_attr('advanced',label),nonexclusive=True,namespace=self,*opts));
+                            toggle=self._make_attr('advanced',label),nonexclusive=True,
+                            doc="""<P>This contains some advanced 
+                            options relevant to the %s-Jones term. Note that the 
+                            "Advanced options" checkbox itself must be checked for the options
+                            within to have efefct.</P>"""%label,
+                            namespace=self,
+                            *opts));
     # make option menus for selecting a jones module
     mainmenu = self._module_selector("Use %s Jones (%s)"%(label,name),
                                      label,modules,extra_opts=extra_options);

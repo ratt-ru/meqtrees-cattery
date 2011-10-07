@@ -1120,6 +1120,10 @@ class ImagingSelector (object):
       self.subset_selector = mssel.make_subset_selector(namespace);
       custom_sel_menu = TDLMenu("Use custom MS selection for imaging",
                           toggle="imaging_custom_ms_select",namespace=self,
+                          doc="""<P>Normally, the same MS selection as that set in the "Data selection"
+                          menu above is automatically used for imaging. If you would like to image a different
+                          subset of the MS, enable this checkbox and set up the options 
+                          within accordingly.</P>""",
                           *self.subset_selector.option_list());
       self._opts.append(custom_sel_menu);
     else:

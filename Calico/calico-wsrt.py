@@ -43,7 +43,7 @@ mssel = Meow.Context.mssel = Meow.MSUtils.MSSelector(has_input=True,tile_sizes=N
                   hanning=True,invert_phases=True);
 # MS compile-time options
 TDLCompileOptions(*mssel.compile_options());
-TDLCompileOption("run_purr","Start Purr on this MS",True);
+TDLCompileOption("run_purr","Start Purr on this MS",False);
 # MS run-time options
 TDLRuntimeMenu("Data selection & flag handling",*mssel.runtime_options());
 

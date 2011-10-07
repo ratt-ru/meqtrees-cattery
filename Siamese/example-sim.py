@@ -36,7 +36,7 @@ import Meow.StdTrees
 mssel = Meow.Context.mssel = Meow.MSUtils.MSSelector(has_input=False,has_model=False,tile_sizes=[8,16,32],flags=False);
 # MS compile-time options
 TDLCompileOptions(*mssel.compile_options());
-TDLCompileOption("run_purr","Start Purr on this MS",True);
+TDLCompileOption("run_purr","Start Purr on this MS",False);
 # MS run-time options
 TDLRuntimeOptions(*mssel.runtime_options());
 ## also possible:
