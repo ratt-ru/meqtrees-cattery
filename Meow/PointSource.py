@@ -73,7 +73,8 @@ class PointSource(SkyComponent):
       self._freq0 = freq0
 
     # see if intrinsic rotation measure is present
-    # flag: flux is fully defined by constants
+    # flag: flux is fully defined by constants (i.e. no rotation measure).
+    # we can still have a spectral index on top of this
     self._constant_flux = not self._has_rm and not \
                           [ flux for flux in STOKES if not self._is_constant(flux) ];
 
@@ -161,6 +162,18 @@ class PointSource(SkyComponent):
         yx = self.ns.yx ** Meq.Conj(xy);
       yy = self.ns.yy ** (self.stokes("I") - self.stokes("Q"));
       return xx,xy,yx,yy;
+
+  def brightness_static (self,observation=None):
+    """If the brightness matrix is constant (i.e. no time-freq dependence), returns it.
+    Else returns None.""";
+    if not self._constant_flux or self._has_spi:
+      return None;
+    observation = observation or Context.observation;
+    if not observation:
+      raise ValueError,"observation not specified in global Meow.Context, or in this function call";
+    # get a list of the coherency elements
+    xx,xy,yx,yy = self.coherency_elements(observation);
+    return [[xx,xy],[yx,yy]];
 
   def brightness (self,observation=None,nodes=None):
     """Returns the brightness matrix for a point source.

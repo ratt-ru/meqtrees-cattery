@@ -123,6 +123,13 @@ class Direction (Parameterization):
       pa_rot << Meq.Matrix22(rcos,-rsin,rsin,rcos);
     return pa_rot;
 
+  def pa_invrot (self,xyz=None):
+    """Returns inverse rotation matrix for PA relative to given xyz position
+    """;
+    pa_rot = self.pa_rot(xyz);
+    pa_invrot = pa_rot('T') ** Meq.Transpose(pa_rot);
+    return pa_invrot;
+
   def azel (self,xyz=None):
     """Returns az-el 2-vector node for this direction.
     """;

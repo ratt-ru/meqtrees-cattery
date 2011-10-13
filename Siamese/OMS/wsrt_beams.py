@@ -24,6 +24,11 @@
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
+"""<P>This is the old-style WSRT cos^3 beam model. This has been superseded by
+Siamese.OMS.analytic_beams and Calico.OMS.wsrt_beams.</P> 
+
+<P>Author: O. Smirnov.</P>""";
+
 from Timba.TDL import *
 from Meow import Context
 

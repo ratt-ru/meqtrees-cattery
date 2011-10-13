@@ -131,11 +131,8 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
           xyz = Context.array.xyz(p);
           pa_rot = Context.observation.phase_centre.pa_rot(xyz);
           lm = ns.lmrot(src,p) <<  Meq.MatrixMultiply(pa_rot,src.direction.lm());
-        # apply offset (so pointing offsets are interpreted in the azel frame, if rotating)
-        if pointing_offsets:
-          lm = ns.lmoff(src,p) << lm + pointing_offsets(p);
-        # now make the beam node
-        make_beam_node(Jones(src,p),filename_pattern,lm);
+        # apply offset in the node (so pointing offsets are interpreted in the azel frame, if rotating)
+        make_beam_node(Jones(src,p),filename_pattern,lm,pointing_offsets and pointing_offsets(p));
     else:
       make_beam_node(Jones(src),filename_pattern,src.direction.lm());
       for p in stations:
@@ -150,3 +147,46 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
     insp << StdTrees.define_inspector(Jones,sources,label=label);
 
   return Jones;
+
+
+def compute_jones_tensor (Jones,sources,stations,lmn=None,pointing_offsets=None,inspectors=[],label='E',**kw):
+  stations = stations or Context.array.stations;
+  ns = Jones.Subscope();
+  
+  # if sky rotation is in effect, ignore the lmn tensor
+  if sky_rotation:
+    lmn = None;
+
+  # see if sources have a "beam_lm" or "_lm_ncp" attribute
+  lmsrc = [ src.get_attr("beam_lm",None) or src.get_attr("_lm_ncp",None) for src in sources ];
+  
+  # if all source have the attribute, create lmn tensor node (and override the lmn argument)
+  if all([lm is not None for lm in lmsrc]):
+    lmn = ns.lmT << Meq.Constant(lmsrc);
+  
+  if not lmn:
+    lmn = ns.lmT << Meq.Composer(dims=[0],*[ src.direction.lm() for src in sources ]);
+
+  # create station tensor
+  # If sky rotation and/or pointing offsets are in effect, we have a per-station beam.
+  # Otherwise the beam is the same for all stations.
+  if sky_rotation or pointing_offsets:
+    for p in stations:
+      # apply rotation to put sources into the antenna frame
+      # lmn is an Nx2 tensor. Multiply that by the _inverse_ (i.e. transpose) of the rotation matrix on the _right_
+      # to get the equivalent rotation.
+      if sky_rotation:
+        xyz = Context.array.xyz(p);
+        pa_invrot = Context.observation.phase_centre.pa_invrot(xyz);
+        lm = ns.lmTrot(p) <<  Meq.MatrixMultiply(lmn,pa_invrot);
+      else:
+        lm = lmn;
+      # apply offset in the node (so pointing offsets are interpreted in the azel frame, if rotating)
+      if pointing_offsets:
+        make_beam_node(Jones(p),filename_pattern,lm,pointing_offsets(p));
+      else:
+        make_beam_node(Jones(p),filename_pattern,lm);
+    return Jones;
+  else:
+    make_beam_node(Jones,filename_pattern,lmn);
+    return lambda p:Jones;

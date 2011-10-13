@@ -474,36 +474,53 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     vbs,beam_max = self.init_voltage_beams();
     # now, figure out the lm and time/freq grid
     lm = children[0];
-    l = lm.vellsets[0].value;
-    m = lm.vellsets[1].value;
+    nvs = len(lm.vellsets);
+    if nvs<2 or nvs%2:
+      raise TypeError,"expecting an Nx2 matrix or a 2-vector for child 0 (lm)";
+    nsrc = nvs/2;
+    scalar_mode = len(getattr(lm,'dims',[])) < 2;
+    # pointing offsets (child 1) are optional
+    if len(children) > 1:
+      dlm = children[1]; 
+      if len(dlm.vellsets) != 2:
+        raise TypeError,"expecting a 2-vector for child 1 (dlm)";
+      dl,dm = dlm.vellsets[0].value,dlm.vellsets[1].value;
+    else:
+      dl = dm = 0;
     # setup grid dict that will be passed to VoltageBeam.interpolate
-    grid = dict(l=l,m=m);
+    grid = dict();
     for axis in 'time','freq':
       values = _cells_grid(lm,axis);
       if values is None:
         values = _cells_grid(request,axis);
       if values is not None:
         grid[axis] = values;
-    # interpolate
     vellsets = [];
-    for vb in vbs:
-      if vb is None:
-        vellsets.append(meq.vellset(meq.sca_vells(0.)));
-      else:
-        beam = vb.interpolate(freqaxis=self._freqaxis,**grid);
-        if self.normalize and beam_max != 0:
-          beam /= beam_max;
-        vells = meq.complex_vells(beam.shape);
-        vells[...] = beam[...];
-        # make vells and return result
-        vellsets.append(meq.vellset(vells));
+    # now loop over sources and interpolte
+    for isrc in range(nsrc):
+      # put l,m into grid
+      grid['l'] = lm.vellsets[isrc*2  ].value - dl;
+      grid['m'] = lm.vellsets[isrc*2+1].value - dm;
+      # interpolate
+      for vb in vbs:
+        if vb is None:
+          vellsets.append(meq.vellset(meq.sca_vells(0.)));
+        else:
+          beam = vb.interpolate(freqaxis=self._freqaxis,**grid);
+          if self.normalize and beam_max != 0:
+            beam /= beam_max;
+          vells = meq.complex_vells(beam.shape);
+          vells[...] = beam[...];
+          # make vells and return result
+          vellsets.append(meq.vellset(vells));
     # create result object
     cells = request.cells if vb.hasFrequencyAxis() else getattr(lm,'cells',None);
     result = meq.result(vellsets[0],cells=cells);
-    # if more than one vellset, then we have 2x2
     if len(vellsets) > 1:
       result.vellsets[1:] = vellsets[1:];
-      result.dims = (2,2);
+    # vbs is either length 4 or length 1. If length 4, then result needs to have its dimensions ery
+    if len(vbs) > 1:
+      result.dims = (2,2) if scalar_mode else (nsrc,2,2);
     return result;
 
 

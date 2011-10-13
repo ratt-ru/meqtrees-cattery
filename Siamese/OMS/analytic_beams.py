@@ -23,6 +23,12 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+"""<P>This implements primary beams expressed as analytic functions. For now, only the WSRT cos^3 beam 
+model is provided, but readers are encouraged to contribute models of their own.</P>
+
+<P>See also Calico.OMS.wsrt_beams for a WSRT beam model with solvable pointing and scale.</P> 
+
+<P>Author: O. Smirnov.</P>""";
 
 from Timba.TDL import *
 from Meow.Direction import radec_to_lmn
@@ -45,6 +51,10 @@ class WSRT_cos3_beam (object):
   def __init__ (self):
     self._options = [
       TDLOption('bf',"Beam factor (1/GHz)",[65.],more=float,namespace=self),
+      TDLOption('ell',"Ellipticity",[0,0.01],more=float,namespace=self,
+        doc="""<P>This makes the X and Y beam patterns elliptical (with major and minor axes of 1&#177;<I>e</I>) rather
+        than circular. Positive <I>e</I> corresponds to the X dipole beam being elongated in the East-West direction,
+        and the Y beam being elongated North-South.</P>"""),
       TDLOption('clip',"Clip beam once gain goes below",[.1],more=float,namespace=self,
         doc="""This makes the beam flat outside the circle corresponding to the specified gain value."""),
       TDLOption('newstar_clip',"Use NEWSTAR-compatible beam clipping (very naughty)",
@@ -55,24 +65,28 @@ class WSRT_cos3_beam (object):
         the gain goes up again. This is a physically incorrect model, but you may need to enable this
         if working with NEWSTAR-derived models, since fluxes of far-off sources will have been estimated with
         this incorrect beam."""),
-      TDLOption('dish_sizes',"Dish size(s)",[25],more=str,namespace=self)
+      TDLOption('dish_sizes',"Dish size(s), m.",[25],more=str,namespace=self)
     ];
     self._prepared = False;
     
   def option_list (self):
     return self._options;
   
-  def prepare (self):
-    if self._prepared:
-      return;
-    try:
-      self._sizes = map(float,str(self.dish_sizes).split());
-    except:
-      raise RuntimeError,"illegal dish sizes specification";
-    self._per_station = len(self._sizes)>1;
-    self._prepared = True;
+  def prepare (self,ns):
+    if not self._prepared:
+      self.ns = ns;
+      try:
+        self._sizes = map(float,str(self.dish_sizes).split());
+      except:
+        raise RuntimeError,"illegal dish sizes specification";
+      self._per_station = len(self._sizes)>1;
+      if self.ell != 0:
+        self._ellnode = ns.ell << Meq.Constant(value=Timba.array.array([self.ell,-self.ell]));
+      else:
+        self._ellnode = None;
+      self._prepared = True;
 
-  def compute (self,E,lm,p=0):
+  def compute (self,E,lm,pointing=None,p=0):
     """computes a cos^3 beam for the given direction, using NEWSTAR's
     cos^^(fq*B*scale*r) model (thus giving a cos^6 power beam).
     r=sqrt(l^2+m^2), which is not entirely accurate (in terms of angular distance), but close enough 
@@ -81,18 +95,28 @@ class WSRT_cos3_beam (object):
     'lm' is direction (2-vector node, or l,m tuple)
     'p' is station number (only if is_per_station() returned True);
     """
+    # work out beam arguments
+    clip = -self.clip if self.newstar_clip else self.clip;
+    size = self.bf*1e-9*self._sizes[min(p,len(self._sizes)-1)]/25.;
     ns = E.Subscope();
-    if isinstance(lm,(list,tuple)):
-      l,m = lm;
-      r = ns.r << sqrt(l*l+m*m);
+    # pointing
+    if pointing is None:
+      pointing = self.ns.dlm_0 << Meq.Constant([0,0]);
+    # different invocations for elliptical and non-elliptical beams
+    if self._ellnode is not None:
+      E << Meq.WSRTCos3Beam(size,lm,pointing,self._ellnode,clip=clip);
     else:
-      r = ns.r << Meq.Norm(lm);
-    clip = self.clip;
-    if self.newstar_clip:
-      clip = -clip;
-    size = self._sizes[min(p,len(self._sizes)-1)];
-    E << Meq.WSRTCos3Beam(self.bf*(size/25.)*1e-9,r,clip=clip);
+      E << Meq.WSRTCos3Beam(size,lm,pointing,clip=clip);
     return E;
+    
+  def compute_tensor (self,E,lm,pointing=None,p=0):
+    """computes a cos^3 beam for the given lm direction tensor
+    'E' is output node
+    'lm' is direction (node returning Nx2 tensor)
+    'p' is station number
+    """
+    # fortunately, exactly the same code works for the tensor case
+    return self.compute(E,lm,pointing,p);
 
 def compute_jones (Jones,sources,stations=None,
                     label="beam",pointing_offsets=None,inspectors=[],
@@ -109,7 +133,7 @@ def compute_jones (Jones,sources,stations=None,
       break;
   else:
     raise RuntimeError,"no beam model selected";
-  beam_model.prepare();
+  beam_model.prepare(ns);
   
   # this dict will hold LM tuples (or nodes) for each source.
   lmsrc = {};
@@ -117,73 +141,74 @@ def compute_jones (Jones,sources,stations=None,
   for src in sources:
     lm = src.get_attr("beam_lm",None) or src.get_attr("_lm_ncp",None);
     if lm:
-      l,m = lmsrc[src.name] = lm;
-      src.set_attr(label+'r',math.sqrt(l**2+m**2)/math.pi*(180*60));
+      src.set_attr(label+'r',math.sqrt(lm[0]**2+lm[1]**2)/math.pi*(180*60));
+      lmsrc[src.name] = ns.lm(src) << Meq.Constant(value=Timba.array.array(lm));
     # else try to use static lm coordinates
     else:
       # else try to use static lm coordinates
       lmnst = src.direction.lmn_static();
       if lmnst:
-        l,m = lmsrc[src.name] = lmnst[0:2];
-        src.set_attr(label+'r',math.sqrt(l**2+m**2)/math.pi*(180*60));
+        lm = lmnst[0:2];
+        src.set_attr(label+'r',math.sqrt(lm[0]**2+lm[1]**2)/math.pi*(180*60));
+        lmsrc[src.name] = ns.lm(src) << Meq.Constant(value=Timba.array.array(lm));
       # else use lmn node
       else:
         lmsrc[src.name] = src.direction.lm();
-    
-  # set of all sources, will later become set of sources for which
-  # a beam hasn't been computed
-  all_sources = set([src.name for src in sources]);
   
-  # if pointing errors are enabled, compute beams for sources with a PE
-  if pointing_offsets:
-    # is a subset specified?
-    if pe_subset != "all":
-      pe_sources = set(pe_subset.split(" "));
-      # make sure pe_sources does not contain unknown sources
-      pe_sources &= all_sources;
-      # remove PE_enabled sources from global list
-      all_sources -= pe_sources;
-    # else all sources have a PE
-    else:
-      pe_sources = all_sources;
-      all_sources = [];
-    # create nodes to compute actual pointing per source, per antenna
-    for name in pe_sources:
-      solvable_sources.add(name);
-      lm = lmsrc[name];
-      # if LM is a static constant still, make constant node for it
-      if isinstance(lm,(list,tuple)):
-        lm = ns.lm(name) << Meq.Constant(value=Timba.array.array(lm));
-      for ip,p in enumerate(stations):
-        # make offset lm
-        lm1 = lm(p) << lm + pointing_offsets(p);
-        # make beam model
-        beam_model.compute(Jones(name,p),lm1,ip);
-  
-  # now, all_sources is the set of sources for which we haven't computed the beam yet
-  if all_sources:
-    for name in all_sources:
-      for ip,p in enumerate(stations):
-        beam_model.compute(Jones(name,p),lmsrc[name],ip);
+  for src in sources:
+    for ip,p in enumerate(stations):
+      beam_model.compute(Jones(src,p),lmsrc[src.name],pointing_offsets and pointing_offsets(p),ip);
           
   return Jones;
 
-# this will be set to True on a per-source basis, or if beam scale is solvable
-solvable = False;
+
+
+def compute_jones_tensor (Jones,sources,stations=None,lmn=None,
+                          label="beam",pointing_offsets=None,inspectors=[],
+                          **kw):
+  """Computes beam gain tensor for a list of sources.
+  The output node, will be qualified with either a source only, or a source/station pair
+  """;
+  stations = stations or Context.array.stations();
+  ns = Jones.Subscope();
+  
+  # figure out beam model
+  for beam_model in MODELS:
+    if globals().get('use_%s'%model.label,None):
+      break;
+  else:
+    raise RuntimeError,"no beam model selected";
+  
+  if not hasattr(beam_model,'compute_tensor'):
+    return None;
+    
+  beam_model.prepare(ns);
+  
+  # see if sources have a "beam_lm" or "_lm_ncp" attribute
+  lmsrc = [ src.get_attr("beam_lm",None) or src.get_attr("_lm_ncp",None) for src in sources ];
+  
+  # if all source have the attribute, create lmn tensor node (and override the lmn argument)
+  if all([lm is not None for lm in lmsrc]):
+    lmn = ns.lmnT << Meq.Constant(lmsrc);
+    
+  # if lmn tensor is not set for us, create a composer
+  if lmn is None:
+    lmn = ns.lmnT << Meq.Composer(dims=[0],*[ src.direction.lm() for src in sources ]);
+
+  # create station tensors
+  for ip,p in enumerate(stations):
+    beam_model.compute_tensor(Jones(p),lmn,pointing_offsets and pointing_offsets(p),ip);
+          
+  return Jones;
+
 
 # available beam models
 MODELS = [
   WSRT_cos3_beam()
 ];
 
-
 _model_option = TDLCompileMenu("Beam model",
   exclusive='model_type',
   *[ TDLMenu(model.name,toggle="use_%s"%model.label,*model.option_list())
       for model in MODELS ]);
-
-TDLCompileOption('pe_subset',"Apply pointing errors (if any) to a subset of sources",
-        ["all"],more=str,doc="""Selects a subset of sources to which pointing errors 
-        (if any) are applied. Enter soure names separated by space""");
-
 

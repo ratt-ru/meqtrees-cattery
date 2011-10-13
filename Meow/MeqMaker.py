@@ -225,6 +225,8 @@ class MeqMaker (object):
       MeqMaker.JonesTerm.__init__(self,label,name,modules);
       self.pointing_modules = pointing_modules;
       self.subset_selector = None;
+      self.base_pe_node = None;
+      self.pe_initialized = False;
 
   def _add_module_to_compile_options (self,option,is_uvplane):
     if is_uvplane:
@@ -404,6 +406,9 @@ class MeqMaker (object):
   def is_module_enabled (self,label,mod):
     """Returns true if the given module is enabled for the given group label"""
     return self.is_group_enabled(label) and self._module_toggles.get(label,{}).get(_modname(mod).replace(".","_"));
+    
+  def are_advanced_options_enabled (self,label):
+    return getattr(self,self._make_attr("advanced",label),False);
 
   def _module_selector (self,menutext,label,modules,extra_opts=[],use_toggle=True,exclusive=True,**kw):
     # Forms up a "module selector" submenu for the given module set.
@@ -601,7 +606,27 @@ class MeqMaker (object):
       if jt.label == label:
         return jt.base_node;
     raise KeyError,"sky-Jones term %s not defined"%label;
-
+  
+  def _get_pointing_error_nodes (self,ns,jt,stations):
+    if not jt.pointing_modules:
+      return None;
+    if not jt.pe_initialized:
+      jt.pe_initialized = True;
+      pointing_module = self._get_selected_module(jt.label+"pe",jt.pointing_modules);
+      if pointing_module:
+        dlm = ns[jt.label]('dlm');
+        inspectors = [];
+        jt.base_pe_node = dlm = pointing_module.compute_pointings(dlm,stations=stations,tags=jt.label,
+                                                label=jt.label+'pe',
+                                                inspectors=inspectors,meqmaker=self);
+        # add inspectors, if any were returned
+        if inspectors:
+          for node in inspectors:
+            self.add_inspector_node(node);
+        elif dlm and self.use_jones_inspectors:
+          self.make_per_station_bookmarks(dlm,"%s pointing errors"%jt.label,stations,freqmean=False);
+    return jt.base_pe_node;
+ 
   def _get_jones_nodes (self,ns,jt,stations,sources=None,solvable_sources=set()):
     """Returns the Jones nodes associated with the given JonesTerm ('jt'). If
     the term has been disabled (through compile-time options), returns None.
@@ -613,7 +638,7 @@ class MeqMaker (object):
     If basenode==None, the given JonesTerm is not implemented and may be omitted from the ME.
     """;
     if jt.base_node is None:
-      advanced_opt = getattr(self,self._make_attr("advanced",jt.label),False);
+      advanced_opt = self.are_advanced_options_enabled(jt.label);
       if isinstance(jt,self.SkyJonesTerm):
         # for sky-jones terms, apply subset selector to finalize list of sources
         if advanced_opt:
@@ -664,22 +689,7 @@ class MeqMaker (object):
         if self.use_skyjones_visualizers:
           skyvis = self._make_skyjones_visualizer_source(ns);
           sources_with_jones_node.insert(0,skyvis);
-        dlm = None;
-        if jt.pointing_modules:
-          pointing_module = self._get_selected_module(jt.label+"pe",jt.pointing_modules);
-          # get pointing offsets
-          if pointing_module:
-            dlm = ns[jt.label]('dlm');
-            inspectors = [];
-            dlm = pointing_module.compute_pointings(dlm,stations=stations,tags=jt.label,
-                                                    label=jt.label+'pe',
-                                                    inspectors=inspectors,meqmaker=self);
-            pointing_solvable = getattr(pointing_module,'solvable',True);
-            if inspectors:
-              for node in inspectors:
-                self.add_inspector_node(node);
-            elif dlm and self.use_jones_inspectors:
-              self.make_per_station_bookmarks(dlm,"%s pointing errors"%jt.label,stations,freqmean=False);
+        dlm = self._get_pointing_error_nodes(ns,jt,stations);
       else:
         dlm = None;
       # now make the appropriate matrices
@@ -766,7 +776,7 @@ class MeqMaker (object):
     stations = Meow.Context.array.stations();
     ifrs = ifrs or Meow.Context.array.ifrs();
     # use sky model if no source list is supplied
-    sources = sources or self.get_source_list(ns);
+    sources = sources if sources is not None else self.get_source_list(ns);
     if self.use_smearing:
       count = self.smearing_count;
       if count == "all":
