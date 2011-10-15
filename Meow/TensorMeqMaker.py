@@ -75,19 +75,28 @@ class TensorMeqMaker (MeqMaker):
             srclist = jt.subset_selector.filter(srclist);
           if srclist:
             # call module to get the tensor
-            Tbase = ns["%sT%d"%(jt.label,i)];
-            if module.compute_jones_tensor(Tbase,srclist,real_stations,lmn=lmnT,pointing_offsets=dlm) is None:
+            inspectors = [];
+            Tbase = module.compute_jones_tensor(ns["%sT%d"%(jt.label,i)],
+                            srclist,real_stations,lmn=lmnT,pointing_offsets=dlm,inspectors=inspectors);
+            if Tbase is None:
               # if no tensor available, fall back to Jones nodes
               basenodes = None;
               break;
+            # make inspectors
+            if inspectors:
+              for node in inspectors:
+                self.add_inspector_node(node);
             # make conjugate tensor
-            Tbaseconj = ns["%sT%dconj"%(jt.label,i)];
-            # propagate this to all stations
-            if same_all_stations:
-              tbase = Tbase(stations[0]);
-              tconj = Tbaseconj(stations[0]) << Meq.ConjTranspose(Tbase(stations[0]),tensor=True);
-              Tbase = lambda p:tbase;
-              Tbaseconj = lambda p:tconj;
+            Tbaseconj = ns["%sT%d^H"%(jt.label,i)];
+            # has the user specified the same Jones term for all stations, or has the module
+            # returned the same tensor for all stations? Make one conjuaget then
+            p0 = stations[0];
+            if same_all_stations or all([ Tbase(p) is Tbase(p0) for p in stations[1:] ]):
+              tbase = Tbase(p0);
+              tconj = Tbaseconj << Meq.ConjTranspose(Tbase(p0),tensor=True);
+              Tbase = lambda p,T=tbase:T;
+              Tbaseconj = lambda p,T=tconj:T;
+            # else make conjugate tensor for each station
             else:
               for p in stations[1:]:
                 Tbaseconj(p) << Meq.ConjTranspose(Tbase(p),tensor=True);
@@ -143,30 +152,30 @@ class TensorMeqMaker (MeqMaker):
     
     ### build up the sky-Jones component for point sources
     if point_sources:
-      ### figure out if our source list needs to be partitioned into two subsets. 
-      # We do this when e.g. one particular sky-Jones term is applied to only a subset of sources, or
-      # if multiple sky-Jones terms have subsets, but all these subsets are the same
-      fixed_subset = None;
+      ### figure out how to split the source list into partitions with the same applicable tensors
+      # initial list has one partition: all sources
+      partitions = [ set([ src.name for src in point_sources ]) ];
       for jt in self._sky_jones_list:
-        # if Jones term is enabled, and advanced options are enabled
+        # if Jones term is enabled, and advanced options are enabled, and a subset
+        # is specified, recalcaulte partitions, else no change
         if self.is_group_enabled(jt.label) and self.are_advanced_options_enabled(jt.label):
           subset = set([src.name for src in jt.subset_selector.filter(point_sources)]);
-          if len(subset) and len(subset) < len(point_sources):
-            if fixed_subset is None:
-              fixed_subset = subset;
-            elif fixed_subset != subset:
-              fixed_subset = None;
-              break;
-      # If fixed_subset is None, then we either have different subsets per Jones term, or no subsets at all.
-      # Either way, this precludes partitioning
-      if fixed_subset is None:
-        sgroups = [ point_sources ];
-      # else partition sources into two groups
-      else:
-        sgroups = [ 
-          [ src for src in point_sources if src.name in fixed_subset ],
-          [ src for src in point_sources if src.name not in fixed_subset ]
-        ];
+          if not subset:
+            continue;
+          new_partitions = [];
+          # see what the overlap is with existing partitions
+          for part in partitions:
+            overlap = part&subset;
+            # the overlap and the remainder of this partition, whatever is not empty,
+            # become new parititons
+            new_partitions += [ p1 for p1 in overlap,part-overlap if p1 ];
+            # remove overlap from subset
+            subset -= overlap;
+          partitions = new_partitions;
+      # Convert partitions to lists of sources
+      sgroups = [
+        [ src for src in point_sources if src.name in part ] for part in partitions
+      ];
         
       ## create lmn tensor per each source group
       source_groups = [];

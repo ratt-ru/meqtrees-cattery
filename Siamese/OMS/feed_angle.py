@@ -99,8 +99,9 @@ def _str_to_float (a):
 
 def compute_jones (Jones,stations=None,**kw):
   stations = stations or Context.array.stations();
-  radec = Context.observation.radec0();
-  xyz = Context.array.xyz();
+  if enable_pa:
+    radec = Context.observation.radec0();
+    xyz = Context.array.xyz();
 
   # get the feed angles
   angles = map(_str_to_float,re_whitespace.split(feed_angle));

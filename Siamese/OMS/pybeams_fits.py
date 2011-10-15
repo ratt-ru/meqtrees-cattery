@@ -189,4 +189,4 @@ def compute_jones_tensor (Jones,sources,stations,lmn=None,pointing_offsets=None,
     return Jones;
   else:
     make_beam_node(Jones,filename_pattern,lmn);
-    return lambda p:Jones;
+    return lambda p,J=Jones:J;
