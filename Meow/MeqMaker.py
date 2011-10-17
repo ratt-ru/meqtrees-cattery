@@ -497,7 +497,8 @@ class MeqMaker (object):
     name = name or inspector_node.initrec().get('title',None) or inspector_node.name.replace('_',' ');
     Meow.Bookmarks.Page(name).add(inspector_node,viewer="Collections Plotter");
 
-  def make_bookmark_set (self,nodes,quals,title_inspector,title_folder=None,inspector_node=None,labels=None,freqmean=True):
+  def make_bookmark_set (self,nodes,quals,title_inspector,title_folder=None,inspector_node=None,labels=None,freqmean=True,
+   vells_labels=True):
     """Makes a standard set of bookmarks for a series of nodes: i.e. an inspector, and a folder of
     individual bookmarks""";
     labels = labels or [ ':'.join([getattr(q,'name',None) or str(q) for q in qq]) for qq in quals ];
@@ -505,36 +506,42 @@ class MeqMaker (object):
       nodelist = [ nodes('freqmean',*qq) << Meq.Mean(nodes(*qq),reduction_axes="freq") for qq in quals ];
     else:
       nodelist = [ nodes(*qq) for qq in quals ];
+    if vells_labels is True:
+      vells_labels = Meow.Context.correlations or [];
+    elif not vells_labels:
+      vells_labels = [];
     # make inspector + bookmark
-    insp = (inspector_node or nodes('inspector')) << Meq.Composer(dims=[0],plot_label=labels,mt_polling=True,*nodelist);
+    insp = (inspector_node or nodes('inspector')) << Meq.Composer(dims=[0],plot_label=labels,vells_label=vells_labels,mt_polling=True,*nodelist);
     self.add_inspector_node(insp,title_inspector);
     # make folder of per-baseline plots
     if title_folder is not None:
       Meow.Bookmarks.make_node_folder(title_folder,[nodes(*qq) for qq in quals],sorted=True,ncol=2,nrow=2);
 
-  def make_per_ifr_bookmarks (self,nodes,title,ifrs=None,freqmean=True):
+  def make_per_ifr_bookmarks (self,nodes,title,ifrs=None,freqmean=True,vells_labels=True):
     """Makes a standard set of bookmarks for a per-ifr node: i.e. an inspector, and a folder of
     per-baseline bookmarks""";
     ifrs = ifrs or Meow.Context.array.ifrs();
     return self.make_bookmark_set(nodes,ifrs,
-        "%s: inspector plot"%title,"%s: by interferometer"%title,
+        "%s: inspector plot"%title,"%s: by interferometer"%title,vells_labels=vells_labels,
         labels=[ "%s-%s"%(p,q) for p,q in ifrs ],freqmean=freqmean);
 
-  def make_per_station_bookmarks (self,nodes,title,stations=None,freqmean=True):
+  def make_per_station_bookmarks (self,nodes,title,
+        stations=None,vells_labels=True,freqmean=True):
     """Makes a standard set of bookmarks for a station node: i.e. an inspector, and a folder of
     per-station bookmarks""";
     stations = stations or Meow.Context.array.stations();
     return self.make_bookmark_set(nodes,[ (p,) for p in stations],
         "%s: inspector plot"%title,"%s: by station"%title,
-        freqmean=freqmean);
+        vells_labels=vells_labels,freqmean=freqmean);
 
-  def make_per_source_per_station_bookmarks (self,nodes,title,sources,stations=None,freqmean=True):
+  def make_per_source_per_station_bookmarks (self,nodes,title,sources,
+        stations=None,vells_labels=True,freqmean=True):
     """Makes a standard set of bookmarks for a station node: i.e. an inspector, and a folder of
     per-station bookmarks""";
     stations = stations or Meow.Context.array.stations();
     return self.make_bookmark_set(nodes,[(src,p) for src in sources for p in stations],
         "%s: inspector plot"%title,"%s: by station"%title,
-        freqmean=freqmean);
+        vells_labels=vells_labels,freqmean=freqmean);
 
   def _make_skyjones_visualizer_source (self,ns):
     # create visualization nodes
@@ -624,7 +631,8 @@ class MeqMaker (object):
           for node in inspectors:
             self.add_inspector_node(node);
         elif dlm and self.use_jones_inspectors:
-          self.make_per_station_bookmarks(dlm,"%s pointing errors"%jt.label,stations,freqmean=False);
+          self.make_per_station_bookmarks(dlm,"%s pointing errors"%jt.label,stations,
+                                           vells_labels=("dl","dm"),freqmean=False);
     return jt.base_pe_node;
  
   def _get_jones_nodes (self,ns,jt,stations,sources=None,solvable_sources=set()):
