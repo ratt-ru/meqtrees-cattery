@@ -268,8 +268,8 @@ class IfrArray (object):
         else:
           try:
             num = self.stations().index(uvw_refant);
-          except KeyError:
-            raise ValueError,"reference antenna %s not found"%uvw_refant;
+          except:
+            raise ValueError,"reference antenna '%s' not found"%uvw_refant;
           ip0,p0 = self.station_index()[num];
         # reference station gets (0,0,0), the rest is via subtraction
         if self._include_uvw_deriv:

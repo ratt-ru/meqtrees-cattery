@@ -37,15 +37,15 @@ class TensorMeqMaker (MeqMaker):
     MeqMaker.__init__(self,**kw);
 
   def _get_skyjones_tensor (self,ns,jt,stations,source_lists,other_sources=[]):
-    """Returns the per-source tensor node associated with the given JonesTerm ('jt'). 
+    """Returns the per-source tensor node associated with the given JonesTerm ('jt').
     If the term has been disabled (through compile-time options), returns None.
       'stations' is a list of stations.
       'source_lists' is a list of source groups, each is a tuple of (srclist,lmntensor)
     Returns a tuple of (J1,J1conj),(J2,J2conj),... basenode pairs, one pair per source group.
     If a basenode pair is None,None, then that source group does not have that Jons term.
-    Each basenode should be qualified with a station name to get the per-station tensor node. 
+    Each basenode should be qualified with a station name to get the per-station tensor node.
     If the Jones module is completely disabled, just returns None.
-    
+
     Note that 'other_sources', if passed in, is added to the list of sources for which Jones
     noes are computed. This is done for compatibility with mixed models (containing both
     tensor and non-tensor visiblities), since compute_jones() is called only once.
@@ -145,11 +145,11 @@ class TensorMeqMaker (MeqMaker):
     ifrs = ifrs or Meow.Context.array.ifrs();
     # use sky model if no source list is supplied
     all_sources = sources if sources is not None else self.get_source_list(ns);
-    
+
     # split sky model into point sources and others
-    point_sources = [ src for src in all_sources if isinstance(src,Meow.PointSource) ];
-    other_sources = [ src for src in all_sources if not isinstance(src,Meow.PointSource) ];
-    
+    point_sources = [ src for src in all_sources if type(src) is Meow.PointSource ];
+    other_sources = [ src for src in all_sources if type(src) is not Meow.PointSource ];
+
     ### build up the sky-Jones component for point sources
     if point_sources:
       ### figure out how to split the source list into partitions with the same applicable tensors
@@ -176,7 +176,7 @@ class TensorMeqMaker (MeqMaker):
       sgroups = [
         [ src for src in point_sources if src.name in part ] for part in partitions
       ];
-        
+
       ## create lmn tensor per each source group
       source_groups = [];
       for igrp,sources in enumerate(sgroups):
@@ -187,10 +187,10 @@ class TensorMeqMaker (MeqMaker):
           lmnT << Meq.Constant(lmn_static);
         # else compose a tensor
         else:
-          lmnT << Meq.Composer(dims=[0],*[src.direction.lmn() for src in source_list]);
+          lmnT << Meq.Composer(dims=[0],*[src.direction.lmn() for src in sources]);
         # add to group list
         source_groups.append((sources,lmnT));
-        
+
       ### collect sky-Jones tensors per each source group
       jones_tensors = [ list() for grp in source_groups ];
       for jt in self._sky_jones_list:
@@ -231,8 +231,8 @@ class TensorMeqMaker (MeqMaker):
         uvdata = ns.psvTsum;
         for p,q in ifrs:
           uvdata(p,q) << Meq.Add(*[x(p,q) for x in psvts]);
-    
-    ### OK, at this stage the point source contributions (plus original uvdata, if supplied) are in uvdata. 
+
+    ### OK, at this stage the point source contributions (plus original uvdata, if supplied) are in uvdata.
     ### Invoke the base function to build trees for any other sources in the model, and to apply uv-plane terms.
     if uvdata is not None or other_sources:
       return MeqMaker.make_predict_tree(self,ns,other_sources,uvdata=uvdata,ifrs=ifrs);
