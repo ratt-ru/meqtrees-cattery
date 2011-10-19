@@ -461,6 +461,10 @@ class MSSelector (object):
     _corr_2x2_diag:[0,-1,-1,3],
     _corr_2x2_offdiag:[-1,1,2,-1],
   };
+  HANNING_NONE = None;
+  HANNING_PRETAPERED = 1;
+  HANNING_DOTAPER = 2;
+  
   """An MSSelector implements TDL options for selecting an MS and a subset therein""";
   def __init__ (self,
                 pattern="*.ms *.MS",
@@ -565,13 +569,20 @@ class MSSelector (object):
     else:
       self.tile_size = 1;
     if hanning:
-      self._opts.append(TDLOption('ms_apply_hanning',"Apply Hanning taper to input",
-                                  False,namespace=self));
+      self._opts.append(TDLOption('ms_apply_hanning',"Hanning tapering",
+          {self.HANNING_NONE:"None",
+          self.HANNING_PRETAPERED:"MS is tapered",
+          self.HANNING_DOTAPER:"apply on-the-fly"},namespace=self,
+       doc="""<P>Hanning tapering can be applied to the data on-the-fly as it is being read.
+       If the MS is already Hanning-tapered, you probably need to select the "MS is tapered" option, so that
+       the effective channel widths are multiplied by 1.25 (NB: if the CHAN_WIDTH column of the MS SPECTRAL_WINDOW
+       sub-table has already been adjusted in this way to reflect that Hanning tapering has been done, then 
+       you actually need to select "None" here. However, neither CASA nor any other tool known to me actually 
+       do this adjustment, so the "MS is tapered" option is safer better bet.)</P>"""));
     else:
       self.ms_apply_hanning = None;
     if invert_phases:
-      self._opts.append(TDLOption('ms_invert_phases',"Invert phases in input",
-                                  False,namespace=self));
+      self._opts.append(TDLOption('ms_invert_phases',"Invert complex phase of input data",False,namespace=self));
     else:
       self.ms_invert_phases = None;
     # add a default content selector
@@ -905,8 +916,9 @@ class MSSelector (object):
       rec.tile_size = tiling;
     rec.time_increment = time_step;
     rec.selection = self.subset_selector.create_selection_record();
-    if self.ms_apply_hanning is not None:
-      rec.apply_hanning = self.ms_apply_hanning;
+    if self.ms_apply_hanning:
+      rec.apply_hanning = self.ms_apply_hanning == self.HANNING_DOTAPER;
+      rec.channel_width = 1.25;
     if self.ms_invert_phases is not None:
       rec.invert_phases = self.ms_invert_phases;
     rec.flag_mask = 0;
