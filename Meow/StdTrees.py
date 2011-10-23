@@ -305,16 +305,43 @@ def make_clipping_flagger (node,minval=None,maxval=None,flagmask=1):
     flaggers.append(node('clip_gt') << Meq.ZeroFlagger(Meq.Abs(node)-maxval,oper='gt',flag_bit=flagmask));
   return node('clipped') << Meq.MergeFlags(node,*flaggers);
 
-def make_jones_norm_flagger (jp,minval=None,maxval=None,flagmask=1):
+def make_jones_norm_flagger (jp,minval=None,maxval=None,jnorm=None,jflag=None,freqmean=False,flagmask=1):
+  """Makes nodes to compute the nporm of a Jones matrix, and a flagger based on clipping this to minval/maxval.
+  jpnorm, if supplied, is the base node for the matrix norm -- else a default base node is made by using jp('norm'),""";
   flaggers = [];
+  if jnorm is None:
+    jnorm = jp('norm');
   jpsq = jp('sq') << Meq.MatrixMultiply(jp,jp('conj') << Meq.ConjTranspose(jp));
   jj = jp('2tr') << (jpsq(11) << Meq.Selector(jpsq,index=0)) + (jpsq(22) << Meq.Selector(jpsq,index=3));
-  jpsq = jp('sqtr') << Meq.Sqrt( jp('a2tr') << Meq.Abs(jj) );
+  jj = jp('a2tr') << Meq.Abs(jj);
+  jnorm << Meq.Mean(Meq.Sqrt(jj),reduction_axes="freq") if freqmean else Meq.Sqrt(jj);
   if minval is not None:
-    flaggers.append(jp('clip_lt') << Meq.ZeroFlagger(jpsq-minval,oper='lt',flag_bit=flagmask));
+    flaggers.append(jp('clip_lt') << Meq.ZeroFlagger(jnorm-minval,oper='lt',flag_bit=flagmask));
   if maxval is not None:
-    flaggers.append(jp('clip_gt') << Meq.ZeroFlagger(jpsq-maxval,oper='gt',flag_bit=flagmask));
-  return jp('clipped') << Meq.MergeFlags(jp,*flaggers);
+    flaggers.append(jp('clip_gt') << Meq.ZeroFlagger(jnorm-maxval,oper='gt',flag_bit=flagmask));
+  if flaggers:
+    return (jflag if jflag is not None else jp('clipped')) << Meq.MergeFlags(jp,*flaggers);
+  else:
+    return jp;
+    
+def make_jones_abs_flagger (jp,minval=None,maxval=None,jabs=None,jflag=None,diag=True,freqmean=False,flagmask=1):
+  """Makes nodes to compute the absolute value of a Jones matrix, and a flagger based on clipping this to minval/maxval.
+  jpabs, if supplied, is the base node for the matrix norm -- else a default base node is made by using jp('abs'),""";
+  flaggers = [];
+  if jabs is None:
+    jabs = jp('abs');
+  jabs << Meq.Mean(Meq.Abs(jp),reduction_axes="freq") if freqmean else Meq.Abs(jp);
+  if diag:
+    jabs = jabs('sel') << Meq.Selector(jabs,index=[0,3],multi=True);
+  if minval is not None:
+    flaggers.append(jp('clip_lt') << Meq.ZeroFlagger(jabs-minval,oper='lt',flag_bit=flagmask));
+  if maxval is not None:
+    flaggers.append(jp('clip_gt') << Meq.ZeroFlagger(jabs-maxval,oper='gt',flag_bit=flagmask));
+  if flaggers:
+    return (jflag if jflag is not None else jp('clipped')) << Meq.MergeFlags(jp,merge_all=True,*flaggers);
+  else:
+    return jp;
+
 
 def make_sinks (ns,outputs,array=None,
                 post=None,

@@ -181,8 +181,8 @@ class MeqMaker (object):
               ))
     );
 
-  def add_uv_jones (self,label,name=None,modules=None,pointing=None,use_flagger=None):
-    return self._add_jones_modules(label,name,modules,is_uvplane=True,pointing=pointing);
+  def add_uv_jones (self,label,name=None,modules=None,pointing=None,flaggable=False):
+    return self._add_jones_modules(label,name,modules,is_uvplane=True,flaggable=flaggable,pointing=pointing);
 
   def add_vis_proc_module (self,label,name=None,modules=None):
     return self._add_vpm_modules(label,name,True,modules);
@@ -210,19 +210,24 @@ class MeqMaker (object):
       name:       a descriptive name
       modules:    a list of possible modules implementing the Jones set
     """;
-    def __init__ (self,label,name,modules):
+    FLAG_NONE = None;
+    FLAG_ABS  = "abs";
+    FLAG_ABSDIAG  = "abs-diag";
+    FLAG_NORM = "norm";
+    def __init__ (self,label,name,modules,flaggable=False):
       self.label      = label;
       self.name       = name;
       self.modules    = modules;
       self.base_node  = None;
       self.solvable   = False;
+      self.flaggable  = flaggable;
 
   class SkyJonesTerm (JonesTerm):
     """SkyJonesTerm represents a sky-Jones term.
     It adds a pointing_modules field, holding a list of poiting error modules.
     """;
-    def __init__ (self,label,name,modules,pointing_modules=None):
-      MeqMaker.JonesTerm.__init__(self,label,name,modules);
+    def __init__ (self,label,name,modules,pointing_modules=None,flaggable=False):
+      MeqMaker.JonesTerm.__init__(self,label,name,modules,flaggable=flaggable);
       self.pointing_modules = pointing_modules;
       self.subset_selector = None;
       self.base_pe_node = None;
@@ -260,7 +265,7 @@ class MeqMaker (object):
     mainmenu = self._module_selector("Use %s"%name,label,modules);
     self._add_module_to_compile_options(mainmenu,is_uvplane);
 
-  def _add_jones_modules (self,label,name,modules,is_uvplane=True,pointing=None):
+  def _add_jones_modules (self,label,name,modules,is_uvplane=True,flaggable=False,pointing=None):
     # see if only a module is specified instead of the full label,name,modules
     # syntax
     if type(label) is types.ModuleType:
@@ -282,22 +287,42 @@ class MeqMaker (object):
       extra_options += [ self._module_selector("Apply pointing errors to %s"%label,
                                               label+"pe",pointing,nonexclusive=True) ];
     # extra options for per-station Jones term
-    sta_opt = TDLOption(self._make_attr('all_stations',label),"Use same %s-Jones for all stations"%label,False,
+    advanced_options = [ TDLOption(self._make_attr('all_stations',label),"Use same %s-Jones for all stations"%label,False,
         namespace=self,nonexclusive=True,
         doc="""If checked, then the same %s-Jones term will be used for all stations in the array. This may
         make your trees smaller and/or faster. Whether this is a valid approximation or not depends on your
-        physics; typically this is valid if your array is small, and the effect arises far from the receivers."""%label);
+        physics; typically this is valid if your array is small, and the effect arises far from the receivers."""%label) ];
     if is_uvplane:
       # force-set the advanced options to True, since we omit a control for them (unlike the sky-Jones case)
       setattr(self,self._make_attr('advanced',label),True);
-      extra_options.append(sta_opt);
 #      setattr(self,self._make_attr('all_sources',label),False);
-      jt = self.JonesTerm(label,name,modules);
+      jt = self.JonesTerm(label,name,modules,flaggable=flaggable);
+      if flaggable:
+        advanced_options += [ 
+          TDLOption(self._make_attr("flag_jones",label),
+            "Flag on out-of-bounds %s-Jones"%label,
+            { self.JonesTerm.FLAG_NONE:"no flagging",
+              self.JonesTerm.FLAG_ABS:"flag on all |%sij|"%label,
+              self.JonesTerm.FLAG_ABSDIAG:"flag on diagonal |%sii|"%label,
+              self.JonesTerm.FLAG_NORM:"flag on ||%s||"%label},
+            namespace=self,doc=
+              """<P>Your tree can flag visibility points where either the absolute value of each matrix element <NOBR>(|%Jij|)</NOBR>, or 
+              the diagonal elements only <NOBR>(|%Jii|)</NOBR>, or the matrix norm <NOBR>(||%J||)</NOBR> goes outside the specified limits. 
+              The matrix norm is defined as:</P>
+
+              <P align="center"><BIG><I>&#x2225;%J&#x2225; = </I>tr<I>(%J%J<sup>H</sup>)<sup>&frac12;</sup>,</I></BIG></P>
+
+              <P>where <I><BIG>%J<sup>H</sup></BIG></I> is the conjugate transpose, and </I>tr()</I> is the trace
+              operator.</P>""".replace("%J",label)),
+          TDLOption(self._make_attr("flag_jones_freqmean",label),"Take mean over frequency axis",False,namespace=self),
+          TDLOption(self._make_attr("flag_jones_max",label),"Upper bound",[None,10,100],more=float,namespace=self),
+          TDLOption(self._make_attr("flag_jones_min",label),"Lower bound",[None,.1,.01],more=float,namespace=self)
+        ];
     else:
       jt = self.SkyJonesTerm(label,name,modules,pointing);
       tdloption_namespace = "%s.%s"%(self.tdloption_namespace,self._make_attr('subset',label));
       jt.subset_selector = SourceSubsetSelector("Apply %s-Jones to subset of sources"%label,tdloption_namespace,annotate=False);
-      opts =  [ sta_opt,
+      advanced_options += [ 
         TDLOption(self._make_attr('per_source',label),"Use a unique %s-Jones term per"%label,[PER_SOURCE,PER_ALL_SOURCES],
                 more=str,namespace=self,doc=
                 """<P>If you specify '%s', each source will receive an independent %s-Jones term. 
@@ -308,15 +333,16 @@ class MeqMaker (object):
                 it will receive its own %s-Jones term. If source B then has the tag "foo=A", 
                 then it will use the Jones term associated with source A. This is commonly
                 used with the "cluster" tag assigned by Tigger (see the tigger-convert script for details) to associate a single Jones term with a whole cluster of closely located sources. </P>"""%(PER_SOURCE,label,PER_ALL_SOURCES,label,label)) ];
-      opts += jt.subset_selector.options;
-      extra_options.append(TDLMenu("Advanced options",
-                            toggle=self._make_attr('advanced',label),nonexclusive=True,
-                            doc="""<P>This contains some advanced 
-                            options relevant to the %s-Jones term. Note that the 
-                            "Advanced options" checkbox itself must be checked for the options
-                            within to have efefct.</P>"""%label,
-                            namespace=self,
-                            *opts));
+      advanced_options += jt.subset_selector.options;
+    # add advanced options to menu
+    extra_options.append( TDLMenu("Advanced options",
+                          toggle=self._make_attr('advanced',label),nonexclusive=True,
+                          doc="""<P>This contains some advanced 
+                          options relevant to the %s-Jones term. Note that the 
+                          "Advanced options" checkbox itself must be checked for the options
+                          within to have efefct.</P>"""%label,
+                          namespace=self,
+                          *advanced_options) );
     # make option menus for selecting a jones module
     mainmenu = self._module_selector("Use %s Jones (%s)"%(label,name),
                                      label,modules,extra_opts=extra_options);
@@ -1009,17 +1035,14 @@ class MeqMaker (object):
     # now chain up any visibility processors
     return self._apply_vpm_list(ns,src.visibilities(),ifrs=ifrs);
 
-  def correct_uv_data (self,ns,inputs,outputs=None,sky_correct=None,inspect_ifrs=None,flag_jones_minmax=None):
+  def correct_uv_data (self,ns,inputs,outputs=None,sky_correct=None,inspect_ifrs=None,flag_jones=True):
     """makes subtrees for correcting the uv data given by 'inputs'.
     If 'outputs' is given, then it will be qualified by a jones label and by stations pairs
     to derive the output nodes. If it is None, then ns.correct(jones_label) is used as a base name.
     By default only uv-Jones corrections are applied, but if 'sky_correct' is set to
     a source object (or source name), then sky-Jones corrections for this particular source
     are also put in.
-    If 'flag_jones_minmax' is given, it must be a (min,max) tuple. Flags will be assigned to Jones corrections that
-    are above or below the indicated values.
-      NB: The source/name given by 'sky_correct' here should have been present in the source list
-      used to invoke make_predict_tree().
+    If 'flag_jones' is given, then Jones terms will be flagged
     Returns an unqualified node that must be qualified with a station pair to get visibilities.
     """;
     stations = Meow.Context.array.stations();
@@ -1068,6 +1091,32 @@ class MeqMaker (object):
       for jt in self._uv_jones_list:
         Jj,solvable = self._get_jones_nodes(ns,jt,stations);
         if Jj:
+          # if flagging is in effect, make flaggers
+          if flag_jones and jt.flaggable and self.are_advanced_options_enabled(jt.label):
+            flagtype,flagmin,flagmax,freqmean = [ getattr(self,self._make_attr(attr,jt.label)) for attr in 
+                                                  "flag_jones","flag_jones_min","flag_jones_max","flag_jones_freqmean" ]; 
+            Jflag = Jj('flag');
+            if flagtype != self.JonesTerm.FLAG_NONE and not (flagmin is None and flagmax is None):
+              if flagtype == self.JonesTerm.FLAG_ABS or flagtype == self.JonesTerm.FLAG_ABSDIAG:
+                Jabs  = Jj('abs');
+                for p in stations:
+                  StdTrees.make_jones_abs_flagger(Jj(p),flagmin,flagmax,jflag=Jflag(p),jabs=Jabs(p),
+                                                  diag=(flagtype==self.JonesTerm.FLAG_ABSDIAG),
+                                                  freqmean=freqmean,
+                                                  flagmask=MSUtils.FLAGMASK_OUTPUT);
+                self.make_per_station_bookmarks(Jabs,"%s-Jones absolute value"%jt.label,stations=stations);
+                self.make_per_station_bookmarks(Jflag,"%s-Jones flagged"%jt.label,stations=stations);
+                Jj = Jflag;
+              elif flagtype == self.JonesTerm.FLAG_NORM:
+                Jnorm = Jj('norm');
+                for p in stations:
+                  StdTrees.make_jones_norm_flagger(Jj(p),flagmin,flagmax,jflag=Jflag(p),jnorm=Jnorm(p),
+                                                   freqmean=freqmean,
+                                                   flagmask=MSUtils.FLAGMASK_OUTPUT);
+                self.make_per_station_bookmarks(Jnorm,"%s-Jones matrix norm"%jt.label,stations=stations);
+                self.make_per_station_bookmarks(Jflag,"%s-Jones flagged"%jt.label,stations=stations);
+                Jj = Jflag;
+          # add to correction chain
           for p in stations:
             correction_chains[p].insert(0,Jj(p));
 
@@ -1086,16 +1135,12 @@ class MeqMaker (object):
       Jprod = outputs('Jprod');
       for p in stations:
         jj = Jprod(p) << Meq.MatrixMultiply(*correction_chains[p]);
-        if flag_jones_minmax:
-          jj = StdTrees.make_jones_norm_flagger(jj,flag_jones_minmax[0],flag_jones_minmax[1],flagmask=MSUtils.FLAGMASK_OUTPUT);
         Jinv(p) << Meq.MatrixInvert22(jj);
         if p != stations[0]:
           Jtinv(p) << Meq.ConjTranspose(Jinv(p));
     elif correction_chains[stations[0]]:
       for p in stations:
         jj = correction_chains[p][0];
-        if flag_jones_minmax:
-          jj = StdTrees.make_jones_norm_flagger(jj,flag_jones_minmax[0],flag_jones_minmax[1],flagmask=MSUtils.FLAGMASK_OUTPUT);
         Jinv(p) << Meq.MatrixInvert22(jj);
         if p != stations[0]:
           Jtinv(p) << Meq.ConjTranspose(Jinv(p));
@@ -1109,7 +1154,6 @@ class MeqMaker (object):
     for p,q in ifrs:
       outputs(p,q) << Meq.MatrixMultiply(Jinv(p),inputs(p,q),Jtinv(q));
 
-    # make an inspector for the results
     return outputs;
 
   def close (self):

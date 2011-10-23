@@ -144,20 +144,11 @@ output_option = TDLCompileOption('do_output',"Output visibilities",
 
   """);
 
-flag_jones_opt = TDLMenu("Flag on out-of-bounds Jones terms",toggle='flag_jones',
-    doc="""<P>If selected, your tree will flag visibility points where the norm of the
-    overall Jones term (i.e. the product of all Jones terms in the M.E.) is above or below
-    a threshold. The norm of a Jones term is defined as </P>
-
-    <P align="center"><BIG><I>&#x2225;J&#x2225; = </I>tr<I>(JJ<sup>&dagger;</sup>)<sup>&frac12;</sup>,</I></BIG></P>
-
-    <P>where <I><BIG>J<sup>&dagger;</sup></BIG></I> is the conjugate transpose, and </I>tr()</I> is the trace
-    operator.</P>
-    """,
-    *(
-            TDLOption('flag_jones_max',"Flag if |J|>",[None,10,100],more=float),
-            TDLOption('flag_jones_min',"Flag if |J|<",[None,.1,.01],more=float)
-    ));
+flag_jones_opt = TDLOption("flag_jones","Flag on out-of-bounds Jones terms",False,
+    doc="""<P>Your tree can automatically flag visibility points where certain Jones terms go out of bounds.
+    The relevant Jones terms will have individual flagging options in their "Advanced options" menus, which
+    you must also enable for this option to have effect. This option enables and disables Jones-bassed 
+    flagging globally.</P>""");
 flag_res_opt = TDLOption("flag_res","Flag on residual amplitudes >",[None],more=float,
     doc="""<P>If selected, your tree will flag all visibilities (per IFR/timeslot/channel) where the residual
     complex amplitude exceeds the given value.</P>
@@ -237,7 +228,7 @@ meqmaker.add_uv_jones('B','bandpass',
 meqmaker.add_uv_jones('G','receiver gains/phases',
   [ solvable_jones.DiagRealImag("G"),
     solvable_jones.FullRealImag("G"),
-    solvable_jones.DiagAmplPhase("G") ]);
+    solvable_jones.DiagAmplPhase("G") ],flaggable=True);
 
 from Calico.OMS import ifr_based_errors
 meqmaker.add_vis_proc_module('IG','multiplicative IFR errors',[ifr_based_errors.IfrGains()]);
@@ -310,13 +301,8 @@ def _define_forest(ns,parent=None,**kw):
       sky_correct = srcs and srcs[0];
     else:
       sky_correct = None;
-    global flag_jones;
-    if flag_enable and flag_jones and not (flag_jones_min is None and flag_jones_max is None):
-      flag_jones_minmax = (flag_jones_min,flag_jones_max);
-    else:
-      flag_jones_minmax = None;
     outputs = meqmaker.correct_uv_data(ns,outputs,sky_correct=sky_correct,
-                                      flag_jones_minmax=flag_jones and (flag_jones_min,flag_jones_max));
+                                      flag_jones=flag_jones);
     output_title = "Corrected data" if do_output is CORRECTED_DATA else "Corrected residuals";
   elif do_output == CORRUPTED_MODEL:
     outputs = predict;

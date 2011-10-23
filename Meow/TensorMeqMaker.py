@@ -31,6 +31,9 @@ from Meow import StdTrees,ParmGroup,Parallelization,MSUtils
 
 import itertools
 
+TDLCompileOption("psv_class","Use which node for PSV tensors",["PSVTensor","CUDAPointSourceVisibility"]);
+#psv_class = "PSVTensor";
+
 class TensorMeqMaker (MeqMaker):
   def __init__ (self,**kw):
     kw['use_decomposition'] = False;
@@ -42,7 +45,7 @@ class TensorMeqMaker (MeqMaker):
       'stations' is a list of stations.
       'source_lists' is a list of source groups, each is a tuple of (srclist,lmntensor)
     Returns a tuple of (J1,J1conj),(J2,J2conj),... basenode pairs, one pair per source group.
-    If a basenode pair is None,None, then that source group does not have that Jons term.
+    If a basenode pair is None,None, then that source group does not have that Jones term.
     Each basenode should be qualified with a station name to get the per-station tensor node.
     If the Jones module is completely disabled, just returns None.
 
@@ -108,6 +111,8 @@ class TensorMeqMaker (MeqMaker):
         basenodes = [];
         all_sources = list(itertools.chain(other_sources,*[src for src,lmnT in source_lists]));
         Jj,solvable = self._get_jones_nodes(ns,jt,stations,sources=all_sources);
+        if Jj is None:
+          return None;
         # compose tensors
         for i,(srclist,lmnT) in enumerate(source_lists):
           # get the nodes per each source and station, replace all unitialized  nodes with unity
@@ -220,7 +225,7 @@ class TensorMeqMaker (MeqMaker):
           jt = [];
           for Et,Etconj in jones_tensors[igrp]:
             jt += [ Et(p),Etconj(q) ];
-          v = psvt(p,q) << Meq.PSVTensor(lmnT,BT,uvw(p,q),*jt);
+          v = psvt(p,q) << Meq[psv_class](lmnT,BT,uvw(p,q),*jt);
       ### if uvdata is specified, add it to the summation terms
       if uvdata is not None:
         psvts.append(uvdata);
