@@ -185,7 +185,7 @@ class MeqMaker (object):
     return self._add_jones_modules(label,name,modules,is_uvplane=True,flaggable=flaggable,pointing=pointing);
 
   def add_vis_proc_module (self,label,name=None,modules=None):
-    return self._add_vpm_modules(label,name,True,modules);
+    return self._add_vpm_modules(label,name,modules);
 
   def add_sky_jones (self,label,name=None,modules=None,pointing=None,use_flagger=None):
     return self._add_jones_modules(label,name,modules,is_uvplane=False,pointing=pointing);
@@ -210,7 +210,6 @@ class MeqMaker (object):
       name:       a descriptive name
       modules:    a list of possible modules implementing the Jones set
     """;
-    FLAG_NONE = None;
     FLAG_ABS  = "abs";
     FLAG_ABSDIAG  = "abs-diag";
     FLAG_NORM = "norm";
@@ -243,7 +242,7 @@ class MeqMaker (object):
         raise RuntimeError,"cannot add sky-plane terms after uv-plane terms";
     self._compile_options.append(option);
 
-  def _add_vpm_modules (self,label,name,is_uvplane,modules):
+  def _add_vpm_modules (self,label,name,modules):
     if type(label) is types.ModuleType:
       modules = label;
       label = getattr(modules,'__default_label__',None);
@@ -257,13 +256,12 @@ class MeqMaker (object):
       modules = [ modules ];
     # Add to internal list
     term = self.VPMTerm(label,name,modules);
-    if is_uvplane:
-      self._uv_vpm_list.append(term);
-    else:
-      self._sky_jones_list.append(term);
+    if not self._uv_vpm_list:
+      self._compile_options.append(TDLOptionSeparator("Other visibility processing components"));
+    self._uv_vpm_list.append(term);
     # make option menus for selecting a visiblity processor
     mainmenu = self._module_selector("Use %s"%name,label,modules);
-    self._add_module_to_compile_options(mainmenu,is_uvplane);
+    self._add_module_to_compile_options(mainmenu,True);
 
   def _add_jones_modules (self,label,name,modules,is_uvplane=True,flaggable=False,pointing=None):
     # see if only a module is specified instead of the full label,name,modules
@@ -299,25 +297,33 @@ class MeqMaker (object):
       jt = self.JonesTerm(label,name,modules,flaggable=flaggable);
       if flaggable:
         advanced_options += [ 
-          TDLOption(self._make_attr("flag_jones",label),
-            "Flag on out-of-bounds %s-Jones"%label,
-            { self.JonesTerm.FLAG_NONE:"no flagging",
-              self.JonesTerm.FLAG_ABS:"flag on all |%sij|"%label,
-              self.JonesTerm.FLAG_ABSDIAG:"flag on diagonal |%sii|"%label,
-              self.JonesTerm.FLAG_NORM:"flag on ||%s||"%label},
-            namespace=self,doc=
-              """<P>Your tree can flag visibility points where either the absolute value of each matrix element <NOBR>(|%Jij|)</NOBR>, or 
-              the diagonal elements only <NOBR>(|%Jii|)</NOBR>, or the matrix norm <NOBR>(||%J||)</NOBR> goes outside the specified limits. 
-              The matrix norm is defined as:</P>
+          TDLMenu("Allow flagging on out-of-bounds %s-Jones"%label,
+            TDLOption(self._make_attr("flag_jones_type",label),
+              "Flag on what quantities",
+              { self.JonesTerm.FLAG_ABS:"all elements |%sij|"%label,
+                self.JonesTerm.FLAG_ABSDIAG:"diagonal elements |%sii|"%label,
+                self.JonesTerm.FLAG_NORM:"matrix norm ||%s||"%label},
+              namespace=self,doc=
+                """<P>This determines what quantitites are actually compared to the specified bounds. 
+                This can be either the absolute value of each matrix element 
+                <NOBR>(|%Jij|)</NOBR>, or else the diagonal elements only <NOBR>(|%Jii|)</NOBR>, or else the matrix norm 
+                <NOBR>(||%J||)</NOBR>. The matrix norm is defined as:</P>
 
-              <P align="center"><BIG><I>&#x2225;%J&#x2225; = </I>tr<I>(%J%J<sup>H</sup>)<sup>&frac12;</sup>,</I></BIG></P>
+                <P align="center"><BIG><I>&#x2225;%J&#x2225; = </I>tr<I>(%J%J<sup>H</sup>)<sup>&frac12;</sup>,</I></BIG></P>
 
-              <P>where <I><BIG>%J<sup>H</sup></BIG></I> is the conjugate transpose, and </I>tr()</I> is the trace
-              operator.</P>""".replace("%J",label)),
-          TDLOption(self._make_attr("flag_jones_freqmean",label),"Take mean over frequency axis",False,namespace=self),
-          TDLOption(self._make_attr("flag_jones_max",label),"Upper bound",[None,10,100],more=float,namespace=self),
-          TDLOption(self._make_attr("flag_jones_min",label),"Lower bound",[None,.1,.01],more=float,namespace=self)
-        ];
+                <P>where <I><BIG>%J<sup>H</sup></BIG></I> is the conjugate transpose, and </I>tr()</I> is the trace
+                operator.</P>""".replace("%J",label)),
+            TDLOption(self._make_attr("flag_jones_freqmean",label),"Take mean over frequency axis",False,namespace=self,doc=
+                """<P>Enable this to take the mean over the frequency axis of the specified quantity before checking whether
+                it is within bounds. This implies that entire timeslots will be flagged.
+                </P>"""),
+            TDLOption(self._make_attr("flag_jones_max",label),"Upper bound",[None,10,100],more=float,namespace=self),
+            TDLOption(self._make_attr("flag_jones_min",label),"Lower bound",[None,.1,.01],more=float,namespace=self),
+          toggle=self._make_attr("flag_jones",label),namespace=self,doc=
+            """<P>Enable this to flag output visibilities when some metric characterizing the %J-Jones term goes out of bounds. 
+            (Note also that there's probably a top-level option that controls Jones-based flagging as a whole -- this must also 
+            be enabled.)</P>""".replace("%J",label)
+        )];
     else:
       jt = self.SkyJonesTerm(label,name,modules,pointing);
       tdloption_namespace = "%s.%s"%(self.tdloption_namespace,self._make_attr('subset',label));
@@ -340,7 +346,7 @@ class MeqMaker (object):
                           doc="""<P>This contains some advanced 
                           options relevant to the %s-Jones term. Note that the 
                           "Advanced options" checkbox itself must be checked for the options
-                          within to have efefct.</P>"""%label,
+                          within to have effect.</P>"""%label,
                           namespace=self,
                           *advanced_options) );
     # make option menus for selecting a jones module
@@ -994,10 +1000,12 @@ class MeqMaker (object):
         vis(p,q) << Meq.Add(skyvis(p,q),dec_sky(p,q));
       skyvis = vis;
 
+    ### OMS 24/10/2011: commenting this out. IFR errors will be applied directly to incoming spigots instead
     # now chain up any visibility processors
-    return self._apply_vpm_list(ns,skyvis,ifrs=ifrs);
+    # return self._apply_vpm_list(ns,skyvis,ifrs=ifrs);
+    return skyvis;
 
-  def _apply_vpm_list (self,ns,vis,ifrs=None):
+  def apply_visibility_processing (self,ns,vis,ifrs=None):
     # chains up any visibility processors, and applies them to the visibilities.
     # Returns new visibilities.
     for vpm in self._uv_vpm_list:
@@ -1049,18 +1057,19 @@ class MeqMaker (object):
     ifrs = Meow.Context.array.ifrs();
     inspect_ifrs = inspect_ifrs or ifrs;
 
-    # apply vpm corrections, if any
-    for vpm in self._uv_vpm_list:
-      module = self._get_selected_module(vpm.label,vpm.modules);
-      if module and hasattr(module,'correct_visibilities'):
-        inspectors = [];
-        nodes = inputs(vpm.label);
-        if module.correct_visibilities(nodes,inputs,ns=getattr(ns,vpm.label).Subscope(),
-             tags=vpm.label,label=vpm.label,inspectors=inspectors,meqmaker=self) is not None:
-          # add inspectors to internal list
-          for insp in inspectors:
-            self.add_inspector_nodes(insp);
-          inputs = nodes;
+    ### OMS 24/10/2011: commenting this out. IFR errors will be applied directly to incoming spigots instead
+    ## apply vpm corrections, if any
+    #for vpm in self._uv_vpm_list:
+      #module = self._get_selected_module(vpm.label,vpm.modules);
+      #if module and hasattr(module,'correct_visibilities'):
+        #inspectors = [];
+        #nodes = inputs(vpm.label);
+        #if module.correct_visibilities(nodes,inputs,ns=getattr(ns,vpm.label).Subscope(),
+             #tags=vpm.label,label=vpm.label,inspectors=inspectors,meqmaker=self) is not None:
+          ## add inspectors to internal list
+          #for insp in inspectors:
+            #self.add_inspector_nodes(insp);
+          #inputs = nodes;
 
     # now build up a correction chain for every station
     correction_chains = dict([(p,[]) for p in stations]);
@@ -1093,10 +1102,10 @@ class MeqMaker (object):
         if Jj:
           # if flagging is in effect, make flaggers
           if flag_jones and jt.flaggable and self.are_advanced_options_enabled(jt.label):
-            flagtype,flagmin,flagmax,freqmean = [ getattr(self,self._make_attr(attr,jt.label)) for attr in 
-                                                  "flag_jones","flag_jones_min","flag_jones_max","flag_jones_freqmean" ]; 
+            enable,flagtype,flagmin,flagmax,freqmean = [ getattr(self,self._make_attr(attr,jt.label)) for attr in 
+                                                  "flag_jones","flag_jones_type","flag_jones_min","flag_jones_max","flag_jones_freqmean" ]; 
             Jflag = Jj('flag');
-            if flagtype != self.JonesTerm.FLAG_NONE and not (flagmin is None and flagmax is None):
+            if enable and (flagmin is not None or flagmax is not None):
               if flagtype == self.JonesTerm.FLAG_ABS or flagtype == self.JonesTerm.FLAG_ABSDIAG:
                 Jabs  = Jj('abs');
                 for p in stations:

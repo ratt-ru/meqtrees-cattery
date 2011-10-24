@@ -224,19 +224,19 @@ from Calico.OMS import solvable_jones
 meqmaker.add_uv_jones('B','bandpass',
   [ solvable_jones.DiagRealImag("B"),
     solvable_jones.FullRealImag("B"),
-    solvable_jones.DiagAmplPhase("B") ]);
+    solvable_jones.DiagAmplPhase("B") ],flaggable=True);
 meqmaker.add_uv_jones('G','receiver gains/phases',
   [ solvable_jones.DiagRealImag("G"),
     solvable_jones.FullRealImag("G"),
     solvable_jones.DiagAmplPhase("G") ],flaggable=True);
 
 from Calico.OMS import ifr_based_errors
-meqmaker.add_vis_proc_module('IG','multiplicative IFR errors',[ifr_based_errors.IfrGains()]);
-meqmaker.add_vis_proc_module('IC','additive IFR errors',[ifr_based_errors.IfrBiases()]);
+meqmaker.add_vis_proc_module('IG','multiplicative interferometer-based gains (IG)',[ifr_based_errors.IfrGains()]);
+meqmaker.add_vis_proc_module('IC','additive interferometer-based biases (IC)',[ifr_based_errors.IfrBiases()]);
 # very important -- insert meqmaker's options properly
 TDLCompileOptions(*meqmaker.compile_options());
 
-TDLCompileOption("include_inspectors","Include inspectors",True);
+# TDLCompileOption("include_inspectors","Include inspectors",True);
 
 import Purr.Pipe
 
@@ -258,6 +258,8 @@ def _define_forest(ns,parent=None,**kw):
     mssel.enable_input_column(True);
     spigots = spigots0 = outputs = array.spigots(corr=mssel.get_corr_index());
     meqmaker.make_per_ifr_bookmarks(spigots,"Input visibilities");
+    # add IFR-based errors, if any
+    spigots = meqmaker.apply_visibility_processing(ns,spigots);
   else:
     mssel.enable_input_column(False);
     spigots = spigots0 = None;
@@ -382,7 +384,8 @@ def _define_forest(ns,parent=None,**kw):
     # according to what has been set above
     outputs = solve_tree.sequencers(inputs=rhs,outputs=outputs);
 
-  post = ( meqmaker.get_inspectors() or [] ) if include_inspectors else [];
+  post = ( meqmaker.get_inspectors() or [] ); #if include_inspectors else [];
+  
   StdTrees.make_sinks(ns,outputs,spigots=spigots0,post=post,corr_index=mssel.get_corr_index());
 
   if not do_solve:
