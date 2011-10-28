@@ -210,6 +210,7 @@ class TensorMeqMaker (MeqMaker):
       uvw = Meow.Context.array.uvw_ifr();
       ### now make the PSV tensor for esch source
       psvts = [];
+      ns.null_shape << 0;
       for igrp,(sources,lmnT) in enumerate(source_groups):
         ### create brightness tensor
         # see if we have constant brightnesses
@@ -225,7 +226,7 @@ class TensorMeqMaker (MeqMaker):
           jt = [];
           for Et,Etconj in jones_tensors[igrp]:
             jt += [ Et(p),Etconj(q) ];
-          v = psvt(p,q) << Meq[psv_class](lmnT,BT,uvw(p,q),*jt);
+          v = psvt(p,q) << Meq[psv_class](lmnT,BT,uvw(p,q),ns.null_shape,*jt);
       ### if uvdata is specified, add it to the summation terms
       if uvdata is not None:
         psvts.append(uvdata);

@@ -1,0 +1,103 @@
+#!/bin/bash
+# scripter.xxx.funcs functions
+# This is reloaded at every new MS in a scripter run
+# It defines some standard processing steps
+
+reset_ms()
+{
+  rm -fr $MSNAME
+  (cd `dirname $MSNAME` && tar zxvf `basename $MSNAME`.tgz)
+  wsrt_j2convert msin=$MSNAME
+  addbitflagcol $MSNAME
+  python -c "import pyrap.tables;pyrap.tables.addImagingColumns('$MSNAME')"
+  $DOWNWEIGH -I "$IFRS" $MSNAME
+  step=1
+}
+
+reset_mep()
+{
+  rm -fr $MSNAME/*mep
+#    rm -fr qmc2-new.lsm.fmep
+}
+
+#  restore_lsm ()
+#  {
+#    tar zxvf qmc2.fmep.band$DDID.tgz
+#  }
+
+cal_generic ()
+{
+  echo "cal_generic $*"
+  label=$1
+  section=$2
+  jobname=$3
+  parmtab=$4
+  shift 4
+  time meqtree-pipeliner.py $* $MT -c $CONFIG \
+    \[$section\] \
+    $MS $CHANS $* \
+    $SCRIPTNAME \
+    =$jobname
+  ($PLOTPARMS $MSNAME/$parmtab -o $DESTDIR/${msbase}_${label}_${step}.png; \
+  tar zcvf $DESTDIR/${label}_${msbase}_step$step.tgz $MSNAME/$parmtab) &
+  plot-ms CORRECTED_DATA:I -o $DESTDIR/${msbase}_residuals_${step}_${label}.png
+  imager name_dirty=$DESTDIR/${msbase}_${step}_${label}
+  step=$[$step+1];
+  true
+}
+
+cal_g ()
+{
+  cal_generic G ${cal_g_section:-cal_g} =cal_G_diag G_diag.fmep $*
+}
+
+cal_ig ()
+{
+  cal_generic IG ${cal_ig_section:-cal_ig} =cal_IG IG.fmep $*
+}
+
+cal_de ()
+{
+  cal_generic dE ${cal_de_section:-cal_de} =cal_dE_diag dE_diag.fmep $*
+}
+
+genvis_generic ()
+{
+  echo "cal_generic $*"
+  label=$1
+  section=$2
+  shift 2
+  time meqtree-pipeliner.py $* $MT -c $CONFIG \
+    \[$section\] \
+    $MS $CHANS $* \
+    $SCRIPTNAME \
+    =generate_visibilities
+  imager name_dirty=$DESTDIR/${msbase}_${label}
+  step=$[$step+1];
+  true
+}
+
+make_corr_data ()
+{
+  genvis_generic corr_data ${make_corr_data_section:-make_corr_data} $*
+}
+
+make_residuals ()
+{
+  genvis_generic residual ${make_residuals_section:-make_residuals} $*
+}
+
+merge_ms()
+{
+  $MERGEMS -f $FULLMS $ms_names
+}
+
+make_full_image()
+{
+  $RUNIMAGER ms=$FULLMS $*
+}
+
+make_full_clean()
+{
+  $RUNIMAGER ms=$FULLMS oper=csclean $*
+}

@@ -33,95 +33,80 @@ import Context
 STOKES = ("I","Q","U","V");
 
 class GaussianSource(PointSource):
+  
+  
   def __init__(self,ns,name,direction,
+               # standard flux parameters
                I=0.0,Q=None,U=None,V=None,
                spi=None,freq0=None,
                RM=None,
+               # new-style extent paramaters: projections of the major axis FWHM
+               # onto the l and m axes, plus an minor/major ratio (None for symmetric)
+               lproj=None,mproj=None,ratio=None,
+               # old-style (deprecated) extent parameters
                size=None,phi=0):
     PointSource.__init__(self,ns,name,direction,I,Q,U,V,
                         spi,freq0,RM);
-    # create polc(s) for size
-    if isinstance(size,(list,tuple)) and len(size) == 2:
-      self._symmetric = False;
-      # setup orientation
-      # note: the orientation angle, phi, of the major axis
-      # is defined in the direction East through South; i.e.
-      # an angle of zero defines a Gaussian oriented east-west
-      self._add_parm('phi',phi,tags='shape');
-      self._add_parm('sigma1',size[0],tags="shape");
-      self._add_parm('sigma2',size[1],tags="shape");
-    else:
-      self._symmetric = True;
-      self._add_parm('sigma',size,tags='shape');
-
-  def is_symmetric (self):
-    return self._symmetric;
-
-  def sigma (self):
-    """Returns the size for this source (single node for symmetric,
-    two-pack for elliptic).""";
-    if self._symmetric:
-      return self._parm('sigma');
-    else:
-      return self.ns.sigma ** Meq.Composer(self._parm("sigma1"),self._parm("sigma2"));
-    return size;
-
-  def phi (self):
-    """Returns the orientation node for this source""";
-    return self._parm("phi");
-
-  def transformation_matrix (self):
-    # for a symmetric case, the transformation matrix is just multiplication
-    # by sigma
-    if self.is_symmetric():
-      return self._parm("sigma");
-    # else build up full rotation-scaling matrix
-    xfm = self.ns.xfmatrix;
-    if not xfm.initialized():
-      phi,a,b = [ self._get_constant(name) for name in "phi","sigma1","sigma2" ];
-      # if phi,a and b are all constants, make constant matrix, else make matrix nodes
-      if phi is not None and a is not None and b is not None:
-        xfm << Meq.Matrix22(a*math.cos(phi),-a*math.sin(phi),b*math.sin(phi),b*math.cos(phi));
+    # check for old interface, convert to new-style arguments
+    if size is not None:
+      print "WARNING: using deprecated interface to Meow.GaussianSource.";
+      if isinstance(size,(list,tuple)) and len(size) == 2:
+        try:
+          smaj,smin = map(float,size);
+          pa = -float(phi);
+        except:
+          raise TypeError,"when using deprecated interface to Meow.Gaussian, extents must be scalar"
+        ratio = smin/smaj;
+        fwhm_lproj = math.cos(pa)*smaj;
+        fwhm_mproj = math.sin(pa)*smaj;
       else:
-        phi,a,b = [ self._parm(name) for name in "phi","sigma1","sigma2" ];
-        # get direction sin/cos
-        cos_phi = self.ns.cos_phi << Meq.Cos(phi);
-        sin_phi = self.ns.sin_phi << Meq.Sin(phi);
-        xfm << Meq.Matrix22(
-            a*cos_phi,Meq.Negate(a*sin_phi),
-            b*sin_phi,b*cos_phi);
-    return xfm;
+        try:
+          smaj = float(size);
+        except:
+          raise TypeError,"when using deprecated interface to Meow.Gaussian, extents must be scalar"
+        fwhm_lproj,fwhm_mproj,ratio = 0,smaj,1;
+      # convert to normal parameters
+    # create polc(s) for size
+    self._add_parm('lproj',lproj,tags="shape");
+    self._add_parm('mproj',mproj,tags="shape");
+    self._add_parm('ratio',ratio,tags="shape");
+    
+  def shape_static (self):
+    """If shape is defined statically, returns tuple of lproj,mproj,ratio.
+    Else returns None.""";
+    parms = [ self._get_constant(x) for x in 'lproj','mproj','ratio' ];
+    if all([ p is not None for p in parms ]):
+      return parms;
+    return None;
+
+  def shape (self):
+    """Returns tuple of lproj,mproj,ratio.""";
+    return [ self._parm(x) for x in 'lproj','mproj','ratio' ];
 
   def coherency (self,array=None,observation=None,nodes=None,**kw):
+    """Returns the Gaussian coherency (at l=m=0). We'll use PSVTensor to generate this here.
+    """;
     coherency = nodes or self.ns.coh;
     array = Context.get_array(array);
+    uvw = Meow.Context.array.uvw_ifr();
+    # build up tensors for source
+    if not self.ns.BT.initialized():
+      B_static = self.brightness_static();
+      if B_static:
+        self.ns.BT << Meq.Constant(B_static,dims=[1,2,2]);
+      else:
+        self.ns.BT << Meq.Composer(self.brightness(),dims=[1,2,2]);
+    # lmn tensor is 0,0,1, since this tree is supposed to predict coherency at phase center
+    self.ns.lmnT ** Meq.Constant([0,0,1],dims=[1,3]);
+    # shape tensor
+    if not self.ns.shapeT.initialized():
+      shape_static = self.shape_static();
+      if shape_static:
+        self.ns.shapeT << Meq.Constant(shape_static,dims=[1,3]);
+      else:
+        self.ns.shapeT << Meq.Composer(dims=[1,3],*self.shape());
+    # coherency nodes
     if not coherency(*array.ifrs()[0]).initialized():
-      observation = Context.get_observation(observation);
-      dir0 = observation.phase_centre;
-      radec0 = dir0.radec();
-      # 1/wl = freq/c
-      iwl = self.ns0.inv_wavelength << ((self.ns0.freq<<Meq.Freq) / 2.99792458e+8);
-      # -1/2*(wl^2): scaling factor applied to exp() argument below, since we want coordinates in wavelengths
-      m_iwlsq = self.ns0.m_inv_wavelength_sq << -2*Meq.Sqr(iwl);
-      # scaling factor of gaussian for unit flux
-      # gscale = self.ns0.gaussiancomponent_scale << Meq.Constant(0.5*math.pi);
-      gscale = self.ns0.gaussiancomponent_scale << Meq.Constant(1);
-      # baseline UVs
-      uv_ifr = array.uv_ifr(dir0);
-      # rotation matrix
-      xfm = self.transformation_matrix();
-      # flux scale -- coherency multiplied by scale constant above
-      fluxscale = self.ns.fluxscale \
-            << self.brightness(observation) * gscale;
-      # transformed uv's (rotated and scaled)
-      uv1sq = self.ns.uv1sq;
-      u1sq = self.ns.u1sq;
-      v1sq = self.ns.v1sq;
-      # now generate nodes
-      for ifr in array.ifrs():
-        # rotate uvs and scale to wavelength
-        uv1s = uv1sq(*ifr) << Meq.Sqr(Meq.MatrixMultiply(xfm,uv_ifr(*ifr)));
-        u1s = u1sq(*ifr) << Meq.Selector(uv1s,index=0);
-        v1s = v1sq(*ifr) << Meq.Selector(uv1s,index=1);
-        coherency(*ifr) << fluxscale * Meq.Exp((u1s+v1s)*m_iwlsq);
+      for p,q in array.ifrs():
+        coherency(p,q) << Meq.PSVTensor(self.ns.lmnT,self.ns.BT,uvw(p,q),self.ns.shapeT);
     return coherency;

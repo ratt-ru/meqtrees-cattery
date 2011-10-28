@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 #% $Id$ 
 #
@@ -57,6 +58,15 @@ class NoError (ErrorGenerator):
   def make_node (self,node,**kw):
     node << self.value0;
 
+class FixedOffset (ErrorGenerator):
+  def __init__ (self,name,nominal_value=0,typical_error=0,**kw):
+    ErrorGenerator.__init__(self,name,nominal_value,typical_error=[0],**kw);
+    self.opts.append(TDLOption('offset',self.make_label("%s offset"),
+                     typical_error,more=float,namespace=self));
+  
+  def make_node (self,node,**kw):
+    node << (self.factor*self.offset + self.value0);
+
 class RandomError (ErrorGenerator):
   def __init__ (self,name,nominal_value=0,typical_error=0,**kw):
     ErrorGenerator.__init__(self,name,nominal_value,typical_error,**kw);
@@ -104,6 +114,7 @@ class SineError (RandomError):
 # This list shows the available generator classes
 generator_classes = [
   (NoError,       'no error'),
+  (FixedOffset,    'fixed offset'),
   (RandomError,   'random error, constant in time'),
   (SineError,     'periodically varying error')
 ];

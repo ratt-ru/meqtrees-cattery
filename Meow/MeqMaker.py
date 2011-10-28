@@ -705,7 +705,7 @@ class MeqMaker (object):
             if tagval:
               if not tagval in their_names:
                 sources_with_jones_node.append(src);
-                their_names.add(src.name);
+                their_names.add(tagval);
               else:
                 jones_mapping[src.name] = tagval;
       else:
@@ -1195,8 +1195,10 @@ class SourceSubsetSelector (object):
     global _annotation_label_doc;
     opts = [
         TDLOption('source_subset',"Sources",["all"],more=str,namespace=self,
-                  doc="""<P>You can enter source names separated by space. "all" selects all sources. "=<i>tagname</i>"
-                  selects all sources with a given tag. "-<i>name</i>" deselects the named sources. "-=<i>tagname</i>" deselects sources by tag,</P>""")
+                  doc="""<P>You can enter source names separated by space. "all" selects all sources. "=<i>tagname</i>" selects all sources that have a given tag. 
+                  "=<i>tagname=value</i>" selects all sources that have the given tag set to that value.
+                  "-<i>name</i>" deselects the named sources. "-=<i>tagname</i>" and
+                  "-=<i>tagname=value</i>" deselects sources by tag.</P>""")
     ];
     self.annotate = False;
     if annotate:
@@ -1237,9 +1239,19 @@ class SourceSubsetSelector (object):
         if spec == "all":
           srcs = all;
         elif spec.startswith("="):
-          srcs.update([ src.name for src in srclist0 if src.get_attr(spec[1:]) ]);
+          spec = spec[1:];
+          if "=" in spec:
+            tag,value = spec.split("=",1);
+            srcs.update([ src.name for src in srclist0 if str(src.get_attr(tag)) == value ]);
+          else:
+            srcs.update([ src.name for src in srclist0 if src.get_attr(spec) ]);
         elif spec.startswith("-="):
-          srcs.difference_update([ src.name for src in srclist0 if src.get_attr(spec[2:]) ]);
+          spec = spec[2:];
+          if "=" in spec:
+            tag,value = spec.split("=",1);
+            srcs.difference_update([ src.name for src in srclist0 if str(src.get_attr(tag)) == value ]);
+          else:
+            srcs.difference_update([ src.name for src in srclist0 if src.get_attr(spec) ]);
         elif spec.startswith("-"):
           srcs.discard(spec[1:]);
         else:

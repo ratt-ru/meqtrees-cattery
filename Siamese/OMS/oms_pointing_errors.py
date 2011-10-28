@@ -38,9 +38,10 @@ ARCSEC = DEG/3600;
 def compute_pointings(nodes,stations=None,**kw):
   """Computes pointing errors for a list of stations.""";
   # if the error generator is set to "no error", return None
-  if not _pe_errgen.has_errors():
+  if not _pe_errgen_l.has_errors() and not _pe_errgen_m.has_errors():
     return None;
-  node_maker = _pe_errgen.node_maker();
+  node_maker1 = _pe_errgen_l.node_maker();
+  node_maker2 = _pe_errgen_m.node_maker();
   ns = nodes.Subscope();
   stations = stations or Context.array.stations();
   if station_subset != STATIONS_ALL:
@@ -50,20 +51,22 @@ def compute_pointings(nodes,stations=None,**kw):
   # create nodes to compute pointing errors per antenna
   for p in stations:
     if p in subset:
-      node_maker(ns.l(p),station=p);
-      node_maker(ns.m(p),station=p);
+      node_maker1(ns.l(p),station=p);
+      node_maker2(ns.m(p),station=p);
       nodes(p) << Meq.Composer(ns.l(p),ns.m(p));
     else:
       nodes(p) << Meq.Composer(0,0);
   return nodes
 
 # make an error generator for pointings
-_pe_errgen = ErrorGens.Selector("pointing",0,10,label="pe",unit=("arcsec",ARCSEC));
+_pe_errgen_l = ErrorGens.Selector("pointing in l",0,10,label="pe_l",unit=("arcsec",ARCSEC));
+_pe_errgen_m = ErrorGens.Selector("pointing in m",0,10,label="pe_m",unit=("arcsec",ARCSEC));
 
 STATIONS_ALL = "all";
 
 TDLCompileOption("station_subset","Stations with pointing errors",[STATIONS_ALL],more=str,doc="""<P>
   Specify a list of (space- or comma-separated) station names, or "all".</P>""");
 
-TDLCompileOptions(*_pe_errgen.options());
+TDLCompileOptions(*_pe_errgen_l.options());
+TDLCompileOptions(*_pe_errgen_m.options());
 

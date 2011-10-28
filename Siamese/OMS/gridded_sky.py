@@ -57,11 +57,10 @@ def make_source (ns,name,l,m,I=1):
     if source_type == "point":
       return Meow.PointSource(ns,name,srcdir,I=I,Q=Q,U=U,V=V,spi=source_spi,freq0=freq0);
     elif source_type == "gaussian":
-      if gauss_smaj == gauss_smin:
-        size = gauss_smaj*ARCSEC;
-      else:
-        size = (gauss_smaj*ARCSEC,gauss_smin*ARCSEC);
-      return Meow.GaussianSource(ns,name,srcdir,I=I,Q=Q,U=U,V=V,spi=source_spi,freq0=freq0,size=size,phi=gauss_pa*DEG);
+      s1,s2 = gauss_smaj*ARCSEC,gauss_smin*ARCSEC;
+      pa = gauss_pa*DEG;
+      return Meow.GaussianSource(ns,name,srcdir,I=I,Q=Q,U=U,V=V,spi=source_spi,freq0=freq0,
+          lproj=s1*math.sin(pa),mproj=s1*math.cos(pa),ratio=s2/s1);
   # else fall through and return none
   return None;
 

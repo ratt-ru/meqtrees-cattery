@@ -118,6 +118,40 @@ class WSRT_cos3_beam (object):
     # fortunately, exactly the same code works for the tensor case
     return self.compute(E,lm,pointing,p);
 
+INV_C = 1.0 / 299792458
+
+class circular_aperture_beam (WSRT_cos3_beam):
+  label = "circular_aperture";
+  name  = "Circular aperture beam model";
+  
+  def __init__ (self):
+    self._options = [
+      TDLOption('bf',"Beam factor",[1.0],more=float,namespace=self),
+      TDLOption('dish_sizes',"Dish size(s)",[25],more=str,namespace=self)
+    ];
+    self._prepared = False;
+    self.ell = 0;
+    
+  def compute (self,E,lm,pointing=None,p=0):
+    """Circular Apertures. With equal dishes, should generate Airy disks"""
+    ns = E.Subscope();
+    if pointing == None:
+      pointing = Meq.Constant([0,0])
+    if isinstance(lm,(list,tuple)):
+      lm = ns.lm1 << Meq.Constant(lm)
+    r = ns.r << Meq.Norm(lm-pointing);
+    size = self._sizes[min(p,len(self._sizes)-1)];
+    # The Max() is to avoid div by zero cases.
+    ns.theta_r << Meq.Max(INV_C * r * size * math.pi * self.bf * Meq.Freq(), 1e-9);
+    ns.E_theta << 2 * Meq.Bessel(ns.theta_r, order=1) / ns.theta_r;
+    E << Meq.Matrix22(ns.E_theta, 0, 0, ns.E_theta);
+    return E;
+
+  compute_tensor = None;
+#  def compute_tensor (self,E,lm,pointing=None,p=0):
+#    return self.compute(E,lm,pointing,p);
+
+
 def compute_jones (Jones,sources,stations=None,
                     label="beam",pointing_offsets=None,inspectors=[],
                     solvable_sources=set(),**kw):
@@ -129,7 +163,7 @@ def compute_jones (Jones,sources,stations=None,
   
   # figure out beam model
   for beam_model in MODELS:
-    if globals().get('use_%s'%model.label,None):
+    if globals().get('use_%s'%beam_model.label,None):
       break;
   else:
     raise RuntimeError,"no beam model selected";
@@ -174,12 +208,12 @@ def compute_jones_tensor (Jones,sources,stations=None,lmn=None,
   
   # figure out beam model
   for beam_model in MODELS:
-    if globals().get('use_%s'%model.label,None):
+    if globals().get('use_%s'%beam_model.label,None):
       break;
   else:
     raise RuntimeError,"no beam model selected";
   
-  if not hasattr(beam_model,'compute_tensor'):
+  if getattr(beam_model,'compute_tensor',None) is None:
     return None;
     
   beam_model.prepare(ns);
@@ -204,7 +238,7 @@ def compute_jones_tensor (Jones,sources,stations=None,lmn=None,
 
 # available beam models
 MODELS = [
-  WSRT_cos3_beam()
+  WSRT_cos3_beam(),circular_aperture_beam()
 ];
 
 _model_option = TDLCompileMenu("Beam model",
