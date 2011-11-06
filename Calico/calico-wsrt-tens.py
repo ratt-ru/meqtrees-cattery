@@ -28,6 +28,7 @@
 from Timba.TDL import *
 from Timba.Meq import meq
 import math
+import fnmatch
 
 import Meow
 from Meow import ParmGroup,Bookmarks,StdTrees
@@ -144,10 +145,19 @@ output_option = TDLCompileOption('do_output',"Output visibilities",
 
   """);
 
+FIRST_SOURCE = "first source in model";
+correct_sky_options = TDLCompileOption('do_correct_sky',"Include sky-Jones correction for which source",
+  [None,FIRST_SOURCE],more=str,doc=
+  """<P>If enabled, then any sky-Jones terms associated with the named source will be corrected
+  for (note that individual Jones terms may be excluded from the correction via their
+  Advanced options menu). The source name may include shell-style wildcards such as "*" and "?",
+  in which case the first matching source will be used.</P>""");
+output_option.when_changed(lambda output:correct_sky_options.show(output in [CORRECTED_RESIDUALS,CORRECTED_DATA]));
+
 flag_jones_opt = TDLOption("flag_jones","Flag on out-of-bounds Jones terms",False,
     doc="""<P>Your tree can automatically flag visibility points where certain Jones terms go out of bounds.
     The relevant Jones terms will have individual flagging options in their "Advanced options" menus, which
-    you must also enable for this option to have effect. This option enables and disables Jones-bassed 
+    you must also enable for this option to have effect. This option enables and disables Jones-bassed
     flagging globally.</P>""");
 flag_res_opt = TDLOption("flag_res","Flag on residual amplitudes >",[None],more=float,
     doc="""<P>If selected, your tree will flag all visibilities (per IFR/timeslot/channel) where the residual
@@ -159,10 +169,6 @@ flag_meanres_opt = TDLOption("flag_mean_res","Flag on mean residual amplitudes (
     """);
 
 flag_menu = TDLCompileMenu("Flag output visibilities",flag_jones_opt,flag_res_opt,flag_meanres_opt,toggle="flag_enable");
-
-do_correct_sky = False;
-# correct_sky_options = TDLCompileOption('do_correct_sky',"...include sky-Jones correction for first source in model",False));
-# output_option.when_changed(lambda output:correct_sky_options.show(output in [CORRECTED_RESIDUALS,CORRECTED_DATA]));
 
 def _select_output (output):
   if output in [RESIDUALS,CORRECTED_RESIDUALS,CORRECTED_DATA]:
@@ -178,6 +184,7 @@ output_option.when_changed(_select_output);
 # now load optional modules for the ME maker
 from Meow import TensorMeqMaker
 meqmaker = TensorMeqMaker.TensorMeqMaker(solvable=True,
+                            use_correction=True,
                             use_jones_inspectors=True,
                             use_skyjones_visualizers=False,
 );
@@ -202,8 +209,8 @@ meqmaker.add_sky_models(models);
 # E - beam
 # add a fixed primary beam first
 from Calico.OMS.wsrt_cos3_beam import WSRTCos3Beam #,wsrt_beams_zernike
-meqmaker.add_sky_jones('E','WSRT cos^3 beam',[WSRTCos3Beam("E",solvable=False)]); 
-meqmaker.add_sky_jones('Es','solvable WSRT cos^3 beam',[WSRTCos3Beam("Es",solvable=True)]); 
+meqmaker.add_sky_jones('E','WSRT cos^3 beam',[WSRTCos3Beam("E",solvable=False)]);
+meqmaker.add_sky_jones('Es','solvable WSRT cos^3 beam',[WSRTCos3Beam("Es",solvable=True)]);
 ## add solvable refraction
 # from Calico.OMS import solvable_position_shifts
 # meqmaker.add_sky_jones('R','position shifts',solvable_position_shifts);
@@ -300,7 +307,11 @@ def _define_forest(ns,parent=None,**kw):
   if do_output in [CORRECTED_DATA,CORRECTED_RESIDUALS]:
     if do_correct_sky:
       srcs = meqmaker.get_source_list(ns);
-      sky_correct = srcs and srcs[0];
+      if do_correct_sky is FIRST_SOURCE:
+        sky_correct = srcs and srcs[0];
+      else:
+        srcs = [ src for src in srcs if fnmatch.fnmatchcase(src.name,do_correct_sky) ];
+        sky_correct = srcs and srcs[0];
     else:
       sky_correct = None;
     outputs = meqmaker.correct_uv_data(ns,outputs,sky_correct=sky_correct,
@@ -385,7 +396,7 @@ def _define_forest(ns,parent=None,**kw):
     outputs = solve_tree.sequencers(inputs=rhs,outputs=outputs);
 
   post = ( meqmaker.get_inspectors() or [] ); #if include_inspectors else [];
-  
+
   StdTrees.make_sinks(ns,outputs,spigots=spigots0,post=post,corr_index=mssel.get_corr_index());
 
   if not do_solve:

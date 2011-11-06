@@ -314,7 +314,7 @@ def make_jones_norm_flagger (jp,minval=None,maxval=None,jnorm=None,jflag=None,fr
   jpsq = jp('sq') << Meq.MatrixMultiply(jp,jp('conj') << Meq.ConjTranspose(jp));
   jj = jp('2tr') << (jpsq(11) << Meq.Selector(jpsq,index=0)) + (jpsq(22) << Meq.Selector(jpsq,index=3));
   jj = jp('a2tr') << Meq.Abs(jj);
-  jnorm << Meq.Mean(Meq.Sqrt(jj),reduction_axes="freq") if freqmean else Meq.Sqrt(jj);
+  jnorm << ( Meq.Mean(Meq.Sqrt(jj),reduction_axes="freq") if freqmean else Meq.Sqrt(jj) );
   if minval is not None:
     flaggers.append(jp('clip_lt') << Meq.ZeroFlagger(jnorm-minval,oper='lt',flag_bit=flagmask));
   if maxval is not None:
@@ -330,7 +330,7 @@ def make_jones_abs_flagger (jp,minval=None,maxval=None,jabs=None,jflag=None,diag
   flaggers = [];
   if jabs is None:
     jabs = jp('abs');
-  jabs << Meq.Mean(Meq.Abs(jp),reduction_axes="freq") if freqmean else Meq.Abs(jp);
+  jabs << ( Meq.Mean(Meq.Abs(jp),reduction_axes="freq") if freqmean else Meq.Abs(jp) );
   if diag:
     jabs = jabs('sel') << Meq.Selector(jabs,index=[0,3],multi=True);
   if minval is not None:

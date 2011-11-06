@@ -3,6 +3,20 @@
 # This is reloaded at every new MS in a scripter run
 # It defines some standard processing steps
 
+# these aren't really processing steps per set, but useful functions called by processing steps
+
+# runs the imager over the current MS, field and spwid. Remaining arguments need to be supplied,
+imager()
+{
+  $RUNIMAGER ms=$MSNAME field=$field spwid=$ddid $*
+}
+# runs plot-ms over the current MS, field and spwid. Remaining arguments need to be supplied,
+plot-ms()
+{
+  $PLOTMS $MSNAME -F $field -D $ddid -I "$IFRS" -L $FQSLICE $*
+}
+
+## reset_ms: removes MS, untars copy from tgz, adds bitflags, fixes WSRT UVWs, etc.
 reset_ms()
 {
   rm -fr $MSNAME
@@ -14,32 +28,40 @@ reset_ms()
   step=1
 }
 
+##
 reset_mep()
 {
   rm -fr $MSNAME/*mep
-#    rm -fr qmc2-new.lsm.fmep
+  if [ -d ${LSM%.html}.fmep ]; then
+    rm -fr ${LSM%.html}.fmep
+  fi
 }
 
-#  restore_lsm ()
-#  {
-#    tar zxvf qmc2.fmep.band$DDID.tgz
-#  }
+#restore_lsm ()
+#{
+#  tar zxvf qmc2.fmep.band$DDID.tgz
+#}
 
 cal_generic ()
 {
-  echo "cal_generic $*"
   label=$1
   section=$2
   jobname=$3
   parmtab=$4
   shift 4
-  time meqtree-pipeliner.py $* $MT -c $CONFIG \
+  time meqtree-pipeliner.py $MT -c $CONFIG \
     \[$section\] \
     $MS $CHANS $* \
+    tiggerlsm.filename=$LSM \
     $SCRIPTNAME \
     =$jobname
-  ($PLOTPARMS $MSNAME/$parmtab -o $DESTDIR/${msbase}_${label}_${step}.png; \
-  tar zcvf $DESTDIR/${label}_${msbase}_step$step.tgz $MSNAME/$parmtab) &
+  if [ "$plotprams" == "1" ]; then
+    ($PLOTPARMS $MSNAME/$parmtab -o $DESTDIR/${msbase}_${label}_${step}.png; \
+    tar zcvf $DESTDIR/${label}_${msbase}_step$step.tgz $MSNAME/$parmtab) &
+  else
+    tar zcvf $DESTDIR/${label}_${msbase}_step$step.tgz $MSNAME/$parmtab
+  fi
+  alias
   plot-ms CORRECTED_DATA:I -o $DESTDIR/${msbase}_residuals_${step}_${label}.png
   imager name_dirty=$DESTDIR/${msbase}_${step}_${label}
   step=$[$step+1];
@@ -48,28 +70,48 @@ cal_generic ()
 
 cal_g ()
 {
-  cal_generic G ${cal_g_section:-cal_g} =cal_G_diag G_diag.fmep $*
+  cal_generic G ${cal_g_section:-cal_g} cal_G_diag G_diag.fmep $*
 }
 
 cal_ig ()
 {
-  cal_generic IG ${cal_ig_section:-cal_ig} =cal_IG IG.fmep $*
+  cal_generic IG ${cal_ig_section:-cal_ig} cal_IG IG.fmep $*
 }
 
 cal_de ()
 {
-  cal_generic dE ${cal_de_section:-cal_de} =cal_dE_diag dE_diag.fmep $*
+  cal_generic dE ${cal_de_section:-cal_de} cal_dE_diag dE_diag.fmep $*
+}
+
+redo_dirty_image ()
+{
+  if [ "$1" != "" ]; then
+    suffix="_$1"
+  else
+    suffix=""
+  fi
+  imager name_dirty=$DESTDIR/${msbase}${suffix}
+}
+
+redo_plot_ms ()
+{
+  if [ "$1" != "" ]; then
+    suffix="_$1"
+  else
+    suffix=""
+  fi
+  plot-ms ${2-CORRECTED_DATA:I} -o $DESTDIR/${msbase}${suffix}.png
 }
 
 genvis_generic ()
 {
-  echo "cal_generic $*"
   label=$1
   section=$2
   shift 2
-  time meqtree-pipeliner.py $* $MT -c $CONFIG \
+  time meqtree-pipeliner.py $MT -c $CONFIG \
     \[$section\] \
     $MS $CHANS $* \
+    tiggerlsm.filename=$LSM \
     $SCRIPTNAME \
     =generate_visibilities
   imager name_dirty=$DESTDIR/${msbase}_${label}
@@ -87,17 +129,111 @@ make_residuals ()
   genvis_generic residual ${make_residuals_section:-make_residuals} $*
 }
 
+
+### "global" functions applying to full MSs
+
 merge_ms()
 {
-  $MERGEMS -f $FULLMS $ms_names
+  $MERGEMS -f ${1-$FULLMS} $ms_names
 }
 
-make_full_image()
+make_image()
 {
-  $RUNIMAGER ms=$FULLMS $*
+  ms=`basename $MSNAME .MS`
+  $RUNIMAGER ms=$MSNAME name_dirty=$DESTDIR/${ms%.ms}_dirty $*
 }
 
-make_full_clean()
+make_clean()
 {
-  $RUNIMAGER ms=$FULLMS oper=csclean $*
+  ms=`basename $MSNAME .MS`
+  $RUNIMAGER ms=$MSNAME oper=csclean \
+    name_restored=$DESTDIR/${ms%.ms}_restored \
+    name_residual=$DESTDIR/${ms%.ms}_residual \
+    name_model=$DESTDIR/${ms%.ms}_model \
+    $*
+}
+
+make_psf_image ()
+{
+  ms=`basename $MSNAME .MS`
+  psf_image="${ms%.ms}_psf"
+  name=${1-$psf_image}
+  shift 1
+  $RUNIMAGER ms=$MSNAME data=psf name_dirty=${name%.fits} size=$PSF_SIZE flux_scale=1 $*
+}
+
+make_restored_image ()
+{
+  ms=`basename $MSNAME .MS`
+  psf_image="${ms%.ms}_psf"
+  if [ ! -f $psf_image ]; then
+    make_psf_image $psf_image
+  fi
+  $TIGGER_RESTORE $DESTDIR/${ms%.ms}_restored.fits $LSM $DESTDIR/${ms%.ms}_model_restored.fits -p $psf_image -f
+}
+
+make_ssms ()
+{
+  if [ "$1" == "" ]; then
+    echo "make_ssms: must be invoked with a source name";
+    exit 1
+  fi
+  make_residuals "tiggerlsm.null_subset=$1*" "do_correct_sky=$1*"
+}
+
+make_full_ssms ()
+{
+  if [ "$1" == "" ]; then
+    echo "make_full_ssms: must be invoked with a source name";
+    exit 1
+  fi
+  per_ms make_ssms[$1]
+  $MERGEMS -f ${FULLMS%.MS}_src$1.MS $ms_names
+}
+
+extract_ss_ccm ()
+{
+  srcname="$1"
+  oper="${2-image+clark}"
+  ms=${FULLMS%.MS}_src$1.MS
+  shift 2
+  if [ "$srcname" == "" ]; then
+    echo "extract_ss_ccm: must be invoked with a source name (and optional clean operation)";
+    exit 1
+  fi
+  if [ ! -d $ms ]; then
+    echo "extract_ss_ccm: $ms does not exist."
+    echo "Perhaps run make_full_ssms first?"
+    exit 1;
+  fi
+  # extract source coords
+  coords=`python <<-end
+import Tigger
+src=[src for src in Tigger.load("$LSM",verbose=0).sources if src.name.startswith("$srcname")][0]
+print "j2000,%dh%dm%fs,%s%dd%dm%fs"%tuple(list(src.pos.ra_hms())+list(src.pos.dec_sdms()))
+end`
+  if [ "${coords#j2000}" == "$coords"  ]; then
+    echo "Failed to extract coordinate of source $srcname from LSM file $LSM"
+    exit 1
+  fi
+  echo ":::Extracting clean component model for source $srcname at $coords"
+  # make images
+  for op in ${oper//+/ }; do
+    $RUNIMAGER ms=$ms phasecenter=$coords size=$SOURCE_CC_SIZE \
+      name_dirty=src${srcname}-dirty \
+      name_restored=src${srcname}-restored \
+      name_residual=src${srcname}-residual \
+      name_model=src${srcname}-model \
+      oper=$op flux_scale=1 $*
+  done
+}
+
+make_and_extract_ss_ccm ()
+{
+  if [ "$1" == "" ]; then
+    echo "make_and_extract_ss_ccm: must be invoked with a source name";
+    exit 1
+  fi
+  make_full_ssms $1
+  extract_ss_ccm $*
 }

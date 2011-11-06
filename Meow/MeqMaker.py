@@ -31,6 +31,7 @@ import math
 import inspect
 import types
 import re
+import fnmatch
 
 import Meow
 from Meow import StdTrees,ParmGroup,Parallelization,MSUtils
@@ -83,6 +84,7 @@ PER_ALL_SOURCES = "entire model";
 
 class MeqMaker (object):
   def __init__ (self,namespace='me',solvable=False,
+      use_correction=False,
       use_decomposition=None,
       use_jones_inspectors=None,
       use_skyjones_visualizers=True):
@@ -97,6 +99,7 @@ class MeqMaker (object):
     self._sky_models = None;
     self._source_list = None;
     self.export_kvis = False;
+    self.use_correction = use_correction;
     self._solvable = solvable;
     self._inspectors = [];
     self._skyjones_visualizer_mux = [];
@@ -296,7 +299,7 @@ class MeqMaker (object):
 #      setattr(self,self._make_attr('all_sources',label),False);
       jt = self.JonesTerm(label,name,modules,flaggable=flaggable);
       if flaggable:
-        advanced_options += [ 
+        advanced_options += [
           TDLMenu("Allow flagging on out-of-bounds %s-Jones"%label,
             TDLOption(self._make_attr("flag_jones_type",label),
               "Flag on what quantities",
@@ -304,9 +307,9 @@ class MeqMaker (object):
                 self.JonesTerm.FLAG_ABSDIAG:"diagonal elements |%sii|"%label,
                 self.JonesTerm.FLAG_NORM:"matrix norm ||%s||"%label},
               namespace=self,doc=
-                """<P>This determines what quantitites are actually compared to the specified bounds. 
-                This can be either the absolute value of each matrix element 
-                <NOBR>(|%Jij|)</NOBR>, or else the diagonal elements only <NOBR>(|%Jii|)</NOBR>, or else the matrix norm 
+                """<P>This determines what quantitites are actually compared to the specified bounds.
+                This can be either the absolute value of each matrix element
+                <NOBR>(|%Jij|)</NOBR>, or else the diagonal elements only <NOBR>(|%Jii|)</NOBR>, or else the matrix norm
                 <NOBR>(||%J||)</NOBR>. The matrix norm is defined as:</P>
 
                 <P align="center"><BIG><I>&#x2225;%J&#x2225; = </I>tr<I>(%J%J<sup>H</sup>)<sup>&frac12;</sup>,</I></BIG></P>
@@ -320,31 +323,39 @@ class MeqMaker (object):
             TDLOption(self._make_attr("flag_jones_max",label),"Upper bound",[None,10,100],more=float,namespace=self),
             TDLOption(self._make_attr("flag_jones_min",label),"Lower bound",[None,.1,.01],more=float,namespace=self),
           toggle=self._make_attr("flag_jones",label),namespace=self,doc=
-            """<P>Enable this to flag output visibilities when some metric characterizing the %J-Jones term goes out of bounds. 
-            (Note also that there's probably a top-level option that controls Jones-based flagging as a whole -- this must also 
+            """<P>Enable this to flag output visibilities when some metric characterizing the %J-Jones term goes out of bounds.
+            (Note also that there's probably a top-level option that controls Jones-based flagging as a whole -- this must also
             be enabled.)</P>""".replace("%J",label)
         )];
     else:
       jt = self.SkyJonesTerm(label,name,modules,pointing);
       tdloption_namespace = "%s.%s"%(self.tdloption_namespace,self._make_attr('subset',label));
       jt.subset_selector = SourceSubsetSelector("Apply %s-Jones to subset of sources"%label,tdloption_namespace,annotate=False);
-      advanced_options += [ 
+      advanced_options += [
         TDLOption(self._make_attr('per_source',label),"Use a unique %s-Jones term per"%label,[PER_SOURCE,PER_ALL_SOURCES],
                 more=str,namespace=self,doc=
-                """<P>If you specify '%s', each source will receive an independent %s-Jones term. 
+                """<P>If you specify '%s', each source will receive an independent %s-Jones term.
                 If you specify '%s', the same %s-Jones term will be used for the entire sky (making it
                 effectively direction-independent).</P>
-                <P>Alternatively, you may specify a tag name to group sources by tag. For example, 
+                <P>Alternatively, you may specify a tag name to group sources by tag. For example,
                 if you enter the name of "foo", and source A does not have the tag "foo",
-                it will receive its own %s-Jones term. If source B then has the tag "foo=A", 
+                it will receive its own %s-Jones term. If source B then has the tag "foo=A",
                 then it will use the Jones term associated with source A. This is commonly
-                used with the "cluster" tag assigned by Tigger (see the tigger-convert script for details) to associate a single Jones term with a whole cluster of closely located sources. </P>"""%(PER_SOURCE,label,PER_ALL_SOURCES,label,label)) ];
+                used with the "cluster" tag assigned by Tigger (see the tigger-convert script
+                for details) to associate a single Jones term with a whole cluster of closely
+                located sources. </P>"""%(PER_SOURCE,label,PER_ALL_SOURCES,label,label)) ];
+      if self.use_correction:
+        advanced_options += [
+          TDLOption(self._make_attr('skip_correct',label),"Do not correct for %s-Jones"%label,False,
+                  namespace=self,doc=
+                  """<P>With this option you may exclude this particular Jones term from the overall
+                  sky-Jones correction (if the latter is enabled in the top-level menu).</P>""") ];
       advanced_options += jt.subset_selector.options;
     # add advanced options to menu
     extra_options.append( TDLMenu("Advanced options",
                           toggle=self._make_attr('advanced',label),nonexclusive=True,
-                          doc="""<P>This contains some advanced 
-                          options relevant to the %s-Jones term. Note that the 
+                          doc="""<P>This contains some advanced
+                          options relevant to the %s-Jones term. Note that the
                           "Advanced options" checkbox itself must be checked for the options
                           within to have effect.</P>"""%label,
                           namespace=self,
@@ -438,7 +449,7 @@ class MeqMaker (object):
   def is_module_enabled (self,label,mod):
     """Returns true if the given module is enabled for the given group label"""
     return self.is_group_enabled(label) and self._module_toggles.get(label,{}).get(_modname(mod).replace(".","_"));
-    
+
   def are_advanced_options_enabled (self,label):
     return getattr(self,self._make_attr("advanced",label),False);
 
@@ -645,7 +656,7 @@ class MeqMaker (object):
       if jt.label == label:
         return jt.base_node;
     raise KeyError,"sky-Jones term %s not defined"%label;
-  
+
   def _get_pointing_error_nodes (self,ns,jt,stations):
     if not jt.pointing_modules:
       return None;
@@ -666,7 +677,7 @@ class MeqMaker (object):
           self.make_per_station_bookmarks(dlm,"%s pointing errors"%jt.label,stations,
                                            vells_labels=("dl","dm"),freqmean=False);
     return jt.base_pe_node;
- 
+
   def _get_jones_nodes (self,ns,jt,stations,sources=None,solvable_sources=set()):
     """Returns the Jones nodes associated with the given JonesTerm ('jt'). If
     the term has been disabled (through compile-time options), returns None.
@@ -697,17 +708,18 @@ class MeqMaker (object):
           sources_with_jones_node = [ sources[0] ];
           jones_mapping = dict([(src.name,sources[0].name) for src in sources[1:]]);
         else:
-          sources_with_jones_node = [ src for src in sources if not src.get_attr(per_source) ];
-          their_names = set([src.name for src in sources_with_jones_node]);
+          uniqset = set([ (src.get_attr(per_source) or src.name) for src in sources ]);
+          sources_with_jones_node = [ src for src in sources if src.name in uniqset ];
+          srcdict = dict([(src.name,src) for src in sources_with_jones_node]);
           jones_mapping = dict();
           for src in sources:
-            tagval = src.get_attr(per_source);
-            if tagval:
-              if not tagval in their_names:
+            if src.name not in srcdict:
+              tagval = src.get_attr(per_source);  # non-zero since otherwise it would be in srcdict already
+              if not tagval in srcdict:
                 sources_with_jones_node.append(src);
-                their_names.add(tagval);
+                srcdict[tagval] = src;
               else:
-                jones_mapping[src.name] = tagval;
+                jones_mapping[src.name] = srcdict[tagval];
       else:
         sources_with_jones_node = None;
       # are we doing a per-station Jones term?
@@ -914,7 +926,7 @@ class MeqMaker (object):
       for jt in self._sky_jones_list:
         Jj,solvable = self._get_jones_nodes(ns,jt,stations,sources=sources,solvable_sources=solvable_skyjones);
         # if this Jones is enabled (Jj not None), corrupt each source
-        if Jj: 
+        if Jj:
           joneslist.append((Jj,solvable));
       # now make multiplication node per each source
       for name,src in sourcelist:
@@ -976,7 +988,7 @@ class MeqMaker (object):
     joneslist = [];
     for jt in self._uv_jones_list:
       Jj,solvable = self._get_jones_nodes(ns,jt,stations);
-      if Jj: 
+      if Jj:
         joneslist.append(Jj);
     # now make matrix multiplication nodes
     if joneslist:
@@ -1074,8 +1086,9 @@ class MeqMaker (object):
     # now build up a correction chain for every station
     correction_chains = dict([(p,[]) for p in stations]);
 
-    # first, collect all sky Jones terms
-    if sky_correct is not None:
+    # if overall sky-Jones correction is enabled, collect all sky-Jones terms for which it hasn't been
+    # individually disabled
+    if sky_correct:
       for jt in self._sky_jones_list:
         # if using coherency decomposition, we will already have defined a "uvjones" node
         # containing a product of all the sky-Jones terms, so use that
@@ -1084,11 +1097,15 @@ class MeqMaker (object):
           for p in stations:
             correction_chains[p].insert(0,skyjones(p));
         else:
-          Jj,solvable = self._get_jones_nodes(ns,jt,stations,sources=[sky_correct]);
-          if Jj:
-            Jj = Jj(sky_correct);
-            for p in stations:
-              correction_chains[p].insert(0,Jj(p));
+          skip = self.are_advanced_options_enabled(jt.label) and \
+                    getattr(self,self._make_attr('skip_correct',jt.label),False);
+          if not skip:
+            Jj,solvable = self._get_jones_nodes(ns,jt,stations,sources=[sky_correct]);
+            if Jj:
+              Jj = Jj(sky_correct);
+              if Jj(stations[0]).initialized():
+                for p in stations:
+                  correction_chains[p].insert(0,Jj(p));
 
     # now collect all uv-Jones and add them to the chains
     # if using coherency decomposition, we will already have defined a "uvjones" node
@@ -1102,8 +1119,8 @@ class MeqMaker (object):
         if Jj:
           # if flagging is in effect, make flaggers
           if flag_jones and jt.flaggable and self.are_advanced_options_enabled(jt.label):
-            enable,flagtype,flagmin,flagmax,freqmean = [ getattr(self,self._make_attr(attr,jt.label)) for attr in 
-                                                  "flag_jones","flag_jones_type","flag_jones_min","flag_jones_max","flag_jones_freqmean" ]; 
+            enable,flagtype,flagmin,flagmax,freqmean = [ getattr(self,self._make_attr(attr,jt.label)) for attr in
+                                                  "flag_jones","flag_jones_type","flag_jones_min","flag_jones_max","flag_jones_freqmean" ];
             Jflag = Jj('flag');
             if enable and (flagmin is not None or flagmax is not None):
               if flagtype == self.JonesTerm.FLAG_ABS or flagtype == self.JonesTerm.FLAG_ABSDIAG:
@@ -1188,18 +1205,22 @@ class MeqMaker (object):
             self.export_karma_filename,label_format=self.export_karma_label,maxlabels=nlab);
 
 class SourceSubsetSelector (object):
+  docstring = """<P>Enter space- or comma-separated items. The following constructs are recognized:</P>
+                  <P>"<I>name</I>" selects a source by name. The name may include shell-style
+                  wildcards such as "A?" and "A*".</P>
+                  <P>"all" or "*" selects all sources.</P>
+                  <P>"=<i>tagname</i>" selects all sources that have a given tag.</P>
+                  <P>"=<i>tagname=value</i>" selects all sources that have the given tag
+                  with the given value.</P>
+                  <P>A leading "-" negates the selection, thus "-<i>name</i>" deselects sources by name,
+                  and "-=<i>tagname</i>" and "-=<i>tagname=value</i>" deselects sources by tag.</P>"""
+
   def __init__ (self,title,tdloption_namespace=None,doc=None,annotate=True):
     if tdloption_namespace:
       self.tdloption_namespace = tdloption_namespace;
     self.subset_enabled = False;
     global _annotation_label_doc;
-    opts = [
-        TDLOption('source_subset',"Sources",["all"],more=str,namespace=self,
-                  doc="""<P>You can enter source names separated by space. "all" selects all sources. "=<i>tagname</i>" selects all sources that have a given tag. 
-                  "=<i>tagname=value</i>" selects all sources that have the given tag set to that value.
-                  "-<i>name</i>" deselects the named sources. "-=<i>tagname</i>" and
-                  "-=<i>tagname=value</i>" deselects sources by tag.</P>""")
-    ];
+    opts = [ TDLOption('source_subset',"Sources",["all"],more=str,namespace=self,doc=self.docstring) ];
     self.annotate = False;
     if annotate:
       opts.append(TDLMenu("Annotate selected sources",doc="""If you're exporting annotations for your sky
@@ -1225,12 +1246,11 @@ class SourceSubsetSelector (object):
       return self.source_subset.split()[0][1:];
     return None;
 
-  def filter (self,srclist0):
-    if not self.subset_enabled or self.source_subset == "all":
-      return srclist0;
+  @staticmethod
+  def filter_subset (subset,srclist0):
     all = set([src.name for src in srclist0]);
     srcs = set();
-    for ispec,spec in enumerate(re.split("[\s,]+",self.source_subset)):
+    for ispec,spec in enumerate(re.split("[\s,]+",subset)):
       spec = spec.strip();
       if spec:
         # if first spec is a negation, then implictly select all sources first
@@ -1253,11 +1273,15 @@ class SourceSubsetSelector (object):
           else:
             srcs.difference_update([ src.name for src in srclist0 if src.get_attr(spec) ]);
         elif spec.startswith("-"):
-          srcs.discard(spec[1:]);
+          srcs.difference_update(fnmatch.filter(all,spec[1:]));
         else:
-          srcs.add(spec);
-    # make list
-    srclist = [ src for src in srclist0 if src.name in srcs ];
+          srcs.update(fnmatch.filter(all,spec));
+    return [ src for src in srclist0 if src.name in srcs ];
+
+  def filter (self,srclist0):
+    if not self.subset_enabled or self.source_subset == "all":
+      return srclist0;
+    srclist = self.filter_subset(self.source_subset,srclist0);
     if self.annotate:
       # apply annotations
       if self.annotation_symbol_color != "default":
