@@ -86,7 +86,7 @@ class DiagAmplPhase (object):
                             Meq.Polar(jj(ayy) << ampl_def,jj(pyy) << phase_def));
         sga += [jj(axx),jj(ayy)];
         sgp += [jj(pxx),jj(pyy)];
-        parms_ampl += [jj(axx),jj(ayy)];
+        parms_ampl  += [jj(axx),jj(ayy)];
         parms_phase += [jj(pxx),jj(pyy)];
       # add subgroups for this source
       subgroups_ampl.append(ParmGroup.Subgroup(src.name,sga));

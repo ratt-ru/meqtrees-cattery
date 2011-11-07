@@ -32,8 +32,9 @@ while [ "$1" != "" ]; do
     INTERACTIVE=1
     echo "::: Enabling interactive mode"
   # -d sets the default processing sequence
-  elif [ "$1" == "-d" ]; then
-    processing_steps="$DEFAULT_PROCESSING_SEQUENCE"
+  elif [ "${1#-d}" != "$1" ]; then
+    eval ps="\$DEFAULT_PROCESSING_SEQUENCE_${1#-d}"
+    processing_steps="$processing_steps $ps"
   # -a sets the MS list to ALL_MS
   elif [ "$1" == "-a" ]; then
     ms_specs="$ALL_MS"
@@ -47,7 +48,7 @@ done
 # if no steps specified, use default list
 if [ "$processing_steps" == "" ]; then
   echo "No processing steps specified. Use -d to run default sequence:"
-  echo "$DEFAULT_PROCESSING_SEQUENCE"
+  echo "$DEFAULT_PROCESSING_SEQUENCE_"
   exit 1
 fi
 
@@ -65,7 +66,7 @@ if [ "$CONFIRMATION_PROMPT" != "" ]; then
   read
 fi
 
-echo `date`: $0 $args >>.scripter.log
+echo `date "+%D %T"` $BASHPID: $0 $args >>.scripter.log
 
 # this displays a prompt, if interactive mode is enabled with -i
 interactive_prompt ()
@@ -108,6 +109,7 @@ iterate_steps ()
       fi
       echo "::: Running $oper $args (step=$step)"
       interactive_prompt
+      echo `date "+%D %T"` $BASHPID: step $oper $args >>.scripter.log
       if ! eval $oper $args; then
         echo "::: Operation '$oper $args' (step $step) failed";
         exit 1;
@@ -133,6 +135,7 @@ per_ms ()
   for MSNAMESPEC in $ms_specs; do
     # setup variables based on MS
     MSNAME="${MSNAMESPEC%%:*}"
+    echo `date "+%D %T"` $BASHPID: MS $MSNAME >>.scripter.log
     vars=${MSNAMESPEC#*:}
     if [ "$vars" != "$MSNAMESPEC" ]; then
       echo "::: Changing variables: $vars"
@@ -161,5 +164,7 @@ per_ms ()
 }
 
 iterate_steps $processing_steps
+
+echo `date "+%D %T"` $BASHPID: exiting >>.scripter.log
 
 exit 0;

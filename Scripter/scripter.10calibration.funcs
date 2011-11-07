@@ -25,7 +25,15 @@ reset_ms()
   addbitflagcol $MSNAME
   python -c "import pyrap.tables;pyrap.tables.addImagingColumns('$MSNAME')"
   $DOWNWEIGH -I "$IFRS" $MSNAME
+  init_flags
   step=1
+}
+
+## init_flags: called to apply initial flagging to an MS
+# Default version is a no-op. You may redefine this in scripter.YOURPROJ.funcs
+init_flags ()
+{
+  /bin/true
 }
 
 ##
@@ -41,6 +49,11 @@ reset_mep()
 #{
 #  tar zxvf qmc2.fmep.band$DDID.tgz
 #}
+
+restore_g ()
+{
+  tar zxvf $SAVED_SOLUTIONS_DIR/G_${msbase}_*.tgz
+}
 
 cal_generic ()
 {
@@ -83,6 +96,16 @@ cal_de ()
   cal_generic dE ${cal_de_section:-cal_de} cal_dE_diag dE_diag.fmep $*
 }
 
+cal_de_ampl ()
+{
+  cal_generic dEa ${cal_de_ampl_section:-cal_de_ap} cal_dE_ampl dE_ampl.fmep $*
+}
+
+cal_de_phase ()
+{
+  cal_generic dEp ${cal_de_phase_section:-cal_de_ap} cal_dE_phase dE_phase.fmep $*
+}
+
 redo_dirty_image ()
 {
   if [ "$1" != "" ]; then
@@ -114,7 +137,7 @@ genvis_generic ()
     tiggerlsm.filename=$LSM \
     $SCRIPTNAME \
     =generate_visibilities
-  imager name_dirty=$DESTDIR/${msbase}_${label}
+  imager name_dirty=$DESTDIR/${msbase}_${label}_step$step
   step=$[$step+1];
   true
 }
@@ -129,12 +152,20 @@ make_residuals ()
   genvis_generic residual ${make_residuals_section:-make_residuals} $*
 }
 
+## update_flags: readjusts flags on an MS post-calibration
+# Default version is a no-op. You may redefine this in scripter.YOURPROJ.funcs
+update_flags()
+{
+  /bin/true
+}
+
 
 ### "global" functions applying to full MSs
 
 merge_ms()
 {
   $MERGEMS -f ${1-$FULLMS} $ms_names
+  update_flags ${1-$FULLMS}
 }
 
 make_image()
@@ -165,7 +196,7 @@ make_psf_image ()
 make_restored_image ()
 {
   ms=`basename $MSNAME .MS`
-  psf_image="${ms%.ms}_psf"
+  psf_image="${ms%.ms}_psf.fits"
   if [ ! -f $psf_image ]; then
     make_psf_image $psf_image
   fi
@@ -187,8 +218,9 @@ make_full_ssms ()
     echo "make_full_ssms: must be invoked with a source name";
     exit 1
   fi
+  step=1
   per_ms make_ssms[$1]
-  $MERGEMS -f ${FULLMS%.MS}_src$1.MS $ms_names
+  merge_ms ${FULLMS%.MS}_src$1.MS
 }
 
 extract_ss_ccm ()
@@ -223,7 +255,7 @@ end`
       name_dirty=src${srcname}-dirty \
       name_restored=src${srcname}-restored \
       name_residual=src${srcname}-residual \
-      name_model=src${srcname}-model \
+      name_model=src${srcname}-cc \
       oper=$op flux_scale=1 $*
   done
 }
