@@ -206,11 +206,14 @@ class IfrSet (object):
     """Returns TaQL string representing this set of baselines.""";
     return "||".join(["(ANTENNA1==%d&&ANTENNA2==%d)"%(ip,iq) for (ip,p),(iq,q) in self._ifr_index ]);
 
+  _epsilon = 0.5
+
   _comparison_predicates = {
-    '<':  (lambda a,b: a<b),
-    '<=': (lambda a,b: a<=b),
-    '>':  (lambda a,b: a>b),
-    '>=': (lambda a,b: a>=b),
+    '<':  (lambda a,b: a<b-IfrSet._epsilon),
+    '<=': (lambda a,b: a<b+IfrSet._epsilon),
+    '>':  (lambda a,b: a>b+IfrSet._epsilon),
+    '>=': (lambda a,b: a>b-IfrSet._epsilon),
+    '=': (lambda a,b: abs(a-b)<IfrSet._epsilon),
   };
 
   def subset (self,specstr,strict=False):
@@ -254,7 +257,7 @@ class IfrSet (object):
         add_or_remove(named_set);
         continue;
       # now check for baseline length specification
-      match = re.match("^(<|<=|>|>=)([^=]+)$",spec);
+      match = re.match("^(<|<=|>|>=|=)([^=]+)$",spec);
       if match:
         if self._baselines:
           try:

@@ -1,9 +1,9 @@
 #
-#% $Id$ 
+#% $Id$
 #
 #
 # Copyright (C) 2002-2007
-# The MeqTree Foundation & 
+# The MeqTree Foundation &
 # ASTRON (Netherlands Foundation for Research in Astronomy)
 # P.O.Box 2, 7990 AA Dwingeloo, The Netherlands
 #
@@ -19,7 +19,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>,
-# or write to the Free Software Foundation, Inc., 
+# or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
@@ -42,23 +42,30 @@ TDLCompileOptions(*mssel.compile_options());
 TDLRuntimeMenu("Data selection & flag handling",*mssel.runtime_options());
 
 def _define_forest(ns):
-  ANTENNAS = mssel.get_antenna_set(range(1,15));
-  array = Meow.IfrArray(ns,ANTENNAS,mirror_uvw=False);
-  observation = Meow.Observation(ns);
-  Meow.Context.set(array,observation);
+  # setup contexts from MS
+  mssel.setup_observation_context(ns);
+  array = Meow.Context.array;
+  observation = Meow.Context.observation;
+
   stas = array.stations();
 
   # make spigot nodes
   spigots = spigots0 = array.spigots(corr=mssel.get_corr_index());
-  
+
+  for p,q in array.ifrs():
+    spigots('abs',p,q) << Meq.Abs(spigots(p,q));
+
   # ...and an inspector for them
   Meow.StdTrees.vis_inspector(ns.inspector('input'),spigots,
                               bookmark="Inspect input visibilities");
-  inspector = ns.inspector('input');
+  Meow.StdTrees.vis_inspector(ns.inspector('ampl'),spigots('abs'),
+                              bookmark="Inspect mean visibility amplitudes");
   Bookmarks.make_node_folder("Input visibilities by baseline",
     [ spigots(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
-    
-  ns.VisDataMux << Meq.VisDataMux(post=inspector);
+
+  ns.inspectors << Meq.ReqMux(ns.inspector('input'),ns.inspector('ampl'));
+
+  ns.VisDataMux << Meq.VisDataMux(post=ns.inspectors);
 
   # add imaging options
   imsel = mssel.imaging_selector(npix=512,arcmin=120);

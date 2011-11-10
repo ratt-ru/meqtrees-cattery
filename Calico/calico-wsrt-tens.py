@@ -240,6 +240,9 @@ meqmaker.add_uv_jones('G','receiver gains/phases',
 from Calico.OMS import ifr_based_errors
 meqmaker.add_vis_proc_module('IG','multiplicative interferometer-based gains (IG)',[ifr_based_errors.IfrGains()]);
 meqmaker.add_vis_proc_module('IC','additive interferometer-based biases (IC)',[ifr_based_errors.IfrBiases()]);
+
+TDLCompileOption("enable_inspectors","Enable extra visualization nodes (inspectors, etc.)",True);
+
 # very important -- insert meqmaker's options properly
 TDLCompileOptions(*meqmaker.compile_options());
 
@@ -264,7 +267,8 @@ def _define_forest(ns,parent=None,**kw):
   if do_solve or do_output not in [CORRUPTED_MODEL]:
     mssel.enable_input_column(True);
     spigots = spigots0 = outputs = array.spigots(corr=mssel.get_corr_index());
-    meqmaker.make_per_ifr_bookmarks(spigots,"Input visibilities");
+    if enable_inspectors:
+      meqmaker.make_per_ifr_bookmarks(spigots,"Input visibilities");
     # add IFR-based errors, if any
     spigots = meqmaker.apply_visibility_processing(ns,spigots);
   else:
@@ -276,7 +280,8 @@ def _define_forest(ns,parent=None,**kw):
   if read_ms_model:
     mssel.enable_model_column(True);
     model_spigots = array.spigots(column="PREDICT",corr=mssel.get_corr_index());
-    meqmaker.make_per_ifr_bookmarks(model_spigots,"UV-model visibilities");
+    if enable_inspectors:
+      meqmaker.make_per_ifr_bookmarks(model_spigots,"UV-model visibilities");
     # if calibrating on (input-corrupt model), make corrupt model
     if do_solve and cal_type == CAL.DIFF:
       corrupt_uvdata = meqmaker.corrupt_uv_data(ns,model_spigots);
@@ -300,7 +305,8 @@ def _define_forest(ns,parent=None,**kw):
         residuals(p,q) << Meq.Subtract(spigots(p,q),corrupt_uvdata(p,q),predict(p,q));
       else:
         residuals(p,q) << spigots(p,q) - predict(p,q);
-    meqmaker.make_per_ifr_bookmarks(residuals,"Uncorrected residuals");
+    if enable_inspectors:
+      meqmaker.make_per_ifr_bookmarks(residuals,"Uncorrected residuals");
     outputs = residuals;
 
   # and now we may need to correct the outputs
@@ -338,7 +344,8 @@ def _define_forest(ns,parent=None,**kw):
         ns.flagres(p,q) << Meq.ZeroFlagger(ns.absres(p,q)-flag_res,oper='gt',flag_bit=Meow.MSUtils.FLAGMASK_OUTPUT);
       flaggers.append(ns.flagres);
       # ...and an inspector for them
-      meqmaker.make_per_ifr_bookmarks(ns.flagres,"Residual amplitude flags");
+      if enable_inspectors:
+        meqmaker.make_per_ifr_bookmarks(ns.flagres,"Residual amplitude flags");
     # make flagger for mean residuals
     if flag_mean_res is not None:
       ns.meanabsres << Meq.Mean(*[ns.absres(p,q) for p,q in array.ifrs()]);
@@ -348,12 +355,18 @@ def _define_forest(ns,parent=None,**kw):
 
     # merge flags into output
     if flaggers:
-      meqmaker.make_per_ifr_bookmarks(outputs,output_title+" (unflagged)");
+      if enable_inspectors:
+        meqmaker.make_per_ifr_bookmarks(outputs,output_title+" (unflagged)");
       for p,q in array.ifrs():
         ns.flagged(p,q) << Meq.MergeFlags(outputs(p,q),*[f(p,q) for f in flaggers]);
       outputs = ns.flagged;
 
-  meqmaker.make_per_ifr_bookmarks(outputs,output_title);
+  if enable_inspectors:
+    meqmaker.make_per_ifr_bookmarks(outputs,output_title);
+    abs_outputs = outputs('abs');
+    for p,q in array.ifrs():
+      abs_outputs(p,q) << Meq.Abs(outputs(p,q));
+    meqmaker.make_per_ifr_bookmarks(abs_outputs,output_title+" (mean amplitudes)");
 
   # make solve trees
   if do_solve:
@@ -395,8 +408,7 @@ def _define_forest(ns,parent=None,**kw):
     # according to what has been set above
     outputs = solve_tree.sequencers(inputs=rhs,outputs=outputs);
 
-  post = ( meqmaker.get_inspectors() or [] ); #if include_inspectors else [];
-
+  post = ( ( enable_inspectors and meqmaker.get_inspectors() ) or [] );
   StdTrees.make_sinks(ns,outputs,spigots=spigots0,post=post,corr_index=mssel.get_corr_index());
 
   if not do_solve:

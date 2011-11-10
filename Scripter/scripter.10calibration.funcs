@@ -26,7 +26,6 @@ reset_ms()
   python -c "import pyrap.tables;pyrap.tables.addImagingColumns('$MSNAME')"
   $DOWNWEIGH -I "$IFRS" $MSNAME
   init_flags
-  step=1
 }
 
 ## init_flags: called to apply initial flagging to an MS
@@ -45,6 +44,16 @@ reset_mep()
   fi
 }
 
+reset_G ()
+{
+  rm -fr $MSNAME/G*mep
+}
+
+reset_dE ()
+{
+  rm -fr $MSNAME/dE*mep
+}
+
 #restore_lsm ()
 #{
 #  tar zxvf qmc2.fmep.band$DDID.tgz
@@ -53,6 +62,11 @@ reset_mep()
 restore_g ()
 {
   tar zxvf $SAVED_SOLUTIONS_DIR/G_${msbase}_*.tgz
+}
+
+clip_residuals ()
+{
+  /bin/true
 }
 
 cal_generic ()
@@ -68,13 +82,7 @@ cal_generic ()
     tiggerlsm.filename=$LSM \
     $SCRIPTNAME \
     =$jobname
-  if [ "$plotprams" == "1" ]; then
-    ($PLOTPARMS $MSNAME/$parmtab -o $DESTDIR/${msbase}_${label}_${step}.png; \
-    tar zcvf $DESTDIR/${label}_${msbase}_step$step.tgz $MSNAME/$parmtab) &
-  else
-    tar zcvf $DESTDIR/${label}_${msbase}_step$step.tgz $MSNAME/$parmtab
-  fi
-  alias
+  clip_residuals $MSNAME $label
   plot-ms CORRECTED_DATA:I -o $DESTDIR/${msbase}_residuals_${step}_${label}.png
   imager name_dirty=$DESTDIR/${msbase}_${step}_${label}
   step=$[$step+1];
@@ -84,36 +92,45 @@ cal_generic ()
 cal_g ()
 {
   cal_generic G ${cal_g_section:-cal_g} cal_G_diag G_diag.fmep $*
+  if [ "$plotparms" == "1" ]; then
+    $PLOTPARMS $MSNAME/G_diag.fmep "*:*:*/ampl" $plot_Gampl_options -o $DESTDIR/${msbase}_${step}_Ga.png
+    $PLOTPARMS $MSNAME/G_diag.fmep "*:*:*/phase" $plot_Gphase_options -o $DESTDIR/${msbase}_${step}_Gp.png
+  fi
+  tar zcvf $DESTDIR/G_${msbase}_step$step.tgz $MSNAME/G_diag.fmep
 }
 
 cal_ig ()
 {
   cal_generic IG ${cal_ig_section:-cal_ig} cal_IG IG.fmep $*
+  tar zcvf $DESTDIR/IG_${msbase}_step$step.tgz $MSNAME/IG.fmep
 }
 
 cal_de ()
 {
   cal_generic dE ${cal_de_section:-cal_de} cal_dE_diag dE_diag.fmep $*
+  if [ "$plotparms" == "1" ]; then
+    $PLOTPARMS $MSNAME/dE_ampl.fmep "*:*:*:*/ampl"  $plot_dEampl_options -o $DESTDIR/${msbase}_${step}_dEa.png
+    $PLOTPARMS $MSNAME/dE_phase.fmep "*:*:*:*/phase" $plot_dEphase_options -o $DESTDIR/${msbase}_${step}_dEp.png
+  fi
+  tar zcvf $DESTDIR/dE_${msbase}_step$step.tgz $MSNAME/dE_diag.fmep
 }
 
 cal_de_ampl ()
 {
   cal_generic dEa ${cal_de_ampl_section:-cal_de_ap} cal_dE_ampl dE_ampl.fmep $*
+  if [ "$plotparms" == "1" ]; then
+    $PLOTPARMS $MSNAME/dE_ampl.fmep "*:*:*:*/ampl"  $plot_dEampl_options -o $DESTDIR/${msbase}_${step}_dEa.png
+  fi
+  tar zcvf $DESTDIR/dEa_${msbase}_step$step.tgz $MSNAME/dE_ampl.fmep
 }
 
 cal_de_phase ()
 {
   cal_generic dEp ${cal_de_phase_section:-cal_de_ap} cal_dE_phase dE_phase.fmep $*
-}
-
-redo_dirty_image ()
-{
-  if [ "$1" != "" ]; then
-    suffix="_$1"
-  else
-    suffix=""
+  if [ "$plotparms" == "1" ]; then
+    $PLOTPARMS $MSNAME/dE_phase.fmep "*:*:*:*/phase" $plot_dEphase_options -o $DESTDIR/${msbase}_${step}_dEp.png
   fi
-  imager name_dirty=$DESTDIR/${msbase}${suffix}
+  tar zcvf $DESTDIR/dEp_${msbase}_step$step.tgz $MSNAME/dE_phase.fmep
 }
 
 redo_plot_ms ()
@@ -218,8 +235,7 @@ make_full_ssms ()
     echo "make_full_ssms: must be invoked with a source name";
     exit 1
   fi
-  step=1
-  per_ms make_ssms[$1]
+  per_ms step=1 make_ssms[$1]
   merge_ms ${FULLMS%.MS}_src$1.MS
 }
 
@@ -241,7 +257,9 @@ extract_ss_ccm ()
   # extract source coords
   coords=`python <<-end
 import Tigger
-src=[src for src in Tigger.load("$LSM",verbose=0).sources if src.name.startswith("$srcname")][0]
+src=[src for src in Tigger.load("$LSM",verbose=0).sources if src.name.startswith("$srcname")]
+src=sorted(src,lambda a,b:cmp(b.Iapp,a.Iapp))
+src=src[0]
 print "j2000,%dh%dm%fs,%s%dd%dm%fs"%tuple(list(src.pos.ra_hms())+list(src.pos.dec_sdms()))
 end`
   if [ "${coords#j2000}" == "$coords"  ]; then

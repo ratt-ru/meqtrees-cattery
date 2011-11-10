@@ -6,6 +6,7 @@ TMPDIR=.scripter.tmp
 if [ ! -d $TMPDIR ]; then
   mkdir $TMPDIR
 fi
+rm $TMPDIR/*
 cp scripter.*.{conf,funcs} $TMPDIR
 
 # load configs
@@ -93,6 +94,10 @@ iterate_steps ()
     if echo $oper | egrep '^[[:alnum:]]+=.*$' >/dev/null; then
       echo "::: Changing variable: $oper"
       eval $oper
+      # if a step= is explicitly specified, do reset the step counter to this in the next per_ms call
+      if [ "${oper#step=}" != "$oper" ]; then
+        reset_step_counter="$step"
+      fi
     else
       # does oper have arguments, as oper[args]?
       if [ "${oper#*[}" != "$oper" -a "${oper:${#oper}-1:1}" == "]" ]; then
@@ -107,6 +112,11 @@ iterate_steps ()
       else
         args="";
       fi
+      # reset MSNAME if not set
+      if [ "$MSNAME" == "" ]; then
+        MSNAME="$FULLMS"
+      fi
+      # run operation
       echo "::: Running $oper $args (step=$step)"
       interactive_prompt
       echo `date "+%D %T"` $BASHPID: step $oper $args >>.scripter.log
@@ -126,13 +136,19 @@ done
 
 ddid=0
 field=0
-step=0
-MSNAME="$FULLMS"
+unset MSNAME
+reset_step_counter=1
 
 per_ms ()
 {
   # now start outer loop over MSs
   for MSNAMESPEC in $ms_specs; do
+    # reset step to 0 on each new MS, unless we happen to hit
+    # a step=N assignment on the command line (see above)
+    # (user can also override this with reset_step_counter=0 on the command line)
+    if [ "$reset_step_counter" != "-" ]; then
+      step="$reset_step_counter"
+    fi
     # setup variables based on MS
     MSNAME="${MSNAMESPEC%%:*}"
     echo `date "+%D %T"` $BASHPID: MS $MSNAME >>.scripter.log
@@ -160,7 +176,7 @@ per_ms ()
 
     iterate_steps $*
   done
-  MSNAME="$FULLMS"
+  unset MSNAME
 }
 
 iterate_steps $processing_steps
