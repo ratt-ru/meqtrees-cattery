@@ -133,6 +133,7 @@ class LMVoltageBeam (object):
     self.ampl_interpolation = ampl_interpolation
     if verbose:
       _verbosity.set_verbose(verbose);
+      _verbosity.enable_timestamps(True);
 
   def read (self,filename_real,filename_imag=None):
     """Reads beam patterns from FITS files. If only one file is supplied, assumes a real-only beam.
@@ -252,10 +253,10 @@ class LMVoltageBeam (object):
     freq = numpy.array(freq);
     # promote l,m to the same shape
     l,m = unite_shapes(l,m);
-    dprint(3,"input l/m is",l,m);
+    dprint(3,"input l/m [0] is",l.ravel()[0],m.ravel()[0],"and shapes are",l.shape);
     l = self._lToPixel(l);
     m = self._mToPixel(m);
-    dprint(3,"in pixel coordinates this is",l,m);
+    dprint(3,"in pixel coordinates this is [0]",l.ravel()[0],m.ravel()[0]);
     # now we make a 2xN coordinate array for map_coordinates
     # lm[0,:] will be flattened L array, lm[1,:] will be flattened M array
     # lm[2,:] will be flattened freq array (if we have a freq dependence)
@@ -291,6 +292,7 @@ class LMVoltageBeam (object):
       output = numpy.zeros(l.shape,complex);
     elif output.shape != l.shape:
       output.resize(l.shape);
+    dprint(3,"interpolating %d lm points"%(lm.size/2));
     output.real = interpolation.map_coordinates(self._beam_real,lm,order=self._spline_order,
                   prefilter=(self._spline_order==1)).reshape(l.shape);
     output.imag = interpolation.map_coordinates(self._beam_imag,lm,order=self._spline_order,
@@ -301,7 +303,8 @@ class LMVoltageBeam (object):
       phase_array = numpy.arctan2(output.imag,output.real)
       output.real = output_ampl * numpy.cos(phase_array)
       output.imag = output_ampl * numpy.sin(phase_array)
-    dprint(3,"interpolated value is",output);
+    dprint(3,"interpolated value [0] is",output.ravel()[0]);
+    dprint(4,"interpolated value is",output);
     return output;
 
 

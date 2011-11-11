@@ -139,10 +139,12 @@ class InterpolatedVoltageBeam (object):
     freq = numpy.array(freq);
     # promote l,m to the same shape
     l,m = unite_shapes(l,m);
-    dprint(3,"input l/m is",l,m);
+    dprint(3,"input l/m[0] is",l.ravel()[0],m.ravel()[0]);
+#    dprint(4,"input l/m is",l,m);
     l,m = self.lmToBeam(l,m);
-    dprint(3,"in beam coordinates this is",l,m);
-    # now we make a 2xN coordinate array for map_coordinates
+    dprint(3,"in beam coordinates this is",l.ravel()[0],m.ravel()[0]);
+#    dprint(4,"in beam coordinates this is",l,m);
+    # now we make a 3xN coordinate array for map_coordinates
     # lm[0,:] will be flattened L array, lm[1,:] will be flattened M array
     # lm[2,:] will be flattened freq array (if we have a freq dependence)
     # Do we have a frequency axis in the beam? (case A,B,C):
@@ -152,9 +154,9 @@ class InterpolatedVoltageBeam (object):
       freq = numpy.array(freq);
       if not freq.ndim:
         freq = freq.reshape(1);
-      dprint(3,"input freq is",freq);
+      dprint(4,"input freq is",freq);
       freq = self._freqToBeam(freq);
-      dprint(3,"in beam coordinates this is",freq);
+      dprint(4,"in beam coordinates this is",freq);
       # case (A): reuse same frequency for every l/m point
       if len(freq) == 1:
         lm = numpy.vstack((l.ravel(),m.ravel(),[freq[0]]*l.size));
@@ -173,7 +175,7 @@ class InterpolatedVoltageBeam (object):
         lm = numpy.vstack((l.ravel(),m.ravel(),freq.ravel()));
     # case (D): no frequency dependence in the beam
     else:
-      lm = numpy.vstack((l.ravel(),m.ravel()));
+      lm = numpy.vstack((l.ravel(),m.ravel(),[0]*l.size));
     return lm,l.shape;
 
   def interpolate (self,l,m,time=None,freq=None,freqaxis=None,output=None):
@@ -183,12 +185,14 @@ class InterpolatedVoltageBeam (object):
     Returns array of interpolated coordinates.
     """;
     # transform coordinates
+    dprint(3,"transforming coordinates");
     coords,output_shape = self.transformCoordinates(l,m,time=time,freq=freq,freqaxis=freqaxis);
     # prepare output array
     if output is None:
       output = numpy.zeros(output_shape,complex);
     elif output.shape != output_shape:
       output.resize(output_shape);
+    dprint(3,"interpolating %s coordinate points to output shape %s"%(coords.shape,output_shape));
     # interpolate real and imag parts separately
     output.real = interpolation.map_coordinates(self._beam_real,coords,order=self._spline_order,
                   prefilter=(self._spline_order==1)).reshape(output_shape);
@@ -200,5 +204,6 @@ class InterpolatedVoltageBeam (object):
       phase_array = numpy.arctan2(output.imag,output.real)
       output.real = output_ampl * numpy.cos(phase_array)
       output.imag = output_ampl * numpy.sin(phase_array)
-    dprint(3,"interpolated value is",output);
+    dprint(3,"interpolated value [0] is",output.ravel()[0]);
+    # dprint(4,"interpolated value is",output);
     return output;

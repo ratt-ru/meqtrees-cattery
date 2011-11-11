@@ -70,6 +70,7 @@ at the phase centre. You can use this option to offset the beam pattern.</P>""")
 TDLCompileOption("sky_rotation","Include sky rotation",True,doc="""<P>
   If True, then the beam will rotate on the sky with parallactic angle. Use for e.g. alt-az mounts.)
   </P>""");
+TDLCompileOption("verbose_level","Debugging message level",[None,1,2,3],more=int);
 
 CORRS = Context.correlations;
 REIM = "re","im";
@@ -104,9 +105,11 @@ def make_beam_node (beam,pattern,*children):
     filename_imag = filename_imag[0];
   # now make interpolator node
   import InterpolatedBeams
+  if children[-1] is None:
+    children = children[:-1];
   beam << Meq.PyNode(class_name="FITSBeamInterpolatorNode",module_name=InterpolatedBeams.__file__,
                      filename_real=filename_real,filename_imag=filename_imag,normalize=normalize_gains,
-                     missing_is_null=missing_is_null,spline_order=spline_order,verbose=0,
+                     missing_is_null=missing_is_null,spline_order=spline_order,verbose=verbose_level or 0,
                      l_beam_offset=l_beam_offset*DEG,m_beam_offset=m_beam_offset*DEG, 
                      ampl_interpolation=ampl_interpolation,
                      children=children);

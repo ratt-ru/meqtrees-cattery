@@ -28,7 +28,7 @@ separate the per-component groups with '+'.""");
                     help="generate the real pattern.");
   parser.add_option("--imag",action="store_true",
                     help="generate the imaginary pattern. Default generates all three.");
-  parser.add_option("-i","--interpolator",choices=("ps","grid"),default="grid",
+  parser.add_option("-i","--interpolator",choices=("ps","grid"),default="ps",
                     help="select interpolation algorithm: 'ps' (polar spline), 'grid' (gridder). Default is %default.");
   parser.add_option("-A","--no-ampl-interpol",action="store_true",
                     help="disable amplitude interpolation");
@@ -40,6 +40,10 @@ separate the per-component groups with '+'.""");
                     help="resolution of FITS file, in degrees. Default is %default.");
   parser.add_option("--scale",type="float",default=1.,
                     help="rescale the beam by the given factor.");
+  parser.add_option("--theta-stepping",metavar="N",type="int",default=1,
+                    help="sparsify the theta grid by a factor of N (i.e. only use every Nth sample for interpolation).");
+  parser.add_option("--phi-stepping",metavar="N",type="int",default=1,
+                    help="sparsify the phi grid by a factor of N.");
   parser.add_option("-f","--frequency",metavar="MHz",type="float",default=0,
                     help="first frequency plane, MHz.");
   parser.add_option("-n","--num-freq",type="int",default=1,
@@ -94,7 +98,9 @@ separate the per-component groups with '+'.""");
         "w/o amplitude interpolation" if options.no_ampl_interpol else "with amplitude interpolation");
       vb = interpolator(patfiles[:endgroup],y=options.y,
                         spline_order=options.spline_order,
-                        ampl_interpolation=not options.no_ampl_interpol);
+                        ampl_interpolation=not options.no_ampl_interpol,
+                        theta_step=options.theta_stepping,phi_step=options.phi_stepping,
+                        verbose=options.verbose);
       print "Creating %s voltage beam from %s"%("Y" if options.y else "X",
             " ".join(patfiles[:endgroup]));
       beam_components.append(vb);
@@ -118,7 +124,7 @@ separate the per-component groups with '+'.""");
     # note that the interpolator classes expect direction cosines (i.e. sines w.r.t. sin centre),
     # whereas here we make a regularly-gridded image in degrees
     l0 = numpy.sin(numpy.arange(-options.radius,options.radius+1)*options.resolution*DEG*options.scale);
-    l0,m0 = numpy.meshgrid(l0,l0);
+    l0,m0 = numpy.meshgrid(l0[::-1],l0);
     images = [ vb.interpolate(l0,m0,freq=freq,freqaxis=2) for vb in beam_components ];
   elif options.interpolator == "grid":
     l0 = numpy.arange(-options.radius,options.radius+1)*options.resolution*DEG*options.scale;
@@ -127,12 +133,14 @@ separate the per-component groups with '+'.""");
   dprint(1,"generating FITS images");
   image = sum(images);
   
-  # if freq axis missing, reshape
-  if image.ndim < 3:
-    image = image.reshape(list(image.shape)+[1]);
-  
   # create FITS file
-  image = image.transpose();
+#  image = image.transpose();
+
+# reshape image into FORTRAN order (for FITS)
+  # if freq axis missing, add a dummy one
+  shape = [1]+list(image.shape) if image.ndim < 3 else image.shape;
+  image = image.reshape(shape,order='F');
+  
   
   import pyfits
   import os
@@ -149,7 +157,7 @@ separate the per-component groups with '+'.""");
     hdr.update('CTYPE1','L',"");
     hdr.update('CRPIX1',options.radius+1,"");
     hdr.update('CRVAL1',0,"");
-    hdr.update('CDELT1',options.resolution,"");
+    hdr.update('CDELT1',-options.resolution,"");
     hdr.update('CUNIT1','DEG',"");
     hdr.update('CTYPE2','M',"");
     hdr.update('CRPIX2',options.radius+1,"");

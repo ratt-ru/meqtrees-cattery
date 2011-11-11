@@ -5,7 +5,7 @@ import re
 from scipy import interpolate
 
 from InterpolatedVoltageBeam import *
-from InterpolatedVoltageBeam import _verbosity
+from InterpolatedVoltageBeam import _verbosity,dprint,dprintf
 
 def _loadPattern (filename,grid=True):
     """Load EMSS pattern from the specified file.
@@ -159,42 +159,55 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
   """This class implements a complex voltage beam that is read from an EMSS pattern file.
   This uses map_coordinates to interpolate values in polar coordinates (i.e. l/m inputs
   are converted to phi/theta, and interpolated in that grid)."""
-  def __init__ (self,filenames,y=True,spline_order=3,ampl_interpolation=True):
+  def __init__ (self,filenames,y=True,spline_order=3,ampl_interpolation=True,theta_step=1,phi_step=1,verbose=0):
     InterpolatedVoltageBeam.__init__(self,spline_order=spline_order,ampl_interpolation=ampl_interpolation);
+    self._theta_step = theta_step;
+    self._phi_step = phi_step;
+    _verbosity.set_verbose(verbose);
+    if verbose:
+      _verbosity.enable_timestamps(True);
     self.read(filenames,y=y);
     
   def read (self,filenames,y=True):
     """Reads beam patterns from EMSS files. If y=True, uses the second (Ey) column""";
     beamcube,phi0,theta0,freqs = loadPatternSet(filenames,y=y);
+    if self._theta_step != 1 or self._phi_step != 1:
+      beamcube = beamcube[::self._phi_step,::self._theta_step,:];
+      phi0 = phi0[::self._phi_step];
+      theta0 = theta0[::self._theta_step];
     self.setFreqGrid(freqs);
     if len(freqs) > 1:
       freqmap = interpolate.interp1d(freqs,range(len(freqs)),'linear');
     else:
-      freqmap = lambda freq:numpy.zeros(numpy.array(freq).shape);
+      freqmap = None;
     self._phimap = interpolate.interp1d(phi0,range(len(phi0)),'linear',bounds_error=False,fill_value=-1);
     self._thetamap = interpolate.interp1d(theta0,range(len(theta0)),'linear',bounds_error=False,fill_value=-1);
     self.setBeamCube(beamcube,lmmap=self.lmToPolar,freqmap=freqmap);
     
   def lmToPolar (self,l,m):  
     # m is direction sine, m1 is cosine
-    dprint(4,"lmToPolar",l/DEG,m/DEG);
+#    dprint(4,"lmToPolar",l/DEG,m/DEG);
+    dprint(3,"lmToPolar [0]",l.ravel()[0]/DEG,m.ravel()[0]/DEG);
     l1 = numpy.sqrt(1-l**2);
     m1 = numpy.sqrt(1-m**2);
-    phi = numpy.arctan2(-m,l);
+    phi = -numpy.arctan2(l,m);  # flip phi, so it goes clockwise from N=0 to W=90
     # make sure phi is in 0-360 range
     neg = phi<0;
     phi[neg] += 2*math.pi;
     theta = numpy.arccos(l1*m1);
-    dprint(4,"phi,theta are",phi/DEG,theta/DEG);
+    dprint(3,"phi,theta [0]",phi.ravel()[0]/DEG,theta.ravel()[0]/DEG);
+#    dprint(4,"phi,theta are",phi/DEG,theta/DEG);
     return self._phimap(phi),self._thetamap(theta);
     
 class EMSSVoltageBeamGridder (object):
   """This class implements a complex voltage beam that is read from an EMSS pattern file and gridded
   onto a regular l/m grid using matplotlib.mlab.griddata.
   """ 
-  def __init__ (self,filenames,y=True,spline_order=3,ampl_interpolation=True):
+  def __init__ (self,filenames,y=True,spline_order=3,ampl_interpolation=True,theta_step=1,phi_step=1,verbose=0):
     self._spline_order = spline_order;
     self._ampl_interpol = ampl_interpolation;
+    self._theta_step = theta_step;
+    _verbosity.set_verbose(verbose);
     self.read(filenames,y=y);
     
   def read (self,filenames,y=True):
