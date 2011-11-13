@@ -24,7 +24,7 @@ reset_ms()
   wsrt_j2convert msin=$MSNAME
   addbitflagcol $MSNAME
   python -c "import pyrap.tables;pyrap.tables.addImagingColumns('$MSNAME')"
-  $DOWNWEIGH -I "$IFRS" $MSNAME
+#  $DOWNWEIGH -I "$IFRS" $MSNAME
   init_flags
 }
 
@@ -44,12 +44,12 @@ reset_mep()
   fi
 }
 
-reset_G ()
+reset_g ()
 {
   rm -fr $MSNAME/G*mep
 }
 
-reset_dE ()
+reset_de ()
 {
   rm -fr $MSNAME/dE*mep
 }
@@ -80,6 +80,7 @@ cal_generic ()
     \[$section\] \
     $MS $CHANS $* \
     tiggerlsm.filename=$LSM \
+    enable_inspectors=${ENABLE_INSPECTORS:-0} \
     $SCRIPTNAME \
     =$jobname
   clip_residuals $MSNAME $label
@@ -92,7 +93,7 @@ cal_generic ()
 cal_g ()
 {
   cal_generic G ${cal_g_section:-cal_g} cal_G_diag G_diag.fmep $*
-  if [ "$plotparms" == "1" ]; then
+  if [ "$ENABLE_PARM_PLOTS" == "1" ]; then
     $PLOTPARMS $MSNAME/G_diag.fmep "*:*:*/ampl" $plot_Gampl_options -o $DESTDIR/${msbase}_${step}_Ga.png
     $PLOTPARMS $MSNAME/G_diag.fmep "*:*:*/phase" $plot_Gphase_options -o $DESTDIR/${msbase}_${step}_Gp.png
   fi
@@ -108,7 +109,7 @@ cal_ig ()
 cal_de ()
 {
   cal_generic dE ${cal_de_section:-cal_de} cal_dE_diag dE_diag.fmep $*
-  if [ "$plotparms" == "1" ]; then
+  if [ "$ENABLE_PARM_PLOTS" == "1" ]; then
     $PLOTPARMS $MSNAME/dE_ampl.fmep "*:*:*:*/ampl"  $plot_dEampl_options -o $DESTDIR/${msbase}_${step}_dEa.png
     $PLOTPARMS $MSNAME/dE_phase.fmep "*:*:*:*/phase" $plot_dEphase_options -o $DESTDIR/${msbase}_${step}_dEp.png
   fi
@@ -118,7 +119,7 @@ cal_de ()
 cal_de_ampl ()
 {
   cal_generic dEa ${cal_de_ampl_section:-cal_de_ap} cal_dE_ampl dE_ampl.fmep $*
-  if [ "$plotparms" == "1" ]; then
+  if [ "$ENABLE_PARM_PLOTS" == "1" ]; then
     $PLOTPARMS $MSNAME/dE_ampl.fmep "*:*:*:*/ampl"  $plot_dEampl_options -o $DESTDIR/${msbase}_${step}_dEa.png
   fi
   tar zcvf $DESTDIR/dEa_${msbase}_step$step.tgz $MSNAME/dE_ampl.fmep
@@ -127,7 +128,7 @@ cal_de_ampl ()
 cal_de_phase ()
 {
   cal_generic dEp ${cal_de_phase_section:-cal_de_ap} cal_dE_phase dE_phase.fmep $*
-  if [ "$plotparms" == "1" ]; then
+  if [ "$ENABLE_PARM_PLOTS" == "1" ]; then
     $PLOTPARMS $MSNAME/dE_phase.fmep "*:*:*:*/phase" $plot_dEphase_options -o $DESTDIR/${msbase}_${step}_dEp.png
   fi
   tar zcvf $DESTDIR/dEp_${msbase}_step$step.tgz $MSNAME/dE_phase.fmep
@@ -152,6 +153,7 @@ genvis_generic ()
     \[$section\] \
     $MS $CHANS $* \
     tiggerlsm.filename=$LSM \
+    enable_inspectors=${ENABLE_INSPECTORS:-0} \
     $SCRIPTNAME \
     =generate_visibilities
   imager name_dirty=$DESTDIR/${msbase}_${label}_step$step
@@ -188,24 +190,34 @@ merge_ms()
 make_image()
 {
   ms=`basename $MSNAME .MS`
-  $RUNIMAGER ms=$MSNAME name_dirty=$DESTDIR/${ms%.ms}_dirty $*
+  if [ "$MSNAME" == "$FULLMS" ]; then
+    sz="size=$FULL_SIZE"
+  else
+    unset sz
+  fi
+  $RUNIMAGER ms=$MSNAME name_dirty=$DESTDIR/${ms%.ms}_dirty $sz $*
 }
 
 make_clean()
 {
   ms=`basename $MSNAME .MS`
+  if [ "$MSNAME" == "$FULLMS" ]; then
+    sz="size=$FULL_SIZE"
+  else
+    unset sz
+  fi
   $RUNIMAGER ms=$MSNAME oper=csclean \
     name_restored=$DESTDIR/${ms%.ms}_restored \
     name_residual=$DESTDIR/${ms%.ms}_residual \
     name_model=$DESTDIR/${ms%.ms}_model \
-    $*
+    $sz $*
 }
 
 make_psf_image ()
 {
   ms=`basename $MSNAME .MS`
-  psf_image="${ms%.ms}_psf"
-  name=${1-$psf_image}
+  _psf_image="${ms%.ms}_psf"
+  name=${1-$_psf_image}
   shift 1
   $RUNIMAGER ms=$MSNAME data=psf name_dirty=${name%.fits} size=$PSF_SIZE flux_scale=1 $*
 }

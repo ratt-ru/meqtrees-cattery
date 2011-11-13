@@ -6,7 +6,6 @@ TMPDIR=.scripter.tmp
 if [ ! -d $TMPDIR ]; then
   mkdir $TMPDIR
 fi
-rm $TMPDIR/*
 cp scripter.*.{conf,funcs} $TMPDIR
 
 # load configs
@@ -91,7 +90,7 @@ iterate_steps ()
   fi
   for oper in $*; do
     # var=value argument: directly assign to local variable
-    if echo $oper | egrep '^[[:alnum:]]+=.*$' >/dev/null; then
+    if echo $oper | egrep '^[[:alnum:]_]+=.*$' >/dev/null; then
       echo "::: Changing variable: $oper"
       eval $oper
       # if a step= is explicitly specified, do reset the step counter to this in the next per_ms call
