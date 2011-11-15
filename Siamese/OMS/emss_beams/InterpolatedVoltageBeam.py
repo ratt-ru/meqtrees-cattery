@@ -139,6 +139,7 @@ class InterpolatedVoltageBeam (object):
     freq = numpy.array(freq);
     # promote l,m to the same shape
     l,m = unite_shapes(l,m);
+    dprint(3,"input l/m shape is",l.shape,m.shape);
     dprint(3,"input l/m[0] is",l.ravel()[0],m.ravel()[0]);
 #    dprint(4,"input l/m is",l,m);
     l,m = self.lmToBeam(l,m);

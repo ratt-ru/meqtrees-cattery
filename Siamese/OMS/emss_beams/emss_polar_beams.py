@@ -52,6 +52,7 @@ dprintf = _verbosity.dprintf;
 DEG = math.pi/180;
 
 import EMSSVoltageBeam
+from InterpolatedVoltageBeam import unite_shapes
 
 TDLCompileOption("filename_pattern","Filename pattern",["beam_$(hv).pat"],more=str,doc="""<P>
   Pattern for beam filenames. Each beam file contains two elements of the E-Jones matrix. A number of variables will be 
@@ -156,7 +157,7 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
         raise TypeError,"expecting a 2-vector for child 1 (dlm)";
       dl,dm = dlm.vellsets[0].value,dlm.vellsets[1].value;
     else:
-      dl = dm = 0;
+      dl = dm = None;
     # setup grid dict that will be passed to VoltageBeam.interpolate
     grid = dict();
     for axis in 'time','freq':
@@ -168,8 +169,14 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
     # accumulate per-source EJones tensor
     vellsets = [];
     for isrc in range(nsrc):
-      grid['l'] = lm.vellsets[isrc*nlm  ].value - dl;
-      grid['m'] = lm.vellsets[isrc*nlm+1].value - dm;
+      l,m = lm.vellsets[isrc*nlm].value,lm.vellsets[isrc*nlm+1].value;
+      # apply pointing offsets, if any
+      if dl is not None:
+        # unite shapes just in case, since l/m and dl/dm may have time/freq axes
+        l,dl = unite_shapes(l,dl);
+        m,dm = unite_shapes(m,dm);
+        l,m = l-dl,m-dm;
+      grid['l'],grid['m'] = l,m;
       # loop over all 2x2 matrices (we may have several, they all need to be added)
       E = [None]*4;
       for vbmat in vbs:
