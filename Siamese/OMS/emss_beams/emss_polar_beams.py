@@ -67,8 +67,7 @@ TDLCompileOption("filename_pattern","Filename pattern",["beam_$(hv).pat"],more=s
 TDLCompileOption("pattern_labels","Beam pattern labels",[None],more=str);
 TDLCompileOption("freq_labels","Beam frequency labels",[None],more=str);
 TDLCompileOption("spline_order","Spline order for interpolation",[1,2,3,4,5],default=3);
-TDLCompileOption("ampl_interpolation","Use amplitude interpolation for beams",True,doc="""<P>
-Check the box if you want beam interpolation done with amplitude. This produces a smoother amplitude response.</P>""");
+TDLCompileOption("hier_interpol","Use hierarchical interpolation (lm, then frequency)",True);
 TDLCompileOption("l_beam_offset","Offset beam pattern in L (deg)",[0.0], more=float,
 doc="""<P>By default,the beam reference position (phi=theta=0) is placed at l=m=0 on the sky, i.e. 
 at the phase centre. You can use this option to offset the beam pattern.</P>"""),
@@ -102,7 +101,7 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
     """Standard function to update our state""";
     mystate('filename',[]);
     mystate('spline_order',3);
-    mystate('ampl_interpolation',False);
+    mystate('hier_interpol',True);
     mystate('l_0',0.0);
     mystate('m_0',0.0);
     mystate('verbose',0);
@@ -130,7 +129,8 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
            if vb is None:
              dprint(1,"Loading beams for %s%s from"%(xy,xy1),files_per_xy);
              vb = _voltage_beams[vbkey] = EMSSVoltageBeam.EMSSVoltageBeamPS(files_per_xy,y=yarg,
-                        spline_order=self.spline_order,ampl_interpolation=self.ampl_interpolation,verbose=self.verbose);
+                        spline_order=self.spline_order,hier_interpol=self.hier_interpol,
+                        verbose=self.verbose);
            vbmat.append(vb);
       self._vbs.append(vbmat);
     return self._vbs;
@@ -231,7 +231,6 @@ def make_beam_node (beam,pattern,*children):
                      filename=filenames,
                      missing_is_null=False,spline_order=spline_order,verbose=verbose_level or 0,
                      l_beam_offset=l_beam_offset*DEG,m_beam_offset=m_beam_offset*DEG, 
-                     ampl_interpolation=ampl_interpolation,
                      children=children);
 
 

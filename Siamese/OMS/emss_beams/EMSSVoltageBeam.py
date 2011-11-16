@@ -159,8 +159,8 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
   """This class implements a complex voltage beam that is read from an EMSS pattern file.
   This uses map_coordinates to interpolate values in polar coordinates (i.e. l/m inputs
   are converted to phi/theta, and interpolated in that grid)."""
-  def __init__ (self,filenames,y=True,spline_order=3,ampl_interpolation=True,theta_step=1,phi_step=1,verbose=0):
-    InterpolatedVoltageBeam.__init__(self,spline_order=spline_order,ampl_interpolation=ampl_interpolation);
+  def __init__ (self,filenames,y=True,hier_interpol=True,spline_order=3,theta_step=1,phi_step=1,verbose=0):
+    InterpolatedVoltageBeam.__init__(self,spline_order=spline_order,hier_interpol=hier_interpol);
     self._theta_step = theta_step;
     self._phi_step = phi_step;
     _verbosity.set_verbose(verbose);
