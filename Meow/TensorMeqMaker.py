@@ -151,11 +151,12 @@ class TensorMeqMaker (MeqMaker):
     # use sky model if no source list is supplied
     all_sources = sources if sources is not None else self.get_source_list(ns);
 
-    # split sky model into point sources and others
-    point_sources = [ src for src in all_sources if type(src) is Meow.PointSource ];
-    other_sources = [ src for src in all_sources if type(src) is not Meow.PointSource ];
+    # split sky model into point/gaussian sources and others\
+    # The first can be predicted via tensor nodes
+    point_sources = [ src for src in all_sources if type(src) in (Meow.PointSource,Meow.GaussianSource) ];
+    other_sources = [ src for src in all_sources if type(src) not in (Meow.PointSource,Meow.GaussianSource) ];
 
-    ### build up the sky-Jones component for point sources
+    ### build up the sky-Jones component for point/gaussian sources
     if point_sources:
       ### figure out how to split the source list into partitions with the same applicable tensors
       # initial list has one partition: all sources
@@ -210,7 +211,7 @@ class TensorMeqMaker (MeqMaker):
       uvw = Meow.Context.array.uvw_ifr();
       ### now make the PSV tensor for esch source
       psvts = [];
-      ns.null_shape << 0;
+      ns.null_shape << Meq.Constant([0,0,0]);
       for igrp,(sources,lmnT) in enumerate(source_groups):
         ### create brightness tensor
         # see if we have constant brightnesses
@@ -219,6 +220,12 @@ class TensorMeqMaker (MeqMaker):
           BT = ns["BT%d"%igrp] << Meq.Constant(B_static);
         else:
           BT = ns["BT%d"%igrp] << Meq.Composer(dims=[0],*[src.brightness() for src in sources]);
+        ### create shape tensor
+        shape_static = [ src.shape_static() if hasattr(src,'shape_static') else [0,0,0] for src in sources ];
+        if all([ s is not None for s in shape_static ]):
+          shapeT = ns["shapeT%d"%igrp] << Meq.Constant(shape_static);
+        else:
+          shapeT = ns["shapeT%d"%igrp] << Meq.Composer(dims=[0],*[Meq.Composer(*src.shape()) if hasattr(src,'shape') else ns.null_shape for src in sources]);
         ### now make the predict nodes
         psvt = ns["psvT%d"%igrp];
         psvts.append(psvt);
@@ -226,7 +233,7 @@ class TensorMeqMaker (MeqMaker):
           jt = [];
           for Et,Etconj in jones_tensors[igrp]:
             jt += [ Et(p),Etconj(q) ];
-          v = psvt(p,q) << Meq[psv_class](lmnT,BT,uvw(p,q),ns.null_shape,*jt);
+          v = psvt(p,q) << Meq[psv_class](lmnT,BT,uvw(p,q),shapeT,*jt);
       ### if uvdata is specified, add it to the summation terms
       if uvdata is not None:
         psvts.append(uvdata);

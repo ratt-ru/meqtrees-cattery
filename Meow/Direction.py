@@ -209,7 +209,7 @@ class Direction (Parameterization):
     lmnst = self.lmn_static(dir0);
     if lmnst:
       lm = self.ns.lm(*dir0._quals,**dir0._kwquals);
-      return lm << Meq.Constant(value=Timba.array.array(lmnst[0:2]));
+      return lm ** Meq.Constant(value=Timba.array.array(lmnst[0:2]));
     else:
       return self._lmn_component('lm',dir0,[0,1]);
   def l (self,dir0=None):
