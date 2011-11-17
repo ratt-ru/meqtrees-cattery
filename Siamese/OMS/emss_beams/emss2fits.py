@@ -8,13 +8,15 @@ if __name__ == "__main__":
   import sys
   import numpy
   import math
+  import os.path
   DEG = math.pi/180;
   from optparse import OptionParser,OptionGroup
 
   
-  parser = OptionParser(usage="""%prog: [options] <*.pat file(s)> <FITS file>""",
+  parser = OptionParser(usage="""%prog: [options] <*.pat file> <FITS file>""",
       description=
-"""Converts EMSS ASCII beam patterns to FITS files. Multiple frequency patterns may be given.
+"""Converts EMSS ASCII beam patterns to FITS files. Multiple frequency patterns and griddings may be given by embedding
+the strings @freq and @label in the pattern filename, and specifying the --freqs and --labels options.
 For a compound pattern built from a  sum of components (i.e. feed, main reflector, subreflector), 
 separate the per-component groups with '+'.""");
 
@@ -22,6 +24,10 @@ separate the per-component groups with '+'.""");
                     help="generate the X component (default)");
   parser.add_option("-y",action="store_true",
                     help="generate the Y beam component");
+  parser.add_option("--freqs",metavar="FREQ1,FREQ2,...",type="string",default="",
+                    help="frequency labels, to be substituted for @freq in the filename");
+  parser.add_option("--labels",metavar="LABEL1,LABEL2,...",type="string",default="",
+                    help="component labels, to be substituted for @label in the filename");
   parser.add_option("--ampl",action="store_true",
                     help="generate the amplitude pattern.");
   parser.add_option("--real",action="store_true",
@@ -30,8 +36,8 @@ separate the per-component groups with '+'.""");
                     help="generate the imaginary pattern. Default generates all three.");
   parser.add_option("-i","--interpolator",choices=("ps","grid"),default="ps",
                     help="select interpolation algorithm: 'ps' (polar spline), 'grid' (gridder). Default is %default.");
-  parser.add_option("-A","--no-ampl-interpol",action="store_true",
-                    help="disable amplitude interpolation");
+#  parser.add_option("-A","--no-ampl-interpol",action="store_true",
+#                    help="disable amplitude interpolation");
   parser.add_option("-s","--spline-order",type='int',default=3,
                     help="spline order, 1 to 3. Default is %default.");
   parser.add_option("-r","--radius",metavar="PIXELS",type="int",default=512,
@@ -57,11 +63,10 @@ separate the per-component groups with '+'.""");
 
   (options,args) = parser.parse_args();
   
-  if len(args) < 2:
-    parser.error("At least one input *.pat file and one output .fits file must be given");
+  if len(args) != 2:
+    parser.error("One input *.pat file and one output .fits file must be given");
   
-  patfiles = args[:-1];
-  fitsfile = args[-1];
+  patfile,fitsfile = args;
   
   # get basename of FITS file, if all three need to be generated
   nout = sum(map(bool,(options.ampl,options.real,options.imag)));
@@ -79,32 +84,27 @@ separate the per-component groups with '+'.""");
   from EMSSVoltageBeam import _verbosity,EMSSVoltageBeamPS,EMSSVoltageBeamGridder,dprint,dprintf
   _verbosity.set_verbose(options.verbose);
   _verbosity.enable_timestamps(options.timestamps);
+  if options.interpolator == "ps":
+    interpolator = EMSSVoltageBeamPS;
+  else:
+    interpolator = EMSSVoltageBeamGridder;
+  print "Using interpolator %s"%(interpolator.__name__);
+#    "w/o amplitude interpolation" if options.no_ampl_interpol else "with amplitude interpolation");
   
   # how many compound beams do we have
   dprint(1,"reading pattern files");
   beam_components = [];
-  while patfiles:
-    try:
-      endgroup = patfiles.index('+');
-    except:
-      endgroup = len(patfiles);
-    # make a beam component
-    if endgroup:
-      if options.interpolator == "ps":
-        interpolator = EMSSVoltageBeamPS;
-      else:
-        interpolator = EMSSVoltageBeamGridder;
-      print "Using interpolator %s %s"%(interpolator.__name__,
-        "w/o amplitude interpolation" if options.no_ampl_interpol else "with amplitude interpolation");
-      vb = interpolator(patfiles[:endgroup],y=options.y,
-                        spline_order=options.spline_order,
-                        ampl_interpolation=not options.no_ampl_interpol,
-                        theta_step=options.theta_stepping,phi_step=options.phi_stepping,
-                        verbose=options.verbose);
-      print "Creating %s voltage beam from %s"%("Y" if options.y else "X",
-            " ".join(patfiles[:endgroup]));
-      beam_components.append(vb);
-    del patfiles[:endgroup+1];
+  labels = options.labels.split(",") or [""];
+  freqs = options.freqs.split(",") or [""];
+  for label in labels:
+    patfile1 = patfile.replace("@label",label);
+    patfile2 = [ patfile1.replace("@freq",freq) for freq in freqs ]; 
+    vb = interpolator(patfile2,y=options.y,
+                      spline_order=options.spline_order,
+                      theta_step=options.theta_stepping,phi_step=options.phi_stepping,
+                      verbose=options.verbose);
+    print "Creating %s voltage beam from %s"%("Y" if options.y else "X"," ".join(patfile2));
+    beam_components.append(vb);
   
   if not beam_components:
     parser.error("At least one input *.pat file must be given");
@@ -138,7 +138,12 @@ separate the per-component groups with '+'.""");
 
 # reshape image into FORTRAN order (for FITS)
   # if freq axis missing, add a dummy one
-  shape = [1]+list(image.shape) if image.ndim < 3 else image.shape;
+  if image.ndim < 3:
+    shape = [1] + list(image.shape);
+  # elsem transpose so freq axis comes first (i.e. last in header)
+  else:
+    image = image.transpose((2,0,1))
+    shape = image.shape;
   image = image.reshape(shape,order='F');
   
   

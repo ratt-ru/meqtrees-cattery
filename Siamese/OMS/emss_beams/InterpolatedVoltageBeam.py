@@ -99,7 +99,6 @@ class InterpolatedVoltageBeam (object):
         self._beam_ampl = interpolation.spline_filter(self._beam_ampl,order=self._spline_order);
       else:
         # prefilter per frequency plane in per-frequency mode
-        print "pre-filtering per plane",beam.shape;
         for i in range(beam.shape[2]):
           self._beam_real[...,i] = interpolation.spline_filter(beam.real[...,i],order=self._spline_order);
           self._beam_imag[...,i] = interpolation.spline_filter(beam.imag[...,i],order=self._spline_order);
@@ -197,8 +196,9 @@ class InterpolatedVoltageBeam (object):
       output = numpy.zeros(output_shape,complex);
     elif output.shape != output_shape:
       output.resize(output_shape);
-    global _first;
-    if not _first:
+    global _print_first;
+    verbose = _print_first and _verbosity.get_verbose()>1;
+    if verbose:
       l0,m0,freq0 = coords[:,0];
       print "First interpolation point is at",l0,m0,freq0;
       print "Frequencies are",self._freq_grid;
@@ -221,8 +221,8 @@ class InterpolatedVoltageBeam (object):
     
     dprint(3,"interpolated value [0] is",output.ravel()[0]);
     # dprint(4,"interpolated value is",output);
-    if not _first:
-      _first = l0,m0;
+    if verbose:
+      _print_first = None;
       for i in range(coords.shape[1]):
         if coords[0,i] == l0 and coords[1,i] == m0:
           print "Interpolated amplitude at frequency %f is %f"%(coords[2,i],abs(output.ravel()[i]));
@@ -263,19 +263,25 @@ class InterpolatedVoltageBeam (object):
     """;
     # transform coordinates
     dprint(3,"transforming coordinates");
+    # use freq=None here because we just want the lm coordinates transformed, and we loop over
+    # frequencies explicitly below. The resulting output_shape has 1 for the frequency axis.
     coords,output_shape = self.transformCoordinates(l,m,time=time,freq=None,freqaxis=freqaxis);
-    freqcoord = self._freqToBeam(freq); 
+    freqcoord = self._freqToBeam(freq) if self._freqToBeam else [0]; 
     self._freqplanes = {};
-    self._freqplane_shape = output_shape;
-    # this will hold the interpolated per-frequency result
-    output_shape = list(output_shape) + [len(freqcoord)];
+    # now, ensure output shape has the right frequency axis
+    output_shape = list(output_shape);
+    if len(output_shape) <= freqaxis:
+      output_shape += [1]*(freqaxis-len(output_shape)+1);
+    output_shape[freqaxis] = len(freqcoord);
+    self._freqplane_shape = list(output_shape);
+    self._freqplane_shape[freqaxis] = 1;
     # prepare output array
     if output is None:
       output = numpy.zeros(output_shape,complex);
     elif output.shape != output_shape:
       output.resize(output_shape);
     global _print_first;
-    verbose = _print_first and _verbosity.get_verbose()>0;
+    verbose = _print_first and _verbosity.get_verbose()>1;
     if verbose:
       l0,m0,freq0 = coords[:,0];
       verbose = l0,m0;
@@ -287,11 +293,15 @@ class InterpolatedVoltageBeam (object):
           print l,m,"phases",numpy.angle(self._beam[l,m,:])/DEG;
     
     dprint(3,"interpolating %s coordinate points to output shape %s"%(coords.shape,output_shape));
+    freqslice = [slice(None)]*len(output_shape);
+    reduced_slice = [slice(None)]*len(output_shape);
+    reduced_slice[freqaxis] = 0; 
     for ifreq,freq in enumerate(freqcoord):
+      freqslice[freqaxis] = ifreq;
       if freq <= 0:
-        output[...,ifreq] = self._interpolate_freqplane(0,coords)[0];
+        output[freqslice] = self._interpolate_freqplane(0,coords)[0][reduced_slice];
       elif freq >= len(self._freq_grid)-1:
-        output[...,ifreq] = self._interpolate_freqplane(len(self._freq_grid)-1,coords,)[0];
+        output[freqslice] = self._interpolate_freqplane(len(self._freq_grid)-1,coords,)[0][reduced_slice];
       else:
         f0,f1 = int(freq),int(freq)+1;
         (c0,abs0),(c1,abs1) = self._interpolate_freqplane(f0,coords,
@@ -303,13 +313,14 @@ class InterpolatedVoltageBeam (object):
         ax = abs0*(f1-freq) + abs1*(freq-f0);
         cx = c0*(f1-freq) + c1*(freq-f0);
         px = numpy.angle(cx);
-        output[...,ifreq].real = ax*numpy.cos(px);
-        output[...,ifreq].imag = ax*numpy.sin(px);
+        output[freqslice].real = (ax*numpy.cos(px))[reduced_slice];
+        output[freqslice].imag = (ax*numpy.sin(px))[reduced_slice];
     
     dprint(3,"interpolated value [0] is",output.ravel()[0]);
     # dprint(4,"interpolated value is",output);
     if verbose:
       _print_first = None;
+      print "Output shape is",output.shape;
       for ifreq,freq in enumerate(freqcoord):
         print "Frequencies",freqcoord;
         print "Interpolated amplitudes",abs(output[0,...]);

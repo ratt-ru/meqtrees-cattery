@@ -203,9 +203,9 @@ class EMSSVoltageBeamGridder (object):
   """This class implements a complex voltage beam that is read from an EMSS pattern file and gridded
   onto a regular l/m grid using matplotlib.mlab.griddata.
   """ 
-  def __init__ (self,filenames,y=True,spline_order=3,ampl_interpolation=True,theta_step=1,phi_step=1,verbose=0):
+  def __init__ (self,filenames,y=True,hier_interpol=True,spline_order=3,theta_step=1,phi_step=1,verbose=0):
     self._spline_order = spline_order;
-    self._ampl_interpol = ampl_interpolation;
+    self._ampl_interpol = True;
     self._theta_step = theta_step;
     _verbosity.set_verbose(verbose);
     self.read(filenames,y=y);

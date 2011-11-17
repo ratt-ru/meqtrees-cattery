@@ -42,7 +42,7 @@ from Meow import StdTrees
 import os
 import os.path
 import math
-
+import numpy
 import Kittens.utils
 _verbosity = Kittens.utils.verbosity(name="vb");
 dprint = _verbosity.dprint;
@@ -135,6 +135,89 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
       self._vbs.append(vbmat);
     return self._vbs;
 
+  def interpolate_per_source (self,lm,nlm,nsrc,dl,dm,grid,vbs):
+    # Loops over all source coordinates in the lm tensor, interpolates beams for them, and returns the resulting vellsets.
+    # This is the "fail-safe" method, as it interpolates per-source, and therefore allows for the source lm arrays to have different
+    # time/frequency dependencies per source.
+    vellsets = [];
+    for isrc in range(nsrc):
+      l,m = lm.vellsets[isrc*nlm].value,lm.vellsets[isrc*nlm+1].value;
+      # apply pointing offsets, if any
+      if dl is not None:
+        # unite shapes just in case, since l/m and dl/dm may have time/freq axes
+        l,dl = unite_shapes(l,dl);
+        m,dm = unite_shapes(m,dm);
+        l,m = l-dl,m-dm;
+      grid['l'],grid['m'] = l,m;
+      # loop over all 2x2 matrices (we may have several, they all need to be added)
+      E = [None]*4;
+      for vbmat in vbs:
+        for i,vb in enumerate(vbmat):
+          beam = vb.interpolate(freqaxis=self._freqaxis,**grid);
+          if E[i] is None:
+            E[i] = meq.complex_vells(beam.shape);
+          E[i][...] += beam[...];
+      # make vellsets
+      for ej in E:
+        vellsets.append(meq.vellset(ej));
+    return vellsets;
+
+  def interpolate_batch (self,lm,nlm,nsrc,dl,dm,grid,vbs):
+    # A faster version of interpolate_per_source(), which assumes that all lm's have the same shape, and stacks them
+    # into a single array for a single interpolation call.
+    # If there's a shape mismatch, it'll fall back to interpolate_per_soucre
+    l0,m0 = lm.vellsets[0].value,lm.vellsets[1].value;
+    for isrc in range(nsrc):
+      l,m = lm.vellsets[isrc*nlm].value,lm.vellsets[isrc*nlm+1].value;
+      # apply pointing offsets, if any
+      if dl is not None:
+        # unite shapes just in case, since l/m and dl/dm may have time/freq axes
+        l,dl = unite_shapes(l,dl);
+        m,dm = unite_shapes(m,dm);
+        l,m = l-dl,m-dm;
+      else:
+        l,m = unite_shapes(l,m);
+      if not isrc:
+        lm_shape = l.shape;
+        cubeshape = [nsrc]+list(lm_shape);
+        lcube = numpy.zeros(cubeshape,float);
+        mcube = numpy.zeros(cubeshape,float);
+      else:
+        if l.shape != lm_shape:
+          dprint(1,"l/m shapes unequal at source %d, falling back to per-source interpolation"%isrc);
+          return self.interpolate_per_source(lm,nlm,nsrc,dl,dm,grid,vbs);
+      lcube[isrc,...] = l;
+      mcube[isrc,...] = m;
+    # ok, we've stacked things into lm cubes, interpolate
+    grid['l'],grid['m'] = lcube.ravel(),mcube.ravel();
+    # loop over all 2x2 matrices (we may have several, they all need to be added)
+    E = [None]*4;
+    for vbmat in vbs:
+      for i,vb in enumerate(vbmat):
+        beam = vb.interpolate(freqaxis=self._freqaxis,**grid);
+        if E[i] is None:
+          E[i] = beam;
+        else:
+          E[i] += beam;
+    # The l/m cubes have a shape of [nsrcs,lm_shape].
+    # These are raveled for interpolation, so the resulting Es have a shape of [nsrcs*num_lm_points,num_freq]
+    # Reshape them properly. Note that there's an extra "soucre" axis at the front, so the frequency axis
+    # is off by 1.
+    if len(cubeshape) <= self._freqaxis+1:
+      cubeshape += [1]*(self._freqaxis - len(cubeshape) + 2);
+    cubeshape[self._freqaxis+1] = len(grid['freq']);
+    E = [ ej.reshape(cubeshape) for ej in E ];
+    # now tease the E's apart plane by plane
+    # make vellsets
+    vellsets = [];
+    for isrc in range(nsrc):
+      for ej in E:
+        ejplane = ej[isrc,...];
+        value = meq.complex_vells(ejplane.shape,ejplane);
+        vellsets.append(meq.vellset(value));
+    return vellsets;
+
+
   def get_result (self,request,*children):
     # get list of VoltageBeams
     vbs = self.init_voltage_beams();
@@ -167,29 +250,9 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
       if values is not None:
         grid[axis] = values;
     # accumulate per-source EJones tensor
-    vellsets = [];
-    for isrc in range(nsrc):
-      l,m = lm.vellsets[isrc*nlm].value,lm.vellsets[isrc*nlm+1].value;
-      # apply pointing offsets, if any
-      if dl is not None:
-        # unite shapes just in case, since l/m and dl/dm may have time/freq axes
-        l,dl = unite_shapes(l,dl);
-        m,dm = unite_shapes(m,dm);
-        l,m = l-dl,m-dm;
-      grid['l'],grid['m'] = l,m;
-      # loop over all 2x2 matrices (we may have several, they all need to be added)
-      E = [None]*4;
-      for vbmat in vbs:
-        for i,vb in enumerate(vbmat):
-          beam = vb.interpolate(freqaxis=self._freqaxis,**grid);
-          if E[i] is None:
-            E[i] = meq.complex_vells(beam.shape);
-          E[i][...] += beam[...];
-      # make vellsets
-      for ej in E:
-        vellsets.append(meq.vellset(ej));
+    vellsets = self.interpolate_batch(lm,nlm,nsrc,dl,dm,grid,vbs);
     # create result object
-    cells = request.cells if vb.hasFrequencyAxis() else getattr(lm,'cells',None);
+    cells = request.cells if vbs[0][0].hasFrequencyAxis() else getattr(lm,'cells',None);
     result = meq.result(vellsets[0],cells=cells);
     result.vellsets[1:] = vellsets[1:];
     result.dims = (nsrc,2,2) if tensor else (2,2);
