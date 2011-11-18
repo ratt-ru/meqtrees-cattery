@@ -96,8 +96,9 @@ def _loadPattern (filename,grid=True):
       Ey = -E_theta * cos_theta * sin_phi - E_phi * cos_phi;
 
       # replace the theta=0 point with the average across the entire array (otherwise we have a discontinuity)
-      Ex[:,0] = Ex[:,0].mean();
-      Ey[:,0] = Ey[:,0].mean();
+      if theta[0] == 0:
+        Ex[:,0] = Ex[:,0].mean();
+        Ey[:,0] = Ey[:,0].mean();
       
     # else generate ungridded data
     else:
