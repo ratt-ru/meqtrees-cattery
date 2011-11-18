@@ -28,6 +28,8 @@ separate the per-component groups with '+'.""");
                     help="frequency labels, to be substituted for @freq in the filename");
   parser.add_option("--labels",metavar="LABEL1,LABEL2,...",type="string",default="",
                     help="component labels, to be substituted for @label in the filename");
+  parser.add_option("--rotate",metavar="DEG",type="float",default=0,
+                    help="rotate the pattern by the specified number of degrees.");
   parser.add_option("--ampl",action="store_true",
                     help="generate the amplitude pattern.");
   parser.add_option("--real",action="store_true",
@@ -101,7 +103,7 @@ separate the per-component groups with '+'.""");
     patfile2 = [ patfile1.replace("@freq",freq) for freq in freqs ]; 
     vb = interpolator(patfile2,y=options.y,
                       spline_order=options.spline_order,
-                      theta_step=options.theta_stepping,phi_step=options.phi_stepping,
+                      theta_step=options.theta_stepping,phi_step=options.phi_stepping,rotate=options.rotate,
                       verbose=options.verbose);
     print "Creating %s voltage beam from %s"%("Y" if options.y else "X"," ".join(patfile2));
     beam_components.append(vb);

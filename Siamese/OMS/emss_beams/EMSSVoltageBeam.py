@@ -43,7 +43,7 @@ def _loadPattern (filename,grid=True):
     ndata = data.shape[0];
     theta, phi = data[:, 0],data[:, 1];
     E_theta, E_phi = data[:, 2] + 1j * data[:, 3], data[:, 4] + 1j * data[:, 5]
-
+    
     if grid:
       # Now, figure out how to put this into a cube. For now, assume that theta cycles faster,
       # and phi slower
@@ -159,10 +159,11 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
   """This class implements a complex voltage beam that is read from an EMSS pattern file.
   This uses map_coordinates to interpolate values in polar coordinates (i.e. l/m inputs
   are converted to phi/theta, and interpolated in that grid)."""
-  def __init__ (self,filenames,y=True,hier_interpol=True,spline_order=3,theta_step=1,phi_step=1,verbose=0):
+  def __init__ (self,filenames,y=True,hier_interpol=True,spline_order=3,theta_step=1,phi_step=1,rotate=0,verbose=0):
     InterpolatedVoltageBeam.__init__(self,spline_order=spline_order,hier_interpol=hier_interpol);
     self._theta_step = theta_step;
     self._phi_step = phi_step;
+    self._rotate = rotate*DEG;
     _verbosity.set_verbose(verbose);
     if verbose:
       _verbosity.enable_timestamps(True);
@@ -190,7 +191,7 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
     dprint(3,"lmToPolar [0]",l.ravel()[0]/DEG,m.ravel()[0]/DEG);
     l1 = numpy.sqrt(1-l**2);
     m1 = numpy.sqrt(1-m**2);
-    phi = -numpy.arctan2(l,m);  # flip phi, so it goes clockwise from N=0 to W=90
+    phi = -numpy.arctan2(l,m)+self._rotate;  # flip phi, so it goes clockwise from N=0 to W=90
     # make sure phi is in 0-360 range
     neg = phi<0;
     phi[neg] += 2*math.pi;
@@ -203,10 +204,11 @@ class EMSSVoltageBeamGridder (object):
   """This class implements a complex voltage beam that is read from an EMSS pattern file and gridded
   onto a regular l/m grid using matplotlib.mlab.griddata.
   """ 
-  def __init__ (self,filenames,y=True,hier_interpol=True,spline_order=3,theta_step=1,phi_step=1,verbose=0):
+  def __init__ (self,filenames,y=True,hier_interpol=True,spline_order=3,theta_step=1,phi_step=1,rotate=0,verbose=0):
     self._spline_order = spline_order;
     self._ampl_interpol = True;
     self._theta_step = theta_step;
+    self._rotate = rotate*DEG;
     _verbosity.set_verbose(verbose);
     self.read(filenames,y=y);
     

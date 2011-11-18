@@ -55,6 +55,11 @@ DEG = math.pi/180;
 import EMSSVoltageBeam
 from InterpolatedVoltageBeam import unite_shapes
 
+SYM_SEPARATE = None;
+SYM_X = "X";
+SYM_Y = "Y";
+
+
 TDLCompileOption("filename_pattern","Filename pattern",["beam_$(hv).pat"],more=str,doc="""<P>
   Pattern for beam filenames. Each beam file contains two elements of the E-Jones matrix. A number of variables will be 
   substituted in the filename pattern, these may be introduced as
@@ -67,6 +72,16 @@ TDLCompileOption("filename_pattern","Filename pattern",["beam_$(hv).pat"],more=s
   <UL>""");
 TDLCompileOption("pattern_labels","Beam pattern labels",[None],more=str);
 TDLCompileOption("freq_labels","Beam frequency labels",[None],more=str);
+TDLCompileOption("beam_symmetry","Use 90-degree symmetry",{ 
+  None:"no, load separate X/Y patterns",
+  SYM_X:"yes, XX XY (v) given",
+  SYM_Y:"yes, YX YY (h) given"},doc=
+  """<P>If the beam has 90-degree rotational symmetry, then its XX/XY and YX/YY components can be derived
+  from one another via a 90 degree rotation. If this is the case, then you may use just one set of pattern files
+  (either one, as specified by this setting), and let the interpolator apply rotation to derive the other set.
+  The beam pattern filename above should't contain a substitutable $(hv) or $(xy) element then.  
+  </P>
+  """);
 TDLCompileOption("spline_order","Spline order for interpolation",[1,2,3,4,5],default=3);
 TDLCompileOption("hier_interpol","Use hierarchical interpolation (lm, then frequency)",True);
 TDLCompileOption("l_beam_offset","Offset beam pattern in L (deg)",[0.0], more=float,
@@ -110,6 +125,7 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
     mystate('m_0',0.0);
     mystate('verbose',0);
     mystate('missing_is_null',False);
+    mystate('beam_symmetry',None);
     # other init
     mequtils.add_axis('l');
     mequtils.add_axis('m');
@@ -124,18 +140,33 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
     # we get VoltageBeam objects from global dict, or init new ones if not already defined
     global _voltage_beams;
     self._vbs = [];
+    # setup rotation and y-arg combinations according to symmetry modes
+    # only V/X beam supplied. H/Y must be rotated by 90 degrees and columns swapped.
+    if self.beam_symmetry == SYM_X:
+      rotations = 0,90;
+      yargflips = False,True; 
+    # only H/Y beam supplied. V/X rotated/swapped
+    elif self.beam_symmetry == SYM_Y:
+      rotations = 90,0;
+      yargflips = True,False;
+    # else both beams supplied
+    else:
+      rotations = 0,0;
+      yargflips = False,False;
+    # loop over files
     for per_label in self.filename:
       vbmat = [];
-      for xy,files_per_xy in zip(('x','y'),per_label):
-        for xy1,yarg in zip(('x','y'),(False,True)):
-           vbkey = tuple(files_per_xy),yarg;
-           vb = _voltage_beams.get(vbkey)
-           if vb is None:
-             dprint(1,"Loading beams for %s%s from"%(xy,xy1),files_per_xy);
-             vb = _voltage_beams[vbkey] = EMSSVoltageBeam.EMSSVoltageBeamPS(files_per_xy,y=yarg,
-                        spline_order=self.spline_order,hier_interpol=self.hier_interpol,
+      for xy,rotate,yargflip,files_per_xy in zip(('x','y'),rotations,yargflips,per_label):
+        for xy1,yarg0 in zip(('x','y'),(False,True)):
+          yarg = yarg0^yargflip;
+          vbkey = tuple(files_per_xy),yarg,rotate;
+          vb = _voltage_beams.get(vbkey)
+          if vb is None:
+            dprint(1,"Loading beams for %s%s from"%(xy,xy1),files_per_xy);
+            vb = _voltage_beams[vbkey] = EMSSVoltageBeam.EMSSVoltageBeamPS(files_per_xy,y=yarg,
+                        spline_order=self.spline_order,hier_interpol=self.hier_interpol,rotate=rotate,
                         verbose=self.verbose);
-           vbmat.append(vb);
+          vbmat.append(vb);
       self._vbs.append(vbmat);
     return self._vbs;
 
@@ -298,6 +329,7 @@ def make_beam_node (beam,pattern,*children):
                      filename=filenames,
                      missing_is_null=False,spline_order=spline_order,verbose=verbose_level or 0,
                      l_beam_offset=l_beam_offset*DEG,m_beam_offset=m_beam_offset*DEG, 
+                     beam_symmetry=beam_symmetry,
                      children=children);
 
 
