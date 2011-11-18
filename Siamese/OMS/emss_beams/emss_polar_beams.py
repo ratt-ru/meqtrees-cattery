@@ -43,6 +43,7 @@ import os
 import os.path
 import math
 import numpy
+import random
 import Kittens.utils
 _verbosity = Kittens.utils.verbosity(name="vb");
 dprint = _verbosity.dprint;
@@ -76,6 +77,9 @@ doc="""<P>By default,the beam reference position (phi=theta=0) is placed at l=m=
 at the phase centre. You can use this option to offset the beam pattern.</P>"""),
 TDLCompileOption("sky_rotation","Include sky rotation",True,doc="""<P>
   If True, then the beam will rotate on the sky with parallactic angle. Use for alt-az mounts.
+  </P>""");
+TDLCompileOption("randomize_rotation","Include random rotational offsets",False,doc="""<P>
+  If True, then each station's beam will be rotated by an arbitrary amount. This can help randomize the sidelobes.
   </P>""");
 TDLCompileOption("verbose_level","Debugging message level",[None,1,2,3],more=int);
 
@@ -358,15 +362,24 @@ def compute_jones_tensor (Jones,sources,stations,lmn=None,pointing_offsets=None,
   # create station tensor
   # If sky rotation and/or pointing offsets are in effect, we have a per-station beam.
   # Otherwise the beam is the same for all stations.
-  if sky_rotation or pointing_offsets:
+  if sky_rotation or pointing_offsets or randomize_rotation:
     for p in stations:
+      angle = None
+      if randomize_rotation:
+        angle = ns.rot0(p) << random.uniform(-math.pi,math.pi);
       # apply rotation to put sources into the antenna frame
       # lmn is an Nx2 tensor. Multiply that by the _inverse_ (i.e. transpose) of the rotation matrix on the _right_
       # to get the equivalent rotation.
       if sky_rotation:
         xyz = Context.array.xyz(p);
-        pa_invrot = Context.observation.phase_centre.pa_invrot(xyz);
-        lm = ns.lmTrot(p) <<  Meq.MatrixMultiply(lmn,pa_invrot);
+        pa = Context.observation.phase_centre.pa(xyz);
+        angle = (ns.rot1(p) << angle + pa) if angle is not None else pa;
+      # if a rotation angle is set, make the matrix
+      if angle is not None:
+        rcos = ns.rot_cos(p) << Meq.Cos(angle);
+        rsin = ns.rot_sin(p) << Meq.Sin(angle);
+        ns.Rot(p) << Meq.Matrix22(rcos,rsin,-rsin,rcos);  # apply '-' because we want the inverse of the PA
+        lm = ns.lmTrot(p) <<  Meq.MatrixMultiply(lmn,ns.Rot(p));
       else:
         lm = lmn;
       # apply offset in the node (so pointing offsets are interpreted in the azel frame, if rotating)

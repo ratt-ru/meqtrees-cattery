@@ -148,10 +148,8 @@ class MeqMaker (object):
       self.use_skyjones_visualizers = False;
 
     other_opt.append(
-      TDLMenu("Include time & bandwidth smearing",
-        TDLOption('smearing_count',"Apply to N brightest sources only",["all",10,100],more=int,namespace=self),
-        namespace=self,toggle='use_smearing',default=True,
-      )
+      TDLMenu("Include time & bandwidth smearing",namespace=self,toggle='use_smearing',default=True,
+        *self.smearing_options())
     );
 
     other_opt += Meow.IfrArray.compile_options();
@@ -161,6 +159,11 @@ class MeqMaker (object):
 
   def compile_options (self):
     return self._compile_options;
+    
+  def smearing_options (self):
+    return [ TDLOption('smearing_count',"Restrict to N brightest sources only",["all",10,100],more=int,namespace=self,
+      doc="""<P>Smearing is somewhat expensive to calculate in this implementation, so you may choose to limit it
+      to some number of brightest sources (e.g. 50)</P>""") ];
 
   def add_sky_models (self,modules):
     if self._sky_models:

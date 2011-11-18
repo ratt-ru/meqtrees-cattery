@@ -38,6 +38,16 @@ class TensorMeqMaker (MeqMaker):
   def __init__ (self,**kw):
     kw['use_decomposition'] = False;
     MeqMaker.__init__(self,**kw);
+    
+  def smearing_options (self):
+    return [ 
+      TDLOption('fix_time_smearing',"Fix time interval for smearing calculation",[None],more=float,namespace=self),
+      TDLOption('fix_freq_smearing',"Fix bandwidth for smearing calculation",[None],more=float,namespace=self),
+      TDLOption('smearing_count',"Apply to N brightest non-point/gaussian sources only",["all",10,100],more=int,namespace=self,
+        doc="""<P>Smearing is somewhat expensive to calculate in this implementation, so you may choose to limit it
+        to some number of brightest sources (e.g. 50)</P>"""),
+    ];
+
 
   def _get_skyjones_tensor (self,ns,jt,stations,source_lists,other_sources=[]):
     """Returns the per-source tensor node associated with the given JonesTerm ('jt').
@@ -212,6 +222,11 @@ class TensorMeqMaker (MeqMaker):
       ### now make the PSV tensor for esch source
       psvts = [];
       ns.null_shape << Meq.Constant([0,0,0]);
+      psv_kwargs = dict();
+      if self.fix_time_smearing is not None:
+        psv_kwargs['fixed_time_smearing_interval'] = self.fix_time_smearing;
+      if self.fix_freq_smearing is not None:
+        psv_kwargs['fixed_freq_smearing_interval'] = self.fix_freq_smearing;
       for igrp,(sources,lmnT) in enumerate(source_groups):
         ### create brightness tensor
         # see if we have constant brightnesses
@@ -233,7 +248,7 @@ class TensorMeqMaker (MeqMaker):
           jt = [];
           for Et,Etconj in jones_tensors[igrp]:
             jt += [ Et(p),Etconj(q) ];
-          v = psvt(p,q) << Meq[psv_class](lmnT,BT,uvw(p,q),shapeT,*jt);
+          v = psvt(p,q) << Meq[psv_class](lmnT,BT,uvw(p,q),shapeT,*jt,**psv_kwargs);
       ### if uvdata is specified, add it to the summation terms
       if uvdata is not None:
         psvts.append(uvdata);
