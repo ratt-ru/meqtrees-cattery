@@ -1,12 +1,14 @@
+#!/bin/bash
 # -*- coding: utf-8 -*-
 
-
 # save scripts and funcs in subdirectory, lest they be modified while we run
-TMPDIR=.scripter.tmp
+TMPDIR=.scripter.$$.tmp
 if [ ! -d $TMPDIR ]; then
   mkdir $TMPDIR
 fi
 cp scripter.*.{conf,funcs} $TMPDIR
+
+LOGFILE=.scripter.$$.log
 
 # load configs
 for conf in $TMPDIR/scripter.*.conf; do
@@ -66,7 +68,7 @@ if [ "$CONFIRMATION_PROMPT" != "" ]; then
   read
 fi
 
-echo `date "+%D %T"` $BASHPID: $0 $args >>.scripter.log
+echo `date "+%D %T"` $BASHPID: $0 $args >>$LOGFILE
 
 # this displays a prompt, if interactive mode is enabled with -i
 interactive_prompt ()
@@ -118,7 +120,7 @@ iterate_steps ()
       # run operation
       echo "::: Running $oper $args (step=$step)"
       interactive_prompt
-      echo `date "+%D %T"` $BASHPID: step $oper $args >>.scripter.log
+      echo `date "+%D %T"` $BASHPID: step $oper $args >>$LOGFILE
       if ! eval $oper $args; then
         echo "::: Operation '$oper $args' (step $step) failed";
         exit 1;
@@ -150,7 +152,7 @@ per_ms ()
     fi
     # setup variables based on MS
     MSNAME="${MSNAMESPEC%%:*}"
-    echo `date "+%D %T"` $BASHPID: MS $MSNAME >>.scripter.log
+    echo `date "+%D %T"` $BASHPID: MS $MSNAME >>$LOGFILE
     vars=${MSNAMESPEC#*:}
     if [ "$vars" != "$MSNAMESPEC" ]; then
       echo "::: Changing variables: $vars"
@@ -181,6 +183,6 @@ per_ms ()
 
 iterate_steps $processing_steps
 
-echo `date "+%D %T"` $BASHPID: exiting >>.scripter.log
-
+echo `date "+%D %T"` $BASHPID: exiting >>$LOGFILE
+rm -fr $TMPDIR
 exit 0;
