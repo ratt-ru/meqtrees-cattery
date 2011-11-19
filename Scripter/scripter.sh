@@ -161,6 +161,7 @@ per_ms ()
     FQSLICE=${CHAN0[$ddid]}~${CHAN1[$ddid]}:2
     FIELD="field=$field"
     msbase=`basename ${MSNAME} .MS`
+    msbase="${msbase%.ms}"
     eval msbase=$FILENAME_PATTERN
 
     echo "::: MS $MSNAME ddid=$ddid field=$field steps:$*"
