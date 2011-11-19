@@ -1,14 +1,24 @@
 #!/bin/bash
 # -*- coding: utf-8 -*-
 
-# save scripts and funcs in subdirectory, lest they be modified while we run
 TMPDIR=.scripter.$$.tmp
+LOGFILE=.scripter.$$.log
+
+# if -t is specified on command-line, engage test mode -- no PID in files
+for arg in $*; do
+  if [ "$arg" == "-t" ]; then
+    TMPDIR=.scripter.tmp
+    LOGFILE=.scripter.log
+  fi
+done
+
+
+# save scripts and funcs in subdirectory, lest they be modified while we run
 if [ ! -d $TMPDIR ]; then
   mkdir $TMPDIR
 fi
 cp scripter.*.{conf,funcs} $TMPDIR
 
-LOGFILE=.scripter.$$.log
 
 # load configs
 for conf in $TMPDIR/scripter.*.conf; do
@@ -40,6 +50,9 @@ while [ "$1" != "" ]; do
   # -a sets the MS list to ALL_MS
   elif [ "$1" == "-a" ]; then
     ms_specs="$ALL_MS"
+  # -t is test mode -- handled above
+  elif [ "$1" == "-t" ]; then
+    /bin/true;
   # +oper specifies a global operation, same with operations that start with _
   else
     processing_steps="$processing_steps $1"
