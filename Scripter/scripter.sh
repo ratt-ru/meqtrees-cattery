@@ -106,8 +106,20 @@ iterate_steps ()
   for oper in $*; do
     # var=value argument: directly assign to local variable
     if echo $oper | egrep '^[[:alnum:]_]+=.*$' >/dev/null; then
-      echo "::: Changing variable: $oper"
-      eval $oper
+      varname="${oper%%=*}"
+      varvalue="${oper#*=}"
+      echo "::: Changing variable: $varname = $varvalue"
+      eval $varname='"$varvalue"'
+      # if a step= is explicitly specified, do reset the step counter to this in the next per_ms call
+      if [ "${oper#step=}" != "$oper" ]; then
+        reset_step_counter="$step"
+      fi
+    # var+=value argument: append to local variable
+    elif echo $oper | egrep '^[[:alnum:]_]+[+]=.*$' >/dev/null; then
+      varname="${oper%%+=*}"
+      varvalue="${oper#*+=}"
+      echo "::: Appending to variable: $varname += $varvalue"
+      eval $varname+='" $varvalue"'
       # if a step= is explicitly specified, do reset the step counter to this in the next per_ms call
       if [ "${oper#step=}" != "$oper" ]; then
         reset_step_counter="$step"
