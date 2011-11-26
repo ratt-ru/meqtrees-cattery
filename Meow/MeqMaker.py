@@ -36,6 +36,8 @@ import fnmatch
 import Meow
 from Meow import StdTrees,ParmGroup,Parallelization,MSUtils
 
+DEG = math.pi/180;
+
 _annotation_label_doc = """The following directives may be embedded in the format string:
   '%N':       source name
   '%#':       source ordinal number
@@ -1213,10 +1215,15 @@ class SourceSubsetSelector (object):
                   wildcards such as "A?" and "A*".</P>
                   <P>"all" or "*" selects all sources.</P>
                   <P>"=<i>tagname</i>" selects all sources that have a given tag.</P>
-                  <P>"=<i>tagname=value</i>" selects all sources that have the given tag
-                  with the given value.</P>
-                  <P>A leading "-" negates the selection, thus "-<i>name</i>" deselects sources by name,
-                  and "-=<i>tagname</i>" and "-=<i>tagname=value</i>" deselects sources by tag.</P>"""
+                  <P>"<i>tagname^^value</i>" or "=<i>tagname^^value</i>" selects sources by comparing the given
+                  tag to the given (float) value. Here, "^^" represents a comparison operator, and may be any one of
+                  = (or ==), !=, &lt;=, &gt;=, &lt;, &gt;, or .eq., .ne., .le., .ge., .lt., .gt. Note also that "value" may be
+                  followed by "d", "m" or "s", in which case it is converted from degrees, minutes or seconds into
+                  radians.</P>
+                  <P>Successive items are treated as logical-OR (i.e. each item adds to the selection), unless the 
+                  item is prefixed by a modifier (with no space in between):</P>
+                  <P>"&<I>selection</I>" means 'and', i.e. "I&ge;1 Q&ge;0 &r&lt;2d" is interpreted as "(I&ge;1 or Q&ge;0) and r&lt;2d".</P>
+                  <P>"-<I>selection</I>" means 'except', i.e. "I&ge;1 Q&ge;0 -r&lt;2d" is interpreted as "(I&ge;1 or Q&ge;0) and r&ge;2d". Likewise, "-<i>name</i>" simply deselects sources by name.</P>"""
 
   def __init__ (self,title,tdloption_namespace=None,doc=None,annotate=True):
     if tdloption_namespace:
@@ -1249,36 +1256,88 @@ class SourceSubsetSelector (object):
       return self.source_subset.split()[0][1:];
     return None;
 
+  # selection predicates (for the tag**value syntax)
+  _select_predicates = {
+    '=':lambda x,y:x==y,
+    '==':lambda x,y:x==y,
+    '!=':lambda x,y:x!=y,
+    '>=':lambda x,y:x>=y,
+    '<=':lambda x,y:x<=y,
+    '>' :lambda x,y:x>y,
+    '<' :lambda x,y:x<y,
+    '.eq.':lambda x,y:x==y,
+    '.ne.':lambda x,y:x!=y,
+    '.ge.':lambda x,y:x>=y,
+    '.le.':lambda x,y:x<=y,
+    '.gt.' :lambda x,y:x>y,
+    '.lt.' :lambda x,y:x<y
+  };
+  _units = dict(d=DEG,m=DEG/60,s=DEG/3600);
+
+  # regex matching the tag**value[dms] operation
+  # the initial "=" is allowed for backwards compatibility with =tag=value constructs
+  _re_tagcomp = re.compile("^(?i)=?(.+)(%s)([^dms]+)([dms])?"%"|".join([key.replace('.','\.') for key in _select_predicates.keys()]));
+  
   @staticmethod
-  def filter_subset (subset,srclist0):
+  def _parse_float (strval):
+    try:
+      return float(strval);
+    except:
+      None;
+  
+  @staticmethod
+  def filter_subset (subset,srclist0,tag_accessor=Meow.SkyComponent.get_attr):
     all = set([src.name for src in srclist0]);
     srcs = set();
-    for ispec,spec in enumerate(re.split("[\s,]+",subset)):
-      spec = spec.strip();
-      if spec:
-        # if first spec is a negation, then implictly select all sources first
-        if not ispec and spec[0] == "-":
-          srcs = all;
-        if spec == "all":
-          srcs = all;
-        elif spec.startswith("="):
-          spec = spec[1:];
-          if "=" in spec:
-            tag,value = spec.split("=",1);
-            srcs.update([ src.name for src in srclist0 if str(src.get_attr(tag)) == value ]);
-          else:
-            srcs.update([ src.name for src in srclist0 if src.get_attr(spec) ]);
-        elif spec.startswith("-="):
-          spec = spec[2:];
-          if "=" in spec:
-            tag,value = spec.split("=",1);
-            srcs.difference_update([ src.name for src in srclist0 if str(src.get_attr(tag)) == value ]);
-          else:
-            srcs.difference_update([ src.name for src in srclist0 if src.get_attr(spec) ]);
-        elif spec.startswith("-"):
-          srcs.difference_update(fnmatch.filter(all,spec[1:]));
-        else:
-          srcs.update(fnmatch.filter(all,spec));
+    for ispec,spec0 in enumerate(re.split("[\s,]+",subset)):
+      spec = spec0.strip();
+      # "all" selects all sources
+      if spec.lower() == "all":
+        srcs = all;
+        continue;
+      if not spec:
+        continue;
+      # strip off modifier at beginning
+      if spec[0] in "-&|":
+        op = spec[0];
+        spec = spec[1:]; 
+      else:
+        op = "|";
+      # if first modifier is AND or EXCEPT, then implictly select all sources first
+      if not ispec and op in "&-":
+        srcs = all;
+      # check for tag**value construct first
+      match_tagcomp = SourceSubsetSelector._re_tagcomp.match(spec);
+      if match_tagcomp:
+        tag,oper,value,unit = match_tagcomp.groups();
+        value = SourceSubsetSelector._parse_float(value);
+        predicate = SourceSubsetSelector._select_predicates.get(oper.lower());
+        scale = SourceSubsetSelector._units.get(unit,1);
+        # ignore invalid selections
+        if oper is None or value is None:
+          print "Warning: invalid source subset selection '%s', ignoring"%spec0;
+          continue;
+        value *= scale;
+        # do the selection
+        print predicate,tag,value;
+        srctag = [ (src,tag_accessor(src,tag)) for src in srclist0 ];
+        selection = [ src.name for src,tag in srctag if tag is not None and predicate(tag,value) ];
+      # then, a =tag construct
+      elif spec.startswith("="):
+        spec = spec[1:];
+        selection = [ src.name for src in srclist0 if src.get_attr(spec) ];
+      # everything else treated as a source name (pattern)
+      else:
+        selection = fnmatch.filter(all,spec);
+      # apply this selection to current source set
+      if op == "-":
+        srcs.difference_update(selection);
+      elif op == "&":
+        srcs.intersection_update(selection);
+      else:
+        srcs.update(selection);
+      # print stats
+      print "applied %s (involving %d sources), %d sources now selected"%(spec0,len(selection),len(srcs));
     return [ src for src in srclist0 if src.name in srcs ];
 
   def filter (self,srclist0):
