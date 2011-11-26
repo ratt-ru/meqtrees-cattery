@@ -378,7 +378,7 @@ def compute_jones_tensor (Jones,sources,stations,lmn=None,pointing_offsets=None,
   ns = Jones.Subscope();
   
   # if sky rotation is in effect, ignore the lmn tensor
-  if sky_rotation:
+  if sky_rotation or randomize_rotation:
     lmn = None;
 
   # see if sources have a "beam_lm" or "_lm_ncp" attribute
