@@ -209,12 +209,14 @@ class InterpolatedVoltageBeam (object):
     
     dprint(3,"interpolating %s coordinate points to output shape %s"%(coords.shape,output_shape));
     # interpolate real and imag parts separately
-    output.real = interpolation.map_coordinates(self._beam_real,coords,order=self._spline_order,
+    output.real = interpolation.map_coordinates(self._beam_real,coords,order=self._spline_order,mode='nearest',
                     prefilter=(self._spline_order==1)).reshape(output_shape);
-    output.imag = interpolation.map_coordinates(self._beam_imag,coords,order=self._spline_order,
+    output.imag = interpolation.map_coordinates(self._beam_imag,coords,order=self._spline_order,mode='nearest',
                     prefilter=(self._spline_order==1)).reshape(output_shape);
-    output_ampl = interpolation.map_coordinates(self._beam_ampl,coords,order=self._spline_order,
+    output[~(numpy.isfinite(output))] = 0;
+    output_ampl = interpolation.map_coordinates(self._beam_ampl,coords,order=self._spline_order,mode='nearest',
                     prefilter=(self._spline_order==1)).reshape(output_shape);
+    output_ampl[~(numpy.isfinite(output_ampl))] = 0;
     phase_array = numpy.angle(output);
     output.real = output_ampl * numpy.cos(phase_array);
     output.imag = output_ampl * numpy.sin(phase_array);
@@ -234,12 +236,14 @@ class InterpolatedVoltageBeam (object):
     if val is None:
       output = numpy.zeros(self._freqplane_shape,complex);
       # interpolate real and imag parts separately
-      output.real = interpolation.map_coordinates(self._beam_real[...,ifreq],coords[:2,...],
+      output.real = interpolation.map_coordinates(self._beam_real[...,ifreq],coords[:2,...],mode='nearest',
                       order=self._spline_order,prefilter=(self._spline_order==1)).reshape(self._freqplane_shape);
-      output.imag = interpolation.map_coordinates(self._beam_imag[...,ifreq],coords[:2,...],
+      output.imag = interpolation.map_coordinates(self._beam_imag[...,ifreq],coords[:2,...],mode='nearest',
                       order=self._spline_order,prefilter=(self._spline_order==1)).reshape(self._freqplane_shape);
-      output_ampl = interpolation.map_coordinates(self._beam_ampl[...,ifreq],coords[:2,...],
+      output_ampl = interpolation.map_coordinates(self._beam_ampl[...,ifreq],coords[:2,...],mode='nearest',
                       order=self._spline_order,prefilter=(self._spline_order==1)).reshape(self._freqplane_shape);
+      output[~(numpy.isfinite(output))] = 0;
+      output_ampl[~(numpy.isfinite(output_ampl))] = 0;
       if verbose:
         l0,m0,freq = coords[:,0];
         for l in int(l0),int(l0)+1:

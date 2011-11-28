@@ -19,11 +19,14 @@ def _loadPattern (filename,grid=True):
     # Read file
     lines = file(filename).readlines()
     # Setup regexp to parse one line of pat file
-    floatNum = r'([0-9.\-E]+)'
+    floatNum = r'([0-9.+\-E]+)'
     complexNum = r'\(\s*' + floatNum + r',\s*' + floatNum + r'\)'
     row = re.compile(r'^\s*' + r'\s+'.join([floatNum, floatNum, complexNum, complexNum]) + r'\s*$', \
                      flags=(re.IGNORECASE | re.MULTILINE))
     # Parse file data and convert to floating-point
+#    for line in lines:
+#      if not row.match(line):
+#        print line;
     data = numpy.array(re.findall(row, ''.join(lines)), dtype='float64')
     # Find frequency
     freqExp = re.findall(r'frequency = ' + floatNum + ' MHz', ''.join(lines[:20]))
@@ -52,6 +55,7 @@ def _loadPattern (filename,grid=True):
         raise TypeError,"%s: phi axis not monotonically increasing"%filename;
       nphi = len(numpy.unique(phi));
       ntheta = ndata//nphi;
+#      print filename,nphi,ntheta,nphi*ntheta,ndata;
       if nphi*ntheta != ndata:
         raise TypeError,"%s: uneven number of samples"%filename;
       # reshape arrays into nphi x ntheta array
@@ -182,8 +186,11 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
       freqmap = interpolate.interp1d(freqs,range(len(freqs)),'linear');
     else:
       freqmap = None;
-    self._phimap = interpolate.interp1d(phi0,range(len(phi0)),'linear',bounds_error=False,fill_value=-1);
-    self._thetamap = interpolate.interp1d(theta0,range(len(theta0)),'linear',bounds_error=False,fill_value=-1);
+    self._phi0 = phi0;
+    self._theta0 = theta0;
+    # note that coordinates out of the given phi/theta range will be converted to NANs
+    self._phimap = interpolate.interp1d(phi0,range(len(phi0)),'linear',bounds_error=False,fill_value=numpy.nan);
+    self._thetamap = interpolate.interp1d(theta0,range(len(theta0)),'linear',bounds_error=False,fill_value=numpy.nan);
     self.setBeamCube(beamcube,lmmap=self.lmToPolar,freqmap=freqmap);
     
   def lmToPolar (self,l,m):  

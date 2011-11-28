@@ -1276,7 +1276,7 @@ class SourceSubsetSelector (object):
 
   # regex matching the tag**value[dms] operation
   # the initial "=" is allowed for backwards compatibility with =tag=value constructs
-  _re_tagcomp = re.compile("^(?i)=?(.+)(%s)([^dms]+)([dms])?"%"|".join([key.replace('.','\.') for key in _select_predicates.keys()]));
+  _re_tagcomp = re.compile("^(?i)=?([^=<>!.]+)(%s)([^dms]+)([dms])?"%"|".join([key.replace('.','\.') for key in _select_predicates.keys()]));
   
   @staticmethod
   def _parse_float (strval):

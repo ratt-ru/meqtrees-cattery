@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 
 TMPDIR=.scripter.$$.tmp
+GLOBAL_LOGFILE=.scripter.log
 LOGFILE=.scripter.$$.log
 
 # if -t is specified on command-line, engage test mode -- no PID in files
 for arg in $*; do
   if [ "$arg" == "-t" ]; then
     TMPDIR=.scripter.tmp
-    LOGFILE=.scripter.log
+    LOGFILE=$GLOBAL_LOGFILE
   fi
 done
 
@@ -82,6 +83,10 @@ if [ "$CONFIRMATION_PROMPT" != "" ]; then
 fi
 
 echo `date "+%D %T"` $BASHPID: $0 $args >>$LOGFILE
+# duplicate our command-line arguments to global logfile, if needed
+if [ "$LOGFILE" != "$GLOBAL_LOGFILE" ]; then
+  echo `date "+%D %T"` $BASHPID: $0 $args >>$GLOBAL_LOGFILE
+fi
 
 # this displays a prompt, if interactive mode is enabled with -i
 interactive_prompt ()
@@ -208,6 +213,9 @@ per_ms ()
 
 iterate_steps $processing_steps
 
-echo `date "+%D %T"` $BASHPID: exiting >>$LOGFILE
+echo `date "+%D %T"` $BASHPID: successful, exiting with status 0 >>$LOGFILE
+if [ "$LOGFILE" != "$GLOBAL_LOGFILE" ]; then
+  echo `date "+%D %T"` $BASHPID: successful, exiting with status 0 >>$GLOBAL_LOGFILE
+fi
 rm -fr $TMPDIR
 exit 0;
