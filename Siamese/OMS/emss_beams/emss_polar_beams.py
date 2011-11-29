@@ -207,6 +207,7 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
       # apply pointing offsets, if any
       if dl is not None:
         # unite shapes just in case, since l/m and dl/dm may have time/freq axes
+        dl,dm = unite_shapes(dl,dm);
         l,dl = unite_shapes(l,dl);
         m,dm = unite_shapes(m,dm);
         l,m = l-dl,m-dm;
