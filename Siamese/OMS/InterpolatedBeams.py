@@ -339,7 +339,7 @@ class LMVoltageMultifreqBeam (LMVoltageBeam):
       other_axes = sorted(set(range(axes.ndim())) - set(used_axes));
       if any([axes.naxis(i)>1 for i in other_axes]):
         raise TypeError,"FITS file %s has other non-trivial axes besides L/M"%filename_real;
-      # setup frequency grid 
+      # setup frequency grid
       freqgrid = axes.grid(freqaxis);
       if len(freqgrid) > 1:
         raise TypeError,"FITS file %s has >1 frequency points";
@@ -370,7 +370,7 @@ class LMVoltageMultifreqBeam (LMVoltageBeam):
     dprint(2,"l grid is",self._axes.grid(laxis));
     dprint(2,"m grid is",self._axes.grid(maxis));
     dprint(2,"freq grid is",freqs);
-    self._freqaxis = freqs; 
+    self._freqaxis = freqs;
     self._freq_interpolator = interpolate.interp1d(freqs,range(len(freqs)),'linear');
     # prefilter beam for interpolator
     self._beam = beamcube;
@@ -386,7 +386,7 @@ class LMVoltageMultifreqBeam (LMVoltageBeam):
 
   def hasFrequencyAxis (self):
     return True;
-    
+
   def _freqToPixel (self,freq):
     return self._freq_interpolator(freq);
 
@@ -476,15 +476,21 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     # get list of VoltageBeams
     vbs,beam_max = self.init_voltage_beams();
     # now, figure out the lm and time/freq grid
+    # lm may be a 2/3-vector or an Nx2/3 tensor
     lm = children[0];
-    nvs = len(lm.vellsets);
-    if nvs<2 or nvs%2:
-      raise TypeError,"expecting an Nx2 matrix or a 2-vector for child 0 (lm)";
-    nsrc = nvs/2;
-    scalar_mode = len(getattr(lm,'dims',[])) < 2;
+    dims = getattr(lm,'dims',[len(lm.vellsets)]);
+    if len(dims) == 2 and dims[1] in (2,3):
+      nsrc,nlm = dims;
+      tensor = True;
+    elif len(dims) == 1 and dims[0] in (2,3):
+      nsrc,nlm = 1,dims[0];
+      tensor = False;
+    else:
+      print "child 0: %d vellsets, shape %s"%(len(lm.vellsets),getattr(lm,'dims',[]));
+      raise TypeError,"expecting a 2/3-vector or an Nx2/3 matrix for child 0 (lm)";
     # pointing offsets (child 1) are optional
     if len(children) > 1:
-      dlm = children[1]; 
+      dlm = children[1];
       if len(dlm.vellsets) != 2:
         raise TypeError,"expecting a 2-vector for child 1 (dlm)";
       dl,dm = dlm.vellsets[0].value,dlm.vellsets[1].value;
@@ -502,8 +508,8 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     # now loop over sources and interpolte
     for isrc in range(nsrc):
       # put l,m into grid
-      grid['l'] = lm.vellsets[isrc*2  ].value - dl;
-      grid['m'] = lm.vellsets[isrc*2+1].value - dm;
+      grid['l'] = lm.vellsets[isrc*nlm  ].value - dl;
+      grid['m'] = lm.vellsets[isrc*nlm+1].value - dm;
       # interpolate
       for vb in vbs:
         if vb is None:
@@ -521,9 +527,9 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     result = meq.result(vellsets[0],cells=cells);
     if len(vellsets) > 1:
       result.vellsets[1:] = vellsets[1:];
-    # vbs is either length 4 or length 1. If length 4, then result needs to have its dimensions ery
+    # vbs is either length 4 or length 1. If length 4, then result needs to have its dimensions
     if len(vbs) > 1:
-      result.dims = (2,2) if scalar_mode else (nsrc,2,2);
+      result.dims = (nsrc,2,2) if tensor else (2,2);
     return result;
 
 
@@ -538,7 +544,7 @@ if __name__ == "__main__":
   vb.read(
     [("mk_1455MHz_feed_5deg_xxreal.fits","mk_1455MHz_feed_5deg_xximag.fits"),
      ("mk_1460MHz_feed_5deg_xxreal.fits","mk_1460MHz_feed_5deg_xximag.fits")]);
-  
+
   l0 = numpy.array([-2,0,2])*DEG;
   l = numpy.vstack([l0]*len(l0));
 

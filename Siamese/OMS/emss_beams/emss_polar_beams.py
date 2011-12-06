@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 #
-#% $Id$ 
+#% $Id$
 #
 #
 # Copyright (C) 2002-2007
-# The MeqTree Foundation & 
+# The MeqTree Foundation &
 # ASTRON (Netherlands Foundation for Research in Astronomy)
 # P.O.Box 2, 7990 AA Dwingeloo, The Netherlands
 #
@@ -20,7 +20,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>,
-# or write to the Free Software Foundation, Inc., 
+# or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
@@ -61,7 +61,7 @@ SYM_Y = "Y";
 
 
 TDLCompileOption("filename_pattern","Filename pattern",["beam_$(hv).pat"],more=str,doc="""<P>
-  Pattern for beam filenames. Each beam file contains two elements of the E-Jones matrix. A number of variables will be 
+  Pattern for beam filenames. Each beam file contains two elements of the E-Jones matrix. A number of variables will be
   substituted in the filename pattern, these may be introduced as
   "$var" or "$(var)". Use "$$" for a "$" character. The following variables are recognized:</P>
   <UL>
@@ -72,23 +72,23 @@ TDLCompileOption("filename_pattern","Filename pattern",["beam_$(hv).pat"],more=s
   <UL>""");
 TDLCompileOption("pattern_labels","Beam pattern labels",[None],more=str);
 TDLCompileOption("freq_labels","Beam frequency labels",[None],more=str);
-TDLCompileOption("beam_symmetry","Use 90-degree symmetry",{ 
+TDLCompileOption("beam_symmetry","Use 90-degree symmetry",{
   None:"no, load separate X/Y patterns",
   SYM_X:"yes, XX XY (v) given",
   SYM_Y:"yes, YX YY (h) given"},doc=
   """<P>If the beam has 90-degree rotational symmetry, then its XX/XY and YX/YY components can be derived
   from one another via a 90 degree rotation. If this is the case, then you may use just one set of pattern files
   (either one, as specified by this setting), and let the interpolator apply rotation to derive the other set.
-  The beam pattern filename above should't contain a substitutable $(hv) or $(xy) element then.  
+  The beam pattern filename above should't contain a substitutable $(hv) or $(xy) element then.
   </P>
   """);
 TDLCompileOption("spline_order","Spline order for interpolation",[1,2,3,4,5],default=3);
 TDLCompileOption("hier_interpol","Use hierarchical interpolation (lm, then frequency)",True);
 TDLCompileOption("l_beam_offset","Offset beam pattern in L (deg)",[0.0], more=float,
-doc="""<P>By default,the beam reference position (phi=theta=0) is placed at l=m=0 on the sky, i.e. 
+doc="""<P>By default,the beam reference position (phi=theta=0) is placed at l=m=0 on the sky, i.e.
 at the phase centre. You can use this option to offset the beam pattern.</P>"""),
 TDLCompileOption("m_beam_offset","Offset beam pattern in M (deg)",[0.0], more=float,
-doc="""<P>By default,the beam reference position (phi=theta=0) is placed at l=m=0 on the sky, i.e. 
+doc="""<P>By default,the beam reference position (phi=theta=0) is placed at l=m=0 on the sky, i.e.
 at the phase centre. You can use this option to offset the beam pattern.</P>"""),
 TDLCompileOption("sky_rotation","Include sky rotation",True,doc="""<P>
   If True, then the beam will rotate on the sky with parallactic angle. Use for alt-az mounts.
@@ -144,7 +144,7 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
     # only V/X beam supplied. H/Y must be rotated by 90 degrees and columns swapped.
     if self.beam_symmetry == SYM_X:
       rotations = 0,90;
-      yargflips = False,True; 
+      yargflips = False,True;
     # only H/Y beam supplied. V/X rotated/swapped
     elif self.beam_symmetry == SYM_Y:
       rotations = 90,0;
@@ -258,10 +258,10 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
     # get list of VoltageBeams
     vbs = self.init_voltage_beams();
     # now, figure out the lm and time/freq grid
-    # lm may be a 2-vector or an Nx2 tensor
+    # lm may be a 2/3-vector or an Nx2/3 tensor
     lm = children[0];
     dims = getattr(lm,'dims',[len(lm.vellsets)]);
-    if len(dims) == 2 and dims[1] in (2,3): 
+    if len(dims) == 2 and dims[1] in (2,3):
       nsrc,nlm = dims;
       tensor = True;
     elif len(dims) == 1 and dims[0] in (2,3):
@@ -271,7 +271,7 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
       raise TypeError,"expecting a 2/3-vector or an Nx2/3 matrix for child 0 (lm)";
     # pointing offsets (child 1) are optional
     if len(children) > 1:
-      dlm = children[1]; 
+      dlm = children[1];
       if len(dlm.vellsets) != 2:
         raise TypeError,"expecting a 2-vector for child 1 (dlm)";
       dl,dm = dlm.vellsets[0].value,dlm.vellsets[1].value;
@@ -313,7 +313,7 @@ def make_beam_node (beam,pattern,*children):
   freqs = re.split('[,\s]',freq_labels) if freq_labels else [""];
   for label in labels:
     per_label = [];
-    for xy in "xy":        
+    for xy in "xy":
       per_xy = [];
       for freq in freqs:
         filename = make_beam_filename(pattern,xy,label,freq);
@@ -321,7 +321,7 @@ def make_beam_node (beam,pattern,*children):
           raise RuntimeError,"Can't find beam pattern file %s"%filename;
         per_xy.append(filename);
       per_label.append(per_xy);
-    filenames.append(per_label); 
+    filenames.append(per_label);
   # now make interpolator node
   import InterpolatedBeams
   if children[-1] is None:
@@ -329,7 +329,7 @@ def make_beam_node (beam,pattern,*children):
   beam << Meq.PyNode(class_name="EMSSPolarBeamInterpolatorNode",module_name=__file__,
                      filename=filenames,
                      missing_is_null=False,spline_order=spline_order,verbose=verbose_level or 0,
-                     l_beam_offset=l_beam_offset*DEG,m_beam_offset=m_beam_offset*DEG, 
+                     l_beam_offset=l_beam_offset*DEG,m_beam_offset=m_beam_offset*DEG,
                      beam_symmetry=beam_symmetry,
                      children=children);
 
@@ -377,18 +377,18 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
 def compute_jones_tensor (Jones,sources,stations,lmn=None,pointing_offsets=None,inspectors=[],label='E',**kw):
   stations = stations or Context.array.stations;
   ns = Jones.Subscope();
-  
+
   # if sky rotation is in effect, ignore the lmn tensor
   if sky_rotation or randomize_rotation:
     lmn = None;
 
   # see if sources have a "beam_lm" or "_lm_ncp" attribute
   lmsrc = [ src.get_attr("beam_lm",None) or src.get_attr("_lm_ncp",None) for src in sources ];
-  
+
   # if all source have the attribute, create lmn tensor node (and override the lmn argument)
   if all([lm is not None for lm in lmsrc]):
     lmn = ns.lmT << Meq.Constant(lmsrc);
-  
+
   if not lmn:
     lmn = ns.lmT << Meq.Composer(dims=[0],*[ src.direction.lm() for src in sources ]);
 
