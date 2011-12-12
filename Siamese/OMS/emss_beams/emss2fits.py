@@ -64,6 +64,9 @@ separate the per-component groups with '+'.""");
                     help="frequency stepping, in MHz. Default is %default.");
   parser.add_option("--taper",metavar="FROM_DEG,TO_DEG",type="string",
                     help="apply a smooth taper to the beam. The taper function goes from 1 at radius FROM_DEG to 0 at radius TO_DEG");
+  parser.add_option("--incremental",metavar="N",type="int",default=0,
+                    help="compute the patterns in chunks of N rows at a time. Use this with very large
+                    patterns, if the full computation makes you run out of memory.");
   parser.add_option("-v","--verbose",metavar="LEVEL",type="int",default=0,
                     help="verbosity level, higher for more messages.");
   parser.add_option("-T","--timestamps",action="store_true",
@@ -190,11 +193,21 @@ separate the per-component groups with '+'.""");
   
     
   # INTERPOLATE!!!
-  images = [ vb.interpolate(l0,m0,freq=freq,freqaxis=2) for vb in beam_components ];
-
-
+  if options.incremental:
+    parts = [];
+    for row0 in range(0,len(l0),options.incremental):
+      row1 = min(row0+options.incremental,len(l0));
+      print "Generating pattern for rows %d:%d"%(row0,row1);
+      images = [ vb.interpolate(l0[row0:row1,...],m0[row0:row1,...],freq=freq,freqaxis=2) 
+                 for vb in beam_components ];
+      parts.append(sum(images));
+    image = numpy.concatenate(parts);
+  else:
+    dprint(1,"interpolating components");
+    images = [ vb.interpolate(l0,m0,freq=freq,freqaxis=2) for vb in beam_components ];
+    dprint(1,"summing components");
+    image = sum(images);
   dprint(1,"generating FITS images");
-  image = sum(images);
   
   # apply taper
   if options.taper:
