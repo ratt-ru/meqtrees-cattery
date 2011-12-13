@@ -40,7 +40,7 @@ separate the per-component groups with '+'.""");
 #                    help="select interpolation algorithm: 'ps' (polar spline), 'grid' (gridder). Default is %default.");
 #  parser.add_option("-A","--no-ampl-interpol",action="store_true",
 #                    help="disable amplitude interpolation");
-  parser.add_option("-s","--spline-order",type='int',default=3,
+  parser.add_option("-s","--spline-order",metavar="ORDER",type='int',default=3,
                     help="spline order, 1 to 3. Default is %default.");
   parser.add_option("--scale",type="float",default=1.,
                     help="rescale the beam (in size) by the given factor, >1 makes the beam broader.");
@@ -65,7 +65,7 @@ separate the per-component groups with '+'.""");
   parser.add_option("--taper",metavar="FROM_DEG,TO_DEG",type="string",
                     help="apply a smooth taper to the beam. The taper function goes from 1 at radius FROM_DEG to 0 at radius TO_DEG");
   parser.add_option("--incremental",metavar="N",type="int",default=0,
-                    help="compute the patterns in chunks of N rows at a time. Use this with very large "+
+                    help="compute the patterns in chunks of N grid rows at a time. Use this with very large "+
                     "patterns, if the full computation makes you run out of memory.");
   parser.add_option("-v","--verbose",metavar="LEVEL",type="int",default=0,
                     help="verbosity level, higher for more messages.");
@@ -203,6 +203,7 @@ separate the per-component groups with '+'.""");
       parts.append(sum(images));
     print "Concatenating patterns";
     image = numpy.concatenate(parts);
+    parts = None;
   else:
     dprint(1,"interpolating components");
     images = [ vb.interpolate(l0,m0,freq=freq,freqaxis=2) for vb in beam_components ];
