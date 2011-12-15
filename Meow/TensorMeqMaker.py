@@ -31,7 +31,7 @@ from Meow import StdTrees,ParmGroup,Parallelization,MSUtils
 
 import itertools
 
-TDLCompileOption("psv_class","Use which node for PSV tensors",["PSVTensor","CUDAPointSourceVisibility"]);
+TDLCompileOption("psv_class","Use which node for PSV tensors",["PSVTensor","CUDAPointSourceVisibility","ThrustPointSourceVisibility"]);
 #psv_class = "PSVTensor";
 
 class TensorMeqMaker (MeqMaker):
