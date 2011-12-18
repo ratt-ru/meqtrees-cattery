@@ -298,11 +298,12 @@ end`
 get_ssccm_list ()
 {
   if [ "$1" == "" -o "$1" == "-" ]; then
-    if [ "$SSCCM_LIST" != "" ]; then
-      _out=$SSCCM_LIST
-    else
-      _out=${SSCCM_PER_SPW[$ddid]}
-    fi
+    _out=`python -c "import Tigger;mod=Tigger.load('$LSM');print ','.join(sorted(set([(getattr(src,'cluster',None) or src.name) for src in mod.sources if getattr(src,'postage_stamp',False)])))"|tail -1`
+#    if [ "$SSCCM_LIST" != "" ]; then
+#      _out=$SSCCM_LIST
+#    else
+#      _out=${SSCCM_PER_SPW[$ddid]}
+#    fi
   else
     _out=$1
   fi
