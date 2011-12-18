@@ -307,6 +307,7 @@ get_ssccm_list ()
     _out=$1
   fi
   echo ${_out//,/ }
+  # python -c "import Tigger;mod=Tigger.load('A773comp-spw2.lsm.html');print set([src.name[0] for src in mod.sources if getattr(src,'dE',False)])"
 }
 
 make_and_extract_ss_ccm ()
