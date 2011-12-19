@@ -20,6 +20,9 @@ if [ ! -d $TMPDIR ]; then
 fi
 cp scripter.*.{conf,funcs} $TMPDIR
 
+# init defaults
+ddid=0
+field=0
 
 # load configs
 for conf in $TMPDIR/scripter.*.conf; do
@@ -35,7 +38,7 @@ args="$*"
 
 while [ "$1" != "" ]; do
   # *.{ms,MS}, with an optional var=value suffix, is an MS name
-  if echo $1 | egrep '^[^=]*\.(ms|MS)(:.*)?$' >/dev/null; then
+  if echo $1 | egrep '^[^=]*\.(ms|MS)/?(:.*)?$' >/dev/null; then
     ms_specs="$ms_specs $1"
   # -f skips initial confirmation
   elif [ "$1" == "-f" ]; then
@@ -46,15 +49,15 @@ while [ "$1" != "" ]; do
     echo "::: Enabling interactive mode"
   # -d sets the default processing sequence
   elif [ "${1#-d}" != "$1" ]; then
-    eval ps="\$DEFAULT_PROCESSING_SEQUENCE_${1#-d}"
+    _var=DEFAULT_PROCESSING_SEQUENCE_${1#-d}
+    echo $_var
+    eval ps="'${!_var}'"
+    echo $ps
     processing_steps="$processing_steps $ps"
-  # -a sets the MS list to ALL_MS
-  elif [ "$1" == "-a" ]; then
-    ms_specs="$ALL_MS"
   # -t is test mode -- handled above
   elif [ "$1" == "-t" ]; then
     /bin/true;
-  # +oper specifies a global operation, same with operations that start with _
+  # else an operation
   else
     processing_steps="$processing_steps $1"
   fi
@@ -69,12 +72,17 @@ if [ "$processing_steps" == "" ]; then
 fi
 
 # make list of MS names (by stripping of :var=value from MS specs)
-ms_names=""
-for ms in $ms_specs; do
-  ms_names="$ms_names ${ms%%:*}"
-done
+set_msnames ()
+{
+  MSNAMES=""
+  for ms in $*; do
+    MSNAMES="$MSNAMES ${ms%%:*}"
+  done
+  echo "::: MS names: $MSNAMES"
+}
 
-echo "::: MSs: $ms_specs"
+echo "::: MS specs: $ms_specs"
+set_msnames $ms_specs
 echo "::: processing sequence: $processing_steps";
 
 if [ "$CONFIRMATION_PROMPT" != "" ]; then
@@ -101,6 +109,30 @@ interactive_prompt ()
   fi
 }
 
+# Assigns templated variables: for each variable named VAR_Template,
+# creates the variable VAR and assigns it the expansion of $VAR_Template
+# A list of template names may be passed in -- otherwise it uses compgen
+# to get a list of all variables ending with _Template
+assign_templates ()
+{
+# do variable substitution
+  for tt in ${*:-`compgen -v | grep _Template | sort`}; do
+    varname=${tt%_Template}
+    eval $varname="\"${!tt}\""
+    echo "::::: Assigned $varname=${!varname}"
+  done
+}
+
+
+# load functions
+for func in $TMPDIR/scripter.*.funcs; do
+  echo "::: Loading function set $func"
+  source $func
+done
+
+unset MSNAME
+reset_step_counter=1
+
 # function to iterate over a series of steps
 iterate_steps ()
 {
@@ -109,12 +141,18 @@ iterate_steps ()
     return
   fi
   for oper in $*; do
+    # -a sets the MS list to ALL_MS
+    if [ "$oper" == "-a" ]; then
+      ms_specs="`eval echo $ALL_MS`"
+      echo "::: Set MS list to $ms_specs"
+      # make list of MS names (by stripping of :var=value from MS specs)
+      set_msnames $ms_specs
     # var=value argument: directly assign to local variable
-    if echo $oper | egrep '^[[:alnum:]_]+=.*$' >/dev/null; then
+    elif echo $oper | egrep '^[[:alnum:]_]+=.*$' >/dev/null; then
       varname="${oper%%=*}"
       varvalue="${oper#*=}"
-      echo "::: Changing variable: $varname = $varvalue"
-      eval $varname='"$varvalue"'
+      eval $varname="\"$varvalue\""
+      echo "::: Changed variable: $varname = ${!varname}"
       # if a step= is explicitly specified, do reset the step counter to this in the next per_ms call
       if [ "${oper#step=}" != "$oper" ]; then
         reset_step_counter="$step"
@@ -147,6 +185,11 @@ iterate_steps ()
       if [ "$MSNAME" == "" ]; then
         MSNAME="$FULLMS"
       fi
+      # assign templates
+      assign_templates
+      if [ "$DESTDIR" != "" -a ! -d "$DESTDIR" ]; then
+        mkdir $DESTDIR
+      fi
       # run operation
       echo "::: Running $oper $args (step=$step)"
       interactive_prompt
@@ -159,16 +202,7 @@ iterate_steps ()
   done
 }
 
-# load functions
-for func in $TMPDIR/scripter.*.funcs; do
-  echo "::: Loading function set $func"
-  source $func
-done
 
-ddid=0
-field=0
-unset MSNAME
-reset_step_counter=1
 
 per_ms ()
 {
@@ -180,31 +214,32 @@ per_ms ()
     if [ "$reset_step_counter" != "-" ]; then
       step="$reset_step_counter"
     fi
-    # setup variables based on MS
-    MSNAME="${MSNAMESPEC%%:*}"
+    # setup variables based on MS name spec (i.e. one of the form "msname:var1=foo:var2=bar")
     echo `date "+%D %T"` $BASHPID: MS $MSNAME >>$LOGFILE
     vars=${MSNAMESPEC#*:}
     if [ "$vars" != "$MSNAMESPEC" ]; then
       echo "::: Changing variables: $vars"
       eval ${vars//:/;}
     fi
-    MS="ms_sel.msname=$MSNAME ms_sel.ddid_index=$ddid ms_sel.field_index=$field"
-    CHANS="ms_sel.ms_channel_start=${CHAN0[$ddid]} ms_sel.ms_channel_end=${CHAN1[$ddid]}"
-    FQSLICE=${CHAN0[$ddid]}~${CHAN1[$ddid]}:2
-    FIELD="field=$field"
-    msbase=`basename ${MSNAME} .MS`
-    msbase="${msbase%.ms}"
-    eval msbase=$FILENAME_PATTERN
-
+    MSNAME="${MSNAMESPEC%%:*}"
+    # assign $msbase parameter
+    MSBASENAME=`basename ${MSNAME} .MS`
+    MSBASENAME="${MSBASENAME%.ms}"
+    # assign templates
+    assign_templates
+    if [ "$DESTDIR" != "" -a ! -d "$DESTDIR" ]; then
+      mkdir $DESTDIR
+    fi
+    # go
     echo "::: MS $MSNAME ddid=$ddid field=$field steps:$*"
     alias
     interactive_prompt
 
-    # load functions
-    for func in $TMPDIR/scripter.*.funcs; do
-      echo "::: Loading function set $func"
-      source $func
-    done
+#    # load functions
+#    for func in $TMPDIR/scripter.*.funcs; do
+#      echo "::: Loading function set $func"
+#      source $func
+#    done
 
     iterate_steps $*
   done

@@ -8,12 +8,12 @@
 # runs the imager over the current MS, field and spwid. Remaining arguments need to be supplied,
 imager()
 {
-  $RUNIMAGER ms=$MSNAME field=$field spwid=$ddid $*
+  $RUNIMAGER ms=$MSNAME $FIELD_IMG $SPWID_IMG $*
 }
 # runs plot-ms over the current MS, field and spwid. Remaining arguments need to be supplied,
 plot-ms()
 {
-  $PLOTMS $MSNAME -F $field -D $ddid -I "$IFRS" -L $FQSLICE $*
+  $PLOTMS $MSNAME -F $field -D $ddid -I "$IFRS" -L $FQSLICE_OC $*
 }
 
 ## reset_ms: removes MS, untars copy from tgz, adds bitflags, fixes WSRT UVWs, etc.
@@ -24,7 +24,7 @@ reset_ms()
   wsrt_j2convert msin=$MSNAME
   addbitflagcol $MSNAME
   python -c "import pyrap.tables;pyrap.tables.addImagingColumns('$MSNAME')"
-#  $DOWNWEIGH -I "$IFRS" $MSNAME
+  $DOWNWEIGH -I "$IFRS" $MSNAME
   init_flags
 }
 
@@ -61,7 +61,7 @@ reset_de ()
 
 restore_g ()
 {
-  tar zxvf $SAVED_SOLUTIONS_DIR/G_${msbase}_*.tgz
+  tar zxvf $SAVED_SOLUTIONS_DIR/G_${OUTFILE}_*.tgz
 }
 
 clip_residuals ()
@@ -78,14 +78,13 @@ cal_generic ()
   shift 4
   time meqtree-pipeliner.py $MT -c $CONFIG \
     \[$section\] \
-    $MS $CHANS $* \
-    tiggerlsm.filename=$LSM \
+    $MS_TDL $CHAN_TDL $LSM_TDL $* \
     enable_inspectors=${ENABLE_INSPECTORS:-0} \
     $SCRIPTNAME \
     =$jobname
   clip_residuals $MSNAME $label
-  plot-ms CORRECTED_DATA:I -o $DESTDIR/${msbase}_residuals_${step}_${label}.png
-  imager name_dirty=$DESTDIR/${msbase}_${step}_${label}
+  plot-ms CORRECTED_DATA:I -o $DESTDIR/${OUTFILE}_residuals_${step}_${label}.png
+  imager name_dirty=$DESTDIR/${OUTFILE}_${step}_${label}
   step=$[$step+1];
   true
 }
@@ -94,44 +93,44 @@ cal_g ()
 {
   cal_generic G ${cal_g_section:-cal_g} cal_G_diag G_diag.fmep $*
   if [ "$ENABLE_PARM_PLOTS" == "1" ]; then
-    $PLOTPARMS $MSNAME/G_diag.fmep "*:*:*/ampl" $plot_Gampl_options -o $DESTDIR/${msbase}_${step}_Ga.png
-    $PLOTPARMS $MSNAME/G_diag.fmep "*:*:*/phase" $plot_Gphase_options -o $DESTDIR/${msbase}_${step}_Gp.png
+    $PLOTPARMS $MSNAME/G_diag.fmep "*:*:*/ampl" $plot_Gampl_options -o $DESTDIR/${OUTFILE}_${step}_Ga.png
+    $PLOTPARMS $MSNAME/G_diag.fmep "*:*:*/phase" $plot_Gphase_options -o $DESTDIR/${OUTFILE}_${step}_Gp.png
   fi
-  tar zcvf $DESTDIR/G_${msbase}_step$step.tgz $MSNAME/G_diag.fmep
+  tar zcvf $DESTDIR/G_${OUTFILE}_step$step.tgz $MSNAME/G_diag.fmep
 }
 
 cal_ig ()
 {
   cal_generic IG ${cal_ig_section:-cal_ig} cal_IG IG.fmep $*
-  tar zcvf $DESTDIR/IG_${msbase}_step$step.tgz $MSNAME/IG.fmep
+  tar zcvf $DESTDIR/IG_${OUTFILE}_step$step.tgz $MSNAME/IG.fmep
 }
 
 cal_de ()
 {
   cal_generic dE ${cal_de_section:-cal_de} cal_dE_diag dE_diag.fmep $*
   if [ "$ENABLE_PARM_PLOTS" == "1" ]; then
-    $PLOTPARMS $MSNAME/dE_ampl.fmep "*:*:*:*/ampl"  $plot_dEampl_options -o $DESTDIR/${msbase}_${step}_dEa.png
-    $PLOTPARMS $MSNAME/dE_phase.fmep "*:*:*:*/phase" $plot_dEphase_options -o $DESTDIR/${msbase}_${step}_dEp.png
+    $PLOTPARMS $MSNAME/dE_ampl.fmep "*:*:*:*/ampl"  $plot_dEampl_options -o $DESTDIR/${OUTFILE}_${step}_dEa.png
+    $PLOTPARMS $MSNAME/dE_phase.fmep "*:*:*:*/phase" $plot_dEphase_options -o $DESTDIR/${OUTFILE}_${step}_dEp.png
   fi
-  tar zcvf $DESTDIR/dE_${msbase}_step$step.tgz $MSNAME/dE_diag.fmep
+  tar zcvf $DESTDIR/dE_${OUTFILE}_step$step.tgz $MSNAME/dE_diag.fmep
 }
 
 cal_de_ampl ()
 {
   cal_generic dEa ${cal_de_ampl_section:-cal_de_ap} cal_dE_ampl dE_ampl.fmep $*
   if [ "$ENABLE_PARM_PLOTS" == "1" ]; then
-    $PLOTPARMS $MSNAME/dE_ampl.fmep "*:*:*:*/ampl"  $plot_dEampl_options -o $DESTDIR/${msbase}_${step}_dEa.png
+    $PLOTPARMS $MSNAME/dE_ampl.fmep "*:*:*:*/ampl"  $plot_dEampl_options -o $DESTDIR/${OUTFILE}_${step}_dEa.png
   fi
-  tar zcvf $DESTDIR/dEa_${msbase}_step$step.tgz $MSNAME/dE_ampl.fmep
+  tar zcvf $DESTDIR/dEa_${OUTFILE}_step$step.tgz $MSNAME/dE_ampl.fmep
 }
 
 cal_de_phase ()
 {
   cal_generic dEp ${cal_de_phase_section:-cal_de_ap} cal_dE_phase dE_phase.fmep $*
   if [ "$ENABLE_PARM_PLOTS" == "1" ]; then
-    $PLOTPARMS $MSNAME/dE_phase.fmep "*:*:*:*/phase" $plot_dEphase_options -o $DESTDIR/${msbase}_${step}_dEp.png
+    $PLOTPARMS $MSNAME/dE_phase.fmep "*:*:*:*/phase" $plot_dEphase_options -o $DESTDIR/${OUTFILE}_${step}_dEp.png
   fi
-  tar zcvf $DESTDIR/dEp_${msbase}_step$step.tgz $MSNAME/dE_phase.fmep
+  tar zcvf $DESTDIR/dEp_${OUTFILE}_step$step.tgz $MSNAME/dE_phase.fmep
 }
 
 redo_plot_ms ()
@@ -141,7 +140,7 @@ redo_plot_ms ()
   else
     suffix=""
   fi
-  plot-ms ${2-CORRECTED_DATA:I} -o $DESTDIR/${msbase}${suffix}.png
+  plot-ms ${2-CORRECTED_DATA:I} -o $DESTDIR/${OUTFILE}${suffix}.png
 }
 
 genvis_generic ()
@@ -151,12 +150,11 @@ genvis_generic ()
   shift 2
   time meqtree-pipeliner.py $MT -c $CONFIG \
     \[$section\] \
-    $MS $CHANS $* \
-    tiggerlsm.filename=$LSM \
+    $MS_TDL $CHAN_TDL $LSM_TDL $* \
     enable_inspectors=${ENABLE_INSPECTORS:-0} \
     $SCRIPTNAME \
     =generate_visibilities
-  imager name_dirty=$DESTDIR/${msbase}_${label}_step$step
+  imager name_dirty=$DESTDIR/${OUTFILE}_${label}_step$step
   step=$[$step+1];
   true
 }
@@ -183,7 +181,7 @@ update_flags()
 
 merge_ms()
 {
-  $MERGEMS -f ${1-$FULLMS} $ms_names
+  $MERGEMS -f ${1-$FULLMS} $MSNAMES
   update_flags ${1-$FULLMS}
 }
 
@@ -279,23 +277,63 @@ end`
     exit 1
   fi
   echo ":::Extracting clean component model for source $srcname at $coords"
+  # make filename template
+  assign_templates SSCCM_Template
   # make images
   for op in ${oper//+/ }; do
     $RUNIMAGER ms=$ms phasecenter=$coords size=$SOURCE_CC_SIZE \
-      name_dirty=src${srcname}-dirty \
-      name_restored=src${srcname}-restored \
-      name_residual=src${srcname}-residual \
-      name_model=src${srcname}-cc \
+      name_dirty=${SSCCM}-dirty \
+      name_restored=${SSCCM}-restored \
+      name_residual=${SSCCM}-residual \
+      name_model=${SSCCM}-cc \
+      prefervelocity=False \
       oper=$op flux_scale=1 $*
   done
+  # due to an lwimager bug, the center frequency is not assigned correctly -- fix it here
+  _freq=`python -c "import pyrap.tables;print pyrap.tables.table('$ms/SPECTRAL_WINDOW').getcol('REF_FREQUENCY')[${SPWID_IMG#*=}]"|tail -1`
+  echo "Center frequency is $_freq"
+  echo $FITSTOOL -E RESTFREQ=$_freq -E ALTRVAL=$_freq ${SSCCM}-cc.fits -f
+}
+
+get_ssccm_list ()
+{
+  if [ "$1" == "" -o "$1" == "-" ]; then
+    _out=`python -c "import Tigger;mod=Tigger.load('$LSM');print ','.join(sorted(set([(getattr(src,'cluster',None) or src.name) for src in mod.sources if getattr(src,'postage_stamp',False)])))"|tail -1`
+#    if [ "$SSCCM_LIST" != "" ]; then
+#      _out=$SSCCM_LIST
+#    else
+#      _out=${SSCCM_PER_SPW[$ddid]}
+#    fi
+  else
+    _out=$1
+  fi
+  echo ${_out//,/ }
+  # python -c "import Tigger;mod=Tigger.load('A773comp-spw2.lsm.html');print set([src.name[0] for src in mod.sources if getattr(src,'dE',False)])"
 }
 
 make_and_extract_ss_ccm ()
 {
-  if [ "$1" == "" ]; then
-    echo "make_and_extract_ss_ccm: must be invoked with a source name";
-    exit 1
+  SOURCES="`get_ssccm_list $1`"
+  LSM1="${2:-$LSM}"
+  if [ "$LSM1" != "$LSM" ]; then
+    cp $LSM $LSM1
+    LSM="$LSM1"
   fi
-  make_full_ssms $1
-  extract_ss_ccm $*
+  shift 2
+  for srcname in $SOURCES; do
+    # set $_dE to "dE:" if source has a dE tag -- this will get passed on to its brick, below
+    _dE="`python <<-end
+import Tigger
+src=[src for src in Tigger.load("$LSM",verbose=0).sources if src.name.startswith("$srcname")]
+src=sorted(src,lambda a,b:cmp(b.Iapp,a.Iapp))
+if hasattr(src[0],'dE'):
+  print ':dE';
+end`"
+    echo "Extracting SSCCM for source '$srcname' $_dE"
+    make_full_ssms $srcname
+    extract_ss_ccm $srcname $*  #NB: this also sets up $SSCCM to the proper path
+    # insert source -- notw how dE tag gets propagated
+    $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}:brick
+  done
 }
+
