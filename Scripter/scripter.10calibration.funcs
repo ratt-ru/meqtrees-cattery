@@ -13,7 +13,7 @@ imager()
 # runs plot-ms over the current MS, field and spwid. Remaining arguments need to be supplied,
 plot-ms()
 {
-  $PLOTMS $MSNAME -F $field -D $ddid -I "$IFRS" -L $FQSLICE_OC $*
+  $PLOTMS $MSNAME -F $field -D $MS_DDID -I "$IFRS" -L $FQSLICE_OC $*
 }
 
 ## reset_ms: removes MS, untars copy from tgz, adds bitflags, fixes WSRT UVWs, etc.
