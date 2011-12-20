@@ -181,12 +181,13 @@ iterate_steps ()
       else
         args="";
       fi
+      # assign templates
+      assign_templates
       # reset MSNAME if not set
       if [ "$MSNAME" == "" ]; then
         MSNAME="$FULLMS"
       fi
-      # assign templates
-      assign_templates
+      # create DESTDIR if needed
       if [ "$DESTDIR" != "" -a ! -d "$DESTDIR" ]; then
         mkdir $DESTDIR
       fi

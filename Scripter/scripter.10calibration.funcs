@@ -140,7 +140,7 @@ redo_plot_ms ()
   else
     suffix=""
   fi
-  plot-ms ${2-CORRECTED_DATA:I} -o $DESTDIR/${OUTFILE}${suffix}.png
+  plot-ms ${2:-CORRECTED_DATA:I} -o $DESTDIR/${OUTFILE}${suffix}.png
 }
 
 genvis_generic ()
@@ -289,6 +289,10 @@ end`
       prefervelocity=False \
       oper=$op flux_scale=1 $*
   done
+  # remove MS
+  if [ "$KEEP_POSTAGE_STAMP_MS" == "" -o "$KEEP_POSTAGE_STAMP_MS" == "0" ]; then
+    rm -fr $ms
+  fi
   # due to an lwimager bug, the center frequency is not assigned correctly -- fix it here
   _freq=`python -c "import pyrap.tables;print pyrap.tables.table('$ms/SPECTRAL_WINDOW').getcol('REF_FREQUENCY')[${SPWID_IMG#*=}]"|tail -1`
   echo "Center frequency is $_freq"
