@@ -265,13 +265,16 @@ extract_ss_ccm ()
     exit 1;
   fi
   # extract source coords
-  coords=`python <<-end
+  python >.coords.$srcname <<-end
 import Tigger
 src=[src for src in Tigger.load("$LSM",verbose=0).sources if src.name.startswith("$srcname")]
 src=sorted(src,lambda a,b:cmp(b.Iapp,a.Iapp))
 src=src[0]
 print "j2000,%dh%dm%fs,%s%dd%dm%fs"%tuple(list(src.pos.ra_hms())+list(src.pos.dec_sdms()))
-end`
+end
+  # go through intermediate file and take its tail, because the front may have bullshit messages
+  coords=`tail -1 .coords.$srcname`
+  rm .coords.$srcname 
   if [ "${coords#j2000}" == "$coords"  ]; then
     echo "Failed to extract coordinate of source $srcname from LSM file $LSM"
     exit 1
@@ -289,14 +292,14 @@ end`
       prefervelocity=False \
       oper=$op flux_scale=1 $*
   done
-  # remove MS
-  if [ "$KEEP_POSTAGE_STAMP_MS" == "" -o "$KEEP_POSTAGE_STAMP_MS" == "0" ]; then
-    rm -fr $ms
-  fi
   # due to an lwimager bug, the center frequency is not assigned correctly -- fix it here
   _freq=`python -c "import pyrap.tables;print pyrap.tables.table('$ms/SPECTRAL_WINDOW').getcol('REF_FREQUENCY')[${SPWID_IMG#*=}]"|tail -1`
   echo "Center frequency is $_freq"
   echo $FITSTOOL -E RESTFREQ=$_freq -E ALTRVAL=$_freq ${SSCCM}-cc.fits -f
+  # remove MS
+  if [ "$KEEP_POSTAGE_STAMP_MS" == "" -o "$KEEP_POSTAGE_STAMP_MS" == "0" ]; then
+    rm -fr $ms
+  fi
 }
 
 get_ssccm_list ()
@@ -326,18 +329,21 @@ make_and_extract_ss_ccm ()
   shift 2
   for srcname in $SOURCES; do
     # set $_dE to "dE:" if source has a dE tag -- this will get passed on to its brick, below
-    _dE="`python <<-end
+    python >.dE.$srcname <<-end
 import Tigger
 src=[src for src in Tigger.load("$LSM",verbose=0).sources if src.name.startswith("$srcname")]
 src=sorted(src,lambda a,b:cmp(b.Iapp,a.Iapp))
-if hasattr(src[0],'dE'):
-  print ':dE';
-end`"
+print ':dE:' if hasattr(src[0],'dE') else '::'
+end
+    _dE=`cat .dE.$srcname|tail -1`
+    rm .dE.$srcname
     echo "Extracting SSCCM for source '$srcname' $_dE"
     make_full_ssms $srcname
     extract_ss_ccm $srcname $*  #NB: this also sets up $SSCCM to the proper path
     # insert source -- notw how dE tag gets propagated
-    $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}:brick
+    echo $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}brick
+    
+    $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}brick
   done
 }
 
