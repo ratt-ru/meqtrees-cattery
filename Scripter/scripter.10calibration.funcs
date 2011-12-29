@@ -333,7 +333,7 @@ make_and_extract_ss_ccm ()
 import Tigger
 src=[src for src in Tigger.load("$LSM",verbose=0).sources if src.name.startswith("$srcname")]
 src=sorted(src,lambda a,b:cmp(b.Iapp,a.Iapp))
-print ':dE:' if hasattr(src[0],'dE') else '::'
+print ':dE:' if hasattr(src[0],'dE') else ':'
 end
     _dE=`cat .dE.$srcname|tail -1`
     rm .dE.$srcname
@@ -342,7 +342,6 @@ end
     extract_ss_ccm $srcname $*  #NB: this also sets up $SSCCM to the proper path
     # insert source -- notw how dE tag gets propagated
     echo $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}brick
-    
     $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}brick
   done
 }
