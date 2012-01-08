@@ -187,6 +187,8 @@ iterate_steps ()
       if [ "$MSNAME" == "" ]; then
         MSNAME="$FULLMS"
       fi
+      # remove trailing slash from MS name
+      MSNAME=${MSNAME%/}
       # create DESTDIR if needed
       if [ "$DESTDIR" != "" -a ! -d "$DESTDIR" ]; then
         mkdir $DESTDIR
