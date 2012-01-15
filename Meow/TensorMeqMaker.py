@@ -38,9 +38,9 @@ class TensorMeqMaker (MeqMaker):
   def __init__ (self,**kw):
     kw['use_decomposition'] = False;
     MeqMaker.__init__(self,**kw);
-    
+
   def smearing_options (self):
-    return [ 
+    return [
       TDLOption('fix_time_smearing',"Fix time interval for smearing calculation",[None],more=float,namespace=self),
       TDLOption('fix_freq_smearing',"Fix bandwidth for smearing calculation",[None],more=float,namespace=self),
       TDLOption('smearing_count',"Apply to N brightest non-point/gaussian sources only",["all",10,100],more=int,namespace=self,
@@ -90,7 +90,9 @@ class TensorMeqMaker (MeqMaker):
             # call module to get the tensor
             inspectors = [];
             Tbase = module.compute_jones_tensor(ns["%sT%d"%(jt.label,i)],
-                            srclist,real_stations,lmn=lmnT,pointing_offsets=dlm,inspectors=inspectors);
+                            srclist,real_stations,lmn=lmnT,label=jt.label,
+                            meqmaker=self,
+                            pointing_offsets=dlm,inspectors=inspectors);
             if Tbase is None:
               # if no tensor available, fall back to Jones nodes
               basenodes = None;

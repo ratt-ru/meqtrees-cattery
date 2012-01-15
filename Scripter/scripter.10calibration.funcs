@@ -143,6 +143,11 @@ redo_plot_ms ()
   plot-ms ${2:-CORRECTED_DATA:I} -o $DESTDIR/${OUTFILE}${suffix}.png
 }
 
+make_image ()
+{
+  imager name_dirty=$DESTDIR/${OUTFILE}_${step}
+}
+
 genvis_generic ()
 {
   label=$1
@@ -274,7 +279,7 @@ print "j2000,%dh%dm%fs,%s%dd%dm%fs"%tuple(list(src.pos.ra_hms())+list(src.pos.de
 end
   # go through intermediate file and take its tail, because the front may have bullshit messages
   coords=`tail -1 .coords.$srcname`
-  rm .coords.$srcname 
+  rm .coords.$srcname
   if [ "${coords#j2000}" == "$coords"  ]; then
     echo "Failed to extract coordinate of source $srcname from LSM file $LSM"
     exit 1
@@ -282,6 +287,9 @@ end
   echo ":::Extracting clean component model for source $srcname at $coords"
   # make filename template
   assign_templates SSCCM_Template
+  if [ ! -d `dirname $SSCCM` ]; then
+    mkdir `dirname $SSCCM`
+  fi
   # make images
   for op in ${oper//+/ }; do
     $RUNIMAGER ms=$ms phasecenter=$coords size=$SOURCE_CC_SIZE \
