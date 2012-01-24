@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # standard preamble
 from Timba.TDL import *
 from Timba import pynode
@@ -78,15 +79,12 @@ class KolmogorovNode (pynode.PyNode):
 #        print seg
 #        print '************************************************************'
         # the startt and endt are the timeslots when tiling is set > 1
-        # for actual LOFAR MS these are an array and need to be indexed
-# HARDCODE workaround
-# UNCOMMENT for simulation from scratch
-#        if (seg.start_index == 0):
-#            startt=seg.start_index;
-#            endt=seg.end_index;
-# UNCOMMENT THIS for simulation on actual LOFAR observed MS
-        startt=seg.start_index[0];
-        endt=seg.end_index[-1];
+        if type(seg.start_index) == type(1):
+          startt  = seg.start_index;
+          endt    = seg.end_index;
+        else:
+          startt  = seg.start_index[0];
+          endt    = seg.end_index[-1];
 #        print '************************************************************'
 #        print startt, endt
 #        print '************************************************************'
