@@ -67,6 +67,27 @@ class FixedOffset (ErrorGenerator):
   def make_node (self,node,**kw):
     node << (self.factor*self.offset + self.value0);
 
+class ListOfValues (ErrorGenerator):
+  def __init__ (self,name,nominal_value=0,typical_error=0,**kw):
+    ErrorGenerator.__init__(self,name,nominal_value,typical_error=[0],**kw);
+    self.opts.append(TDLOption('values_str',self.make_label("%s values"),
+                     map(str,typical_error) if isinstance(typical_error,(list,tuple)) else [str(typical_error)],
+                     more=str,
+                     doc="Enter list of values, separated by spaces. Last value will be reused.",
+                     namespace=self));
+    self.ngen = 0;
+    self.values = None;
+    
+  
+  def make_node (self,node,**kw):
+    if self.values is None:
+      self.values = map(float,self.values_str.split(" "));
+    if self.ngen >= len(self.values):
+      node << self.values[-1]*self.factor;
+    else:
+      node << self.values[self.ngen]*self.factor;
+    self.ngen+=1;
+
 class RandomError (ErrorGenerator):
   def __init__ (self,name,nominal_value=0,typical_error=0,**kw):
     ErrorGenerator.__init__(self,name,nominal_value,typical_error,**kw);
@@ -114,7 +135,8 @@ class SineError (RandomError):
 # This list shows the available generator classes
 generator_classes = [
   (NoError,       'no error'),
-  (FixedOffset,    'fixed offset'),
+  (FixedOffset,   'static offset'),
+  (ListOfValues,  'list of values'),
   (RandomError,   'random error, constant in time'),
   (SineError,     'periodically varying error')
 ];

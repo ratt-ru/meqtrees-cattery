@@ -1,7 +1,7 @@
 #!/bin/bash
 # -*- coding: utf-8 -*-
 
-TMPDIR=.scripter.$$.tmp
+#TMPDIR=.scripter.$$.tmp
 GLOBAL_LOGFILE=.scripter.log
 LOGFILE=.scripter.$$.log
 
@@ -15,17 +15,17 @@ done
 
 
 # save scripts and funcs in subdirectory, lest they be modified while we run
-if [ ! -d $TMPDIR ]; then
-  mkdir $TMPDIR
-fi
-cp scripter.*.{conf,funcs} $TMPDIR
+#if [ ! -d $TMPDIR ]; then
+#  mkdir $TMPDIR
+#fi
+#cp scripter.*.{conf,funcs} $TMPDIR
 
 # init defaults
 ddid=0
 field=0
 
 # load configs
-for conf in $TMPDIR/scripter.*.conf; do
+for conf in scripter.*.conf; do
   echo "::: Loading configuration $conf"
   source $conf
 done
@@ -125,7 +125,7 @@ assign_templates ()
 
 
 # load functions
-for func in $TMPDIR/scripter.*.funcs; do
+for func in scripter.*.funcs; do
   echo "::: Loading function set $func"
   source $func
 done

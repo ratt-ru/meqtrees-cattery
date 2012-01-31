@@ -472,6 +472,7 @@ class MSSelector (object):
                 forbid_output=["DATA"],
                 std_ifr_subsets=None,
                 tile_sizes=[1,5,10,20,30,60],
+                max_tiles=None,
                 ddid=[0],
                 field=[0],
                 channels=True,
@@ -485,7 +486,8 @@ class MSSelector (object):
     has_model:  is an input model column selector initially enabled.
     has_input:  is an output column selector initially enabled.
     forbid_output: a list of forbidden output columns. "DATA" by default"
-    tile_sizes: list of suggested tile sizes. If false, no tile size selector is provided.
+    tile_sizes: list of suggested tile sizes. If False, no tile size selector is provided.
+    max_tiles:  list of suggested max_tile settings. If None, mnno max tiles selector is provided.
     std_ifr_subsets: if provided, this should be a list of standard IFR subset specifications.
                 This will override any default determined by STD_IFR_SUBSETS[obs], where 'obs'
                 is taken from the MS.
@@ -568,6 +570,11 @@ class MSSelector (object):
                                   tile_sizes,more=int,namespace=self));
     else:
       self.tile_size = 1;
+    if max_tiles:
+      self._opts.append(TDLOption('max_tiles',"Number of tiles to process",
+                                  ["all"]+max_tiles,more=int,namespace=self));
+    else:
+      self.max_tiles = None;
     if hanning:
       self._opts.append(TDLOption('ms_apply_hanning',"Hanning tapering",
           {self.HANNING_NONE:"None",
@@ -931,6 +938,8 @@ class MSSelector (object):
     # form top-level record
     iorec = record(ms=rec);
     iorec.python_init = 'Meow.ReadVisHeader';
+    if isinstance(self.max_tiles,int):
+      iorec.max_tiles = self.max_tiles;
     iorec.mt_queue_size = ms_queue_size;
     return iorec;
 
