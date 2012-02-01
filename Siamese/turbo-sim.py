@@ -160,15 +160,9 @@ def _define_forest (ns):
 
   # throw in a bit of noise
   if noise_stddev:
-    noisedef = Meq.GaussNoise(stddev=noise_stddev)
+    noisedef = Meq.GaussNoise(stddev=noise_stddev,dims=[2,2],complex=True)
     for p,q in array.ifrs():
-      noise = ns.noise(p,q);
-      for x in range(4):
-        re = noise(x,'real') << noisedef;
-        im = noise(x,'imag') << noisedef;
-        noise(x) << Meq.ToComplex(re,im);
-      noise << Meq.Matrix22(*[noise(x) for x in range(4)]);
-      ns.noisy_predict(p,q) << output(p,q) + noise;
+      ns.noisy_predict(p,q) << output(p,q) + ( ns.noise(p,q)<<noisedef );
     output = ns.noisy_predict;
 
   # in add or subtract sim mode, make some spigots and add/subtract visibilities
