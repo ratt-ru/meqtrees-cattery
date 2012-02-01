@@ -71,20 +71,22 @@ clip_residuals ()
 
 cal_generic ()
 {
-  label=$1
-  section=$2
-  jobname=$3
-  parmtab=$4
+  local label=$1
+  local section=$2
+  local jobname=$3
+  local parmtab=$4
   shift 4
   time meqtree-pipeliner.py $MT -c $CONFIG \
     \[$section\] \
     $MS_TDL $CHAN_TDL $LSM_TDL $* \
     enable_inspectors=${ENABLE_INSPECTORS:-0} \
+    $TDLOPTS \
     $SCRIPTNAME \
     =$jobname
   clip_residuals $MSNAME $label
   plot-ms CORRECTED_DATA:I -o $DESTDIR/${OUTFILE}_residuals_${step}_${label}.png
-  imager name_dirty=$DESTDIR/${OUTFILE}_${step}_${label}
+  NAMEDIRTY=$DESTDIR/${OUTFILE}_${step}_${label}
+  imager name_dirty=$NAMEDIRTY
   step=$[$step+1];
   true
 }
@@ -136,30 +138,33 @@ cal_de_phase ()
 redo_plot_ms ()
 {
   if [ "$1" != "" ]; then
-    suffix="_$1"
+    local suffix="_$1"
   else
-    suffix=""
+    local suffix=""
   fi
   plot-ms ${2:-CORRECTED_DATA:I} -o $DESTDIR/${OUTFILE}${suffix}.png
 }
 
 make_image ()
 {
-  imager name_dirty=$DESTDIR/${OUTFILE}_${step}
+  NAMEDIRTY=$DESTDIR/${OUTFILE}_${step}
+  imager name_dirty=$NAMEDIRTY
 }
 
 genvis_generic ()
 {
-  label=$1
-  section=$2
+  local label=$1
+  local section=$2
   shift 2
   time meqtree-pipeliner.py $MT -c $CONFIG \
     \[$section\] \
     $MS_TDL $CHAN_TDL $LSM_TDL $* \
     enable_inspectors=${ENABLE_INSPECTORS:-0} \
+    $TDLOPTS \
     $SCRIPTNAME \
     =generate_visibilities
-  imager name_dirty=$DESTDIR/${OUTFILE}_${label}_step$step
+  NAMEDIRTY=$DESTDIR/${OUTFILE}_${step}_${label}
+  imager name_dirty=$NAMEDIRTY
   step=$[$step+1];
   true
 }
@@ -192,22 +197,22 @@ merge_ms()
 
 make_image()
 {
-  ms=`basename $MSNAME .MS`
+  local ms=`basename $MSNAME .MS`
   if [ "$MSNAME" == "$FULLMS" ]; then
-    sz="size=$FULL_SIZE"
+    local sz="size=$FULL_SIZE"
   else
-    unset sz
+    local sz=""
   fi
   $RUNIMAGER ms=$MSNAME name_dirty=$DESTDIR/${ms%.ms}_dirty $sz $*
 }
 
 make_clean()
 {
-  ms=`basename $MSNAME .MS`
+  local ms=`basename $MSNAME .MS`
   if [ "$MSNAME" == "$FULLMS" ]; then
-    sz="size=$FULL_SIZE"
+    local sz="size=$FULL_SIZE"
   else
-    unset sz
+    local sz=""
   fi
   $RUNIMAGER ms=$MSNAME oper=csclean \
     name_restored=$DESTDIR/${ms%.ms}_restored \
@@ -218,17 +223,17 @@ make_clean()
 
 make_psf_image ()
 {
-  ms=`basename $MSNAME .MS`
-  _psf_image="${ms%.ms}_psf"
-  name=${1-$_psf_image}
+  local ms=`basename $MSNAME .MS`
+  local _psf_image="${ms%.ms}_psf"
+  local name=${1:-$DESTDIR/$_psf_image}
   shift 1
   $RUNIMAGER ms=$MSNAME data=psf name_dirty=${name%.fits} size=$PSF_SIZE flux_scale=1 $*
 }
 
 make_restored_image ()
 {
-  ms=`basename $MSNAME .MS`
-  psf_image="${ms%.ms}_psf.fits"
+  local ms=`basename $MSNAME .MS`
+  local psf_image="${ms%.ms}_psf.fits"
   if [ ! -f $psf_image ]; then
     make_psf_image $psf_image
   fi
@@ -256,9 +261,9 @@ make_full_ssms ()
 
 extract_ss_ccm ()
 {
-  srcname="$1"
-  oper="${2-image+clark}"
-  ms=${FULLMS%.MS}_src$1.MS
+  local srcname="$1"
+  local oper="${2-image+clark}"
+  local ms=${FULLMS%.MS}_src$1.MS
   shift 2
   if [ "$srcname" == "" ]; then
     echo "extract_ss_ccm: must be invoked with a source name (and optional clean operation)";
@@ -278,7 +283,7 @@ src=src[0]
 print "j2000,%dh%dm%fs,%s%dd%dm%fs"%tuple(list(src.pos.ra_hms())+list(src.pos.dec_sdms()))
 end
   # go through intermediate file and take its tail, because the front may have bullshit messages
-  coords=`tail -1 .coords.$srcname`
+  local coords=`tail -1 .coords.$srcname`
   rm .coords.$srcname
   if [ "${coords#j2000}" == "$coords"  ]; then
     echo "Failed to extract coordinate of source $srcname from LSM file $LSM"
@@ -291,6 +296,7 @@ end
     mkdir `dirname $SSCCM`
   fi
   # make images
+  local op
   for op in ${oper//+/ }; do
     $RUNIMAGER ms=$ms phasecenter=$coords size=$SOURCE_CC_SIZE \
       name_dirty=${SSCCM}-dirty \
@@ -301,7 +307,7 @@ end
       oper=$op flux_scale=1 $*
   done
   # due to an lwimager bug, the center frequency is not assigned correctly -- fix it here
-  _freq=`python -c "import pyrap.tables;print pyrap.tables.table('$ms/SPECTRAL_WINDOW').getcol('REF_FREQUENCY')[${SPWID_IMG#*=}]"|tail -1`
+  local _freq=`python -c "import pyrap.tables;print pyrap.tables.table('$ms/SPECTRAL_WINDOW').getcol('REF_FREQUENCY')[${SPWID_IMG#*=}]"|tail -1`
   echo "Center frequency is $_freq"
   echo $FITSTOOL -E RESTFREQ=$_freq -E ALTRVAL=$_freq ${SSCCM}-cc.fits -f
   # remove MS
@@ -313,14 +319,14 @@ end
 get_ssccm_list ()
 {
   if [ "$1" == "" -o "$1" == "-" ]; then
-    _out=`python -c "import Tigger;mod=Tigger.load('$LSM');print ','.join(sorted(set([(getattr(src,'cluster',None) or src.name) for src in mod.sources if getattr(src,'postage_stamp',False)])))"|tail -1`
+    local _out=`python -c "import Tigger;mod=Tigger.load('$LSM');print ','.join(sorted(set([(getattr(src,'cluster',None) or src.name) for src in mod.sources if getattr(src,'postage_stamp',False)])))"|tail -1`
 #    if [ "$SSCCM_LIST" != "" ]; then
 #      _out=$SSCCM_LIST
 #    else
 #      _out=${SSCCM_PER_SPW[$ddid]}
 #    fi
   else
-    _out=$1
+    local _out=$1
   fi
   echo ${_out//,/ }
   # python -c "import Tigger;mod=Tigger.load('A773comp-spw2.lsm.html');print set([src.name[0] for src in mod.sources if getattr(src,'dE',False)])"
@@ -328,13 +334,14 @@ get_ssccm_list ()
 
 make_and_extract_ss_ccm ()
 {
-  SOURCES="`get_ssccm_list $1`"
-  LSM1="${2:-$LSM}"
+  local SOURCES="`get_ssccm_list $1`"
+  local LSM1="${2:-$LSM}"
   if [ "$LSM1" != "$LSM" ]; then
     cp $LSM $LSM1
     LSM="$LSM1"
   fi
   shift 2
+  local srcname
   for srcname in $SOURCES; do
     # set $_dE to "dE:" if source has a dE tag -- this will get passed on to its brick, below
     python >.dE.$srcname <<-end
@@ -343,7 +350,7 @@ src=[src for src in Tigger.load("$LSM",verbose=0).sources if src.name.startswith
 src=sorted(src,lambda a,b:cmp(b.Iapp,a.Iapp))
 print ':dE:' if hasattr(src[0],'dE') else ':'
 end
-    _dE=`cat .dE.$srcname|tail -1`
+    local _dE=`cat .dE.$srcname|tail -1`
     rm .dE.$srcname
     echo "Extracting SSCCM for source '$srcname' $_dE"
     make_full_ssms $srcname
