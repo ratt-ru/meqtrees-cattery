@@ -207,3 +207,5 @@ if __name__ == '__main__':
   ns.Resolve();
 
   print len(ns.AllNodes()),'nodes defined';
+
+
