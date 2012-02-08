@@ -38,9 +38,9 @@ class TensorMeqMaker (MeqMaker):
   def __init__ (self,**kw):
     kw['use_decomposition'] = False;
     MeqMaker.__init__(self,**kw);
-
+    
   def smearing_options (self):
-    return [
+    return [ 
       TDLOption('fix_time_smearing',"Fix time interval for smearing calculation",[None],more=float,namespace=self),
       TDLOption('fix_freq_smearing',"Fix bandwidth for smearing calculation",[None],more=float,namespace=self),
       TDLOption('smearing_count',"Apply to N brightest non-point/gaussian sources only",["all",10,100],more=int,namespace=self,
@@ -64,7 +64,8 @@ class TensorMeqMaker (MeqMaker):
     tensor and non-tensor visiblities), since compute_jones() is called only once.
     """;
     # get the selected module
-    basenodes = getattr(jt,'tensor_basenodes',None);
+    attrname = 'tensor_basenodes_%s'%ns.name if ns.name else 'tensor_basenodes';
+    basenodes = getattr(jt,attrname,None);
     if basenodes is None:
       module = self._get_selected_module(jt.label,jt.modules);
       if not module:
@@ -90,9 +91,7 @@ class TensorMeqMaker (MeqMaker):
             # call module to get the tensor
             inspectors = [];
             Tbase = module.compute_jones_tensor(ns["%sT%d"%(jt.label,i)],
-                            srclist,real_stations,lmn=lmnT,label=jt.label,
-                            meqmaker=self,
-                            pointing_offsets=dlm,inspectors=inspectors);
+                            srclist,real_stations,lmn=lmnT,pointing_offsets=dlm,inspectors=inspectors);
             if Tbase is None:
               # if no tensor available, fall back to Jones nodes
               basenodes = None;
@@ -143,7 +142,7 @@ class TensorMeqMaker (MeqMaker):
               if p is not stations[0]:
                 Tbaseconj(p) << Meq.ConjTranspose(Tbase(p),tensor=True);
             basenodes.append((Tbase,Tbaseconj));
-      jt.tensor_basenodes = basenodes;
+      setattr(jt,attrname,basenodes);
     # return basenodes
     return basenodes;
 
@@ -271,4 +270,5 @@ class TensorMeqMaker (MeqMaker):
       for p,q in ifrs:
         ns.predict(p,q) << 0;
       return ns.predict;
+
 
