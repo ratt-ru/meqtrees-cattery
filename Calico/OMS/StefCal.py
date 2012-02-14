@@ -56,7 +56,7 @@ class SubtiledGain (object):
     
     If the common case of a 1,1,... subtiling, all these can be an identity
   """;
-  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota):
+  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1):
     self._solve_ifrs = set(solve_ifrs);
     self._epsilon = epsilon;
     self.datashape = datashape;
@@ -73,11 +73,30 @@ class SubtiledGain (object):
         self.gain_expansion_slice += [slice(None),numpy.newaxis];
       self.subtiled_axes = range(1,len(datashape)*2,2)[-1::-1];
     # init empty parms
-    parms = set();
+    self._parms = parms = set();
     for pp,qq in self._solve_ifrs:
-      parms.update([pp,qq]);
+      self._parms.update([pp,qq]);
     self._unity = numpy.ones(self.gainshape,dtype=complex);
-    self.gain = dict([ (pp,self._unity) for pp in parms ]);
+    # init_value=1: init each parm with the _unity array
+    if init_value == 1:
+      self.gain = dict([ (pp,self._unity) for pp in parms ]);
+    # if init_value is a dict, use it to initialize each array with a different value
+    # presumably this happens when going to the next tile -- we use the previous tile's solution
+    # as a starting point
+    elif isinstance(init_value,dict):
+      self.gain = dict([ (pp,self._unity) for pp in parms ]);
+      for p,value in init_value.iteritems():
+        g = self.gain.get(p);
+        if g is not None:
+          if value.ndim == 1:
+            g[numpy.newaxis,...] = value;
+          else:
+            g[...] = value;
+    # else assume scalar init value, and use it to initialize default array
+    else:
+      default = numpy.empty(self.gainshape,dtype=complex);
+      default[...] = init_value;
+      self.gain = dict([ (pp,default) for pp in parms ]);
     # setup various counts and convergence targets
     self.total_parms = len(parms)*reduce(lambda a,b:a*b,self.gainshape);
     self.convergence_target = int(self.total_parms*conv_quota);
@@ -165,6 +184,14 @@ class SubtiledGain (object):
       g = self._gpgq[eqkey] = self.tile_gain( self.gain.get(eqkey[0],self._unity)*
                                         numpy.conj(self.gain.get(eqkey[1],self._unity)) );
     return g;
+    
+  def gain_keys (self):
+    return self._parms;
+  
+  def get_last_timeslot (self):
+    """Returns dict of p->g, where p is a parm ID, and g is the gain solution for the last timeslot. 
+    This can be used to initialize new gain objects (for init_value)"""
+    return dict([(key,value[-1,...]) for key,value in self.gain.iteritems() ]);
 
   def reset_residuals (self):
     self._residual = {};
@@ -220,6 +247,12 @@ class StefCalNode (pynode.PyNode):
     # subtiling for gains
     mystate('gain_subtiling',[1,1]);
     mystate('diffgain_subtiling',[]);
+    # use stored solution (if available) as starting guess
+    mystate('init_from_table',True);
+    # use previous tile (timeslot) as starting guess -- if table not available
+    mystate('init_from_previous',True);
+    # use this value as starting guess -- if previous two not available
+    mystate('init_value',1);
     # return residuals (else data)
     mystate('residuals',True);
     # return corrected residuals/data (else uncorrected)
@@ -240,14 +273,22 @@ class StefCalNode (pynode.PyNode):
     self._solvable_ifrs.update([ tuple(pq[-1::-1]) for pq in self._solvable_ifrs ]);
     # other init
     _verbosity.set_verbose(self.verbose);
+    # initial value from which to start iterating
+    self._init_value_gain = self.init_value;
+    self._init_value_dg = {};
 
   def get_result (self,request,*children):
     timestamp0 = time.time();
     # get dataset ID from request
     dataset_id,domain_id = meq.split_request_id(request.request_id);
+    # get domain ID from request
+    time0,time1,timestep,numtime,freq0,freq1,freqstep,numfreq = request.cells.domain.domain_id;
+    
     # if new dataset ID, do setup for start of new dataset
     if dataset_id != self._dataset_id:
       self._dataset_id = dataset_id;
+      self._init_value_gain = self.init_value;
+      self._init_value_dg = {};
       dprint(1,"new dataset id",dataset_id);
       # if asked to solve for IFR gains, set up dicts for collecting stats
       if self.solve_ifr_gains:
@@ -363,6 +404,7 @@ class StefCalNode (pynode.PyNode):
           m0 = model0[eqkey] = pad_array(m);
           data[eqkey]  = pad_array(d);
           # also accumulate initial model, as M0+M1+M2
+          # if max_major==0, then we don't solve for diff
           if num_diffgains:
             m0 = model[eqkey] = m0.copy();
             for i in range(num_diffgains):
@@ -377,19 +419,27 @@ class StefCalNode (pynode.PyNode):
       # in principle could also handle [N], but let's not bother for now
       raise TypeError,"data and model must be of rank Nx2x2";
     # init gain parms object
-    gain = SubtiledGain(expanded_datashape,gain_subtiling,piqj_solvable,self.epsilon,self.convergence_quota);
+    gain = SubtiledGain(expanded_datashape,gain_subtiling,piqj_solvable,self.epsilon,self.convergence_quota,
+           init_value=self._init_value_gain);
     dprintf(0,"solving for %d gain parms using %d of %d inteferometers\n",
       len(gain.gain),
       len(self._solvable_ifrs)/2,len(self.ifrs));
     dprint(1,"convergence target",gain.convergence_target,"of",gain.total_parms,"parms");
+    dprint(1,"initial gain value is",self._init_value_gain.values()[0].flat[0] if isinstance(self._init_value_gain,dict) else
+      self._init_value_gain);
 
     # init diffgains
     if num_diffgains:
-      diffgains = [ SubtiledGain(expanded_datashape,dg_subtiling,piqj_solvable,self.epsilon,self.convergence_quota) 
+      diffgains = [ 
+        SubtiledGain(expanded_datashape,dg_subtiling,piqj_solvable,self.epsilon,self.convergence_quota,
+          init_value=self._init_value_dg.get(i,self.init_value) ) 
         for i in range(num_diffgains) ];
       dg0 = diffgains[0];
       dprintf(0,"also solving for %dx%d differential gains\n",num_diffgains,len(dg0.gain));
       dprint(1,"convergence target for each is ",dg0.convergence_target,"of",dg0.total_parms,"parms");
+      for i in range(num_diffgains):
+        initval = self._init_value_dg.get(i,self.init_value);
+        dprint(1,"initial gain value #%d is"%i,initval.items()[0] if isinstance(initval,dict) else initval);
     else:
       diffgains = [];
       model = model0;
@@ -455,7 +505,13 @@ class StefCalNode (pynode.PyNode):
         model[eqkey] = model0[eqkey];
         for i,dg in enumerate(diffgains):
           model[eqkey] += dg.corrupt(dgmodel[i],eqkey,cache=True);
-
+          
+    # remember init value for next tile
+    if self.init_from_previous:
+      self._init_value_gain = gain.get_last_timeslot();
+      for i,dg in enumerate(diffgains):
+        self._init_value_dg[i] = dg.get_last_timeslot();
+      
     # work out result -- residual or corrected visibilities, depending on our state
     nvells = maxres = 0;
     for nvells,eqkey in enumerate(piqj_all):
@@ -468,9 +524,6 @@ class StefCalNode (pynode.PyNode):
         datares.vellsets[nvells].value[...] = out[expanded_dataslice] if expanded_dataslice else out;
         # compute stats
         maxres = max(maxres,abs(r).max());
-
-    # figure out domain ID
-    time0,time1,timestep,numtime,freq0,freq1,freqstep,numfreq = request.cells.domain.domain_id;
 
     # update IFR gain solutions, if asked to
     if self.solve_ifr_gains:
