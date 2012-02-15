@@ -82,13 +82,18 @@ TDLCompileOption("beam_symmetry","Use 90-degree symmetry",{
   The beam pattern filename above should't contain a substitutable $(hv) or $(xy) element then.
   </P>
   """);
+TDLCompileOption("normalization_factor","Normalize beam patterns by",[1],more=float,
+  doc="""<P>Beam patterns will be divided by the specified normalization factor.</P>""");
+TDLCompileOption("rotate_xy","Rotate polarization vectors from theta-phi to xy frame",True,
+  doc="""<P>Set this if the beam amplitudes are specified in the <i>&theta;&phi;</i> frame, and need to be rotated back to the
+  <I>xy</I> frame.</P>""");
 TDLCompileOption("spline_order","Spline order for interpolation",[1,2,3,4,5],default=3);
 TDLCompileOption("hier_interpol","Use hierarchical interpolation (lm, then frequency)",True);
 TDLCompileOption("l_beam_offset","Offset beam pattern in L (deg)",[0.0], more=float,
-doc="""<P>By default,the beam reference position (phi=theta=0) is placed at l=m=0 on the sky, i.e.
+doc="""<P>By default,the beam reference position (<i>&theta;=&phi;=0</i>) is placed at <I>l=m=</I>0 on the sky, i.e.
 at the phase centre. You can use this option to offset the beam pattern.</P>"""),
 TDLCompileOption("m_beam_offset","Offset beam pattern in M (deg)",[0.0], more=float,
-doc="""<P>By default,the beam reference position (phi=theta=0) is placed at l=m=0 on the sky, i.e.
+doc="""<P>By default,the beam reference position (<i>&theta;=&phi;=0</i>) is placed at <I>l=m=</I>0 on the sky, i.e.
 at the phase centre. You can use this option to offset the beam pattern.</P>"""),
 TDLCompileOption("sky_rotation","Include sky rotation",True,doc="""<P>
   If True, then the beam will rotate on the sky with parallactic angle. Use for alt-az mounts.
@@ -165,6 +170,7 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
             dprint(1,"Loading beams for %s%s from"%(xy,xy1),files_per_xy);
             vb = _voltage_beams[vbkey] = EMSSVoltageBeam.EMSSVoltageBeamPS(files_per_xy,y=yarg,
                         spline_order=self.spline_order,hier_interpol=self.hier_interpol,rotate=rotate,
+                        rotate_xy=rotate_xy,proj_theta=False,normalization_factor=normalization_factor,
                         verbose=self.verbose);
           vbmat.append(vb);
       self._vbs.append(vbmat);

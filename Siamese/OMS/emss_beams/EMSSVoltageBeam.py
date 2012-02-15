@@ -7,7 +7,7 @@ from scipy import interpolate
 from InterpolatedVoltageBeam import *
 from InterpolatedVoltageBeam import _verbosity,dprint,dprintf
 
-def _loadPattern (filename,grid=True):
+def _loadPattern (filename,grid=True,rotate_xy=True,proj_theta=False):
     """Load EMSS pattern from the specified file.
     returns tuple of Ex,Ey,phi,theta,freq,gainOffset, where Ex/Ey are give the complex amplitudes in the Stokes xy frame.
     The shapes are either:
@@ -93,9 +93,9 @@ def _loadPattern (filename,grid=True):
       # Convert field strengths from antenna (theta, phi) coords to Stokes (x, y) coords
       phi *= DEG;
       theta *= DEG;
-      cos_theta = numpy.cos(theta)[numpy.newaxis,:];
-      cos_phi   = numpy.cos(phi)[:,numpy.newaxis];
-      sin_phi   = numpy.sin(phi)[:,numpy.newaxis];
+      cos_theta = numpy.cos(theta)[numpy.newaxis,:] if proj_theta else 1;
+      cos_phi   = numpy.cos(phi)[:,numpy.newaxis] if rotate_xy else 1;
+      sin_phi   = numpy.sin(phi)[:,numpy.newaxis] if rotate_xy else 0;
       Ex =  E_theta * cos_theta * cos_phi - E_phi * sin_phi;
       Ey = -E_theta * cos_theta * sin_phi - E_phi * cos_phi;
 
@@ -133,13 +133,13 @@ def _loadPattern (filename,grid=True):
       
     return Ex,Ey,phi,theta,freq,gainOffset;
 
-def loadPatternSet (filenames,y=False):
+def loadPatternSet (filenames,y=False,rotate_xy=True,proj_theta=False):
   """Loads a set of per-frequency patterns. Returns a tuple of E,phi,theta,freq.
   E is an (nphi,ntheta,nfreq) cube of complex gains (Ex if y=False, else Ey), while
   phi, theta and freq are vectors of coordinates.""";
   freqs = [];
   for ifreq,filename in enumerate(filenames):
-    Ex,Ey,phi,theta,freq,gainOffset = _loadPattern(filename,grid=True);
+    Ex,Ey,phi,theta,freq,gainOffset = _loadPattern(filename,grid=True,rotate_xy=rotate_xy,proj_theta=proj_theta);
     # change order of axis, since FITS has first axis last
     beam = Ey if y else Ex;
     freqs.append(freq);
@@ -164,7 +164,8 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
   """This class implements a complex voltage beam that is read from an EMSS pattern file.
   This uses map_coordinates to interpolate values in polar coordinates (i.e. l/m inputs
   are converted to phi/theta, and interpolated in that grid)."""
-  def __init__ (self,filenames,y=True,hier_interpol=True,spline_order=3,theta_step=1,phi_step=1,rotate=0,verbose=0):
+  def __init__ (self,filenames,y=True,hier_interpol=True,spline_order=3,theta_step=1,phi_step=1,rotate=0,
+      rotate_xy=True,proj_theta=False,normalization_factor=1,verbose=0):
     InterpolatedVoltageBeam.__init__(self,spline_order=spline_order,hier_interpol=hier_interpol);
     self._theta_step = theta_step;
     self._phi_step = phi_step;
@@ -172,15 +173,17 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
     _verbosity.set_verbose(verbose);
     if verbose:
       _verbosity.enable_timestamps(True);
-    self.read(filenames,y=y);
+    self.read(filenames,y=y,rotate_xy=rotate_xy,proj_theta=proj_theta,normalization_factor=normalization_factor);
     
-  def read (self,filenames,y=True):
+  def read (self,filenames,y=True,rotate_xy=True,proj_theta=False,normalization_factor=1):
     """Reads beam patterns from EMSS files. If y=True, uses the second (Ey) column""";
-    beamcube,phi0,theta0,freqs = loadPatternSet(filenames,y=y);
+    beamcube,phi0,theta0,freqs = loadPatternSet(filenames,y=y,rotate_xy=rotate_xy,proj_theta=proj_theta);
     if self._theta_step != 1 or self._phi_step != 1:
       beamcube = beamcube[::self._phi_step,::self._theta_step,:];
       phi0 = phi0[::self._phi_step];
       theta0 = theta0[::self._theta_step];
+    if normalization_factor != 1:
+      beamcube /= normalization_factor;
     self.setFreqGrid(freqs);
     if len(freqs) > 1:
       freqmap = interpolate.interp1d(freqs,range(len(freqs)),'linear');
