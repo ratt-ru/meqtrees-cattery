@@ -3,7 +3,6 @@
 from Timba import pynode
 from Timba.Meq import meq
 import numpy
-import numpy.ma
 import math
 import Kittens.utils
 import time
@@ -40,185 +39,7 @@ def eqkey_direct_conjugate (pp,qq):
   else:
     return (qq,pp),numpy.conj,identity_function;
 
-class SubtiledGain (object):
-  """Support class to handle a set of subtiled gains.
-    For a data shape of N1,N2,..., and a subtiling of M1,M2,..., we have the following shapes in play:
-      gainparm_shape = N1/M1,N2/M2,... Let's call this K1,K2,...
-    Then, data is reshaped into
-      subtiled_shape =  K1,M1,K2,M2,...
-    to which we can apply parms with an index of [:,numpy.newaxis,:,numpy.neqaxis] etc.,
-    and then collapse every second axis.
-    Thus we define the following methods:
-      tile_data(x):        reshapes datashape into subtiled_shape 
-      untile_data(x):      reshapes subtiled_shape into datashape
-      tile_gain(x):        reshapes gain into subtiled shape (by inserting a numpy.newaxis for every second axis)
-      reduce_subtiles(x):  reduces subtiled_shape to gain_shape by summing every second axis
-    
-    If the common case of a 1,1,... subtiling, all these can be an identity
-  """;
-  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1):
-    self._solve_ifrs = set(solve_ifrs);
-    self._epsilon = epsilon;
-    self.datashape = datashape;
-    self.subtiling = subtiling;
-    self.gainshape = tuple([ nd/nt for nd,nt in zip(datashape,subtiling) ]);
-    # if subtiling is 1,1,... then override methods with identity relations
-    if max(subtiling) == 1:
-      self.tile_data = self.untile_data = self.tile_gain = self.reduce_subtiles = identity_function;
-    else:
-      self.subtiled_shape = [];
-      self.gain_expansion_slice = [];
-      for ng,nt in zip(self.gainshape,subtiling):
-        self.subtiled_shape += [ng,nt];
-        self.gain_expansion_slice += [slice(None),numpy.newaxis];
-      self.subtiled_axes = range(1,len(datashape)*2,2)[-1::-1];
-    # init empty parms
-    self._parms = parms = set();
-    for pp,qq in self._solve_ifrs:
-      self._parms.update([pp,qq]);
-    self._unity = numpy.ones(self.gainshape,dtype=complex);
-    # init_value=1: init each parm with the _unity array
-    if init_value == 1:
-      self.gain = dict([ (pp,self._unity) for pp in parms ]);
-    # if init_value is a dict, use it to initialize each array with a different value
-    # presumably this happens when going to the next tile -- we use the previous tile's solution
-    # as a starting point
-    elif isinstance(init_value,dict):
-      self.gain = dict([ (pp,self._unity) for pp in parms ]);
-      for p,value in init_value.iteritems():
-        g = self.gain.get(p);
-        if g is not None:
-          if value.ndim == 1:
-            g[numpy.newaxis,...] = value;
-          else:
-            g[...] = value;
-    # else assume scalar init value, and use it to initialize default array
-    else:
-      default = numpy.empty(self.gainshape,dtype=complex);
-      default[...] = init_value;
-      self.gain = dict([ (pp,default) for pp in parms ]);
-    # setup various counts and convergence targets
-    self.total_parms = len(parms)*reduce(lambda a,b:a*b,self.gainshape);
-    self.convergence_target = int(self.total_parms*conv_quota);
-    self._residual = {};
-    self._corrupt = {};
-    self._gpgq = {};
-    
-  # define methods
-  def tile_data (self,x):
-    return x.reshape(self.subtiled_shape);
-  def untile_data (self,x):
-    return x.reshape(self.datashape);
-  def tile_gain (self,x):
-    return x[self.gain_expansion_slice];
-  def reduce_subtiles (self,x):
-    for ax in self.subtiled_axes:
-      x = x.sum(ax);
-    return x;
-    
-  def iterate (self,data,model,verbose=0):
-    self._residual = {};
-    self._corrupt = {};
-    self._gpgq = {};
-    gain1 = {};  # dict of gain parm updates from this step
-    #
-#    if verbose:
-#      print [ (data[key].min(),model[key].min()) for key in self._solve_ifrs ];
-    # converge from one side (solve for Gp)
-    for pp in self.gain.keys():
-      # build up sums
-      sum_reim = numpy.zeros(self.gainshape,dtype=complex); 
-      sum_sq = 0;
-      for qq in self.gain.keys():
-        eqkey,direct,conjugate = eqkey_direct_conjugate(pp,qq);
-        if eqkey in self._solve_ifrs and eqkey in data:
-          mh = self.tile_data(conjugate(model[eqkey]))*self.tile_gain(self.gain[qq]);
-          dmh = self.tile_data(direct(data[eqkey]))*mh;
-          sum_reim += self.reduce_subtiles(dmh);
-          sum_sq += self.reduce_subtiles(abs(mh)**2);
-      # generate update
-      if verbose:
-        print pp,sum_sq.min(),sum_sq.max();
-      mask = sum_sq==0;
-      gain1[pp] = (sum_reim/sum_sq + self.gain[pp])/2;
-      gain1[pp][mask] = self.gain[pp][mask];
-    if verbose:
-      print "done left iter";
-    gain2 = {};  # dict of gain parm updates from this step
-    # then solve for Gq
-    for qq in self.gain.keys():
-      # build up sums
-      sum_reim = numpy.zeros(self.gainshape,dtype=complex); 
-      sum_sq = 0;
-      for pp in self.gain.keys():
-        eqkey,direct,conjugate = eqkey_direct_conjugate(pp,qq);
-        if eqkey in self._solve_ifrs and eqkey in data:
-          mh = self.tile_data(direct(model[eqkey]))*self.tile_gain(gain1[pp]);
-          dmh = self.tile_data(conjugate(data[eqkey]))*mh;
-          sum_reim += self.reduce_subtiles(dmh);
-          sum_sq += self.reduce_subtiles(abs(mh)**2);
-      # generate update
-      if verbose:
-        print qq,sum_sq.min(),sum_sq.max();
-      mask = sum_sq==0;
-      gain2[qq] = (sum_reim/sum_sq + gain1[qq])/2;
-      gain2[qq][mask] = gain1[qq][mask];
-    # check for convergence
-    if verbose:
-      print "done right iter";
-    self.gaindiff = {};
-    self.num_converged = 0;
-    for pp in self.gain.iterkeys():
-      delta = abs(gain2[pp] - self.gain[pp]);
-      self.num_converged += (delta < self._epsilon).sum();
-      self.gaindiff[pp] = abs(delta).max();
-    self.maxdiff = max(self.gaindiff.itervalues());
-    self.gain = gain2;
-    return self.num_converged >= self.convergence_target;
-    
-  def gpgq (self,eqkey):
-    """Returns Gp*conj(Gq), tiled into subtile shape. 
-    Computes it on-demand, if not already cached""";
-    g = self._gpgq.get(eqkey);
-    if g is None:
-      g = self._gpgq[eqkey] = self.tile_gain( self.gain.get(eqkey[0],self._unity)*
-                                        numpy.conj(self.gain.get(eqkey[1],self._unity)) );
-    return g;
-    
-  def gain_keys (self):
-    return self._parms;
-  
-  def get_last_timeslot (self):
-    """Returns dict of p->g, where p is a parm ID, and g is the gain solution for the last timeslot. 
-    This can be used to initialize new gain objects (for init_value)"""
-    return dict([(key,value[-1,...]) for key,value in self.gain.iteritems() ]);
-
-  def reset_residuals (self):
-    self._residual = {};
-
-  def residual (self,d,m,eqkey):
-    """Returns residual R = D - Gp*M*conj(Gq), tiled into subtile shape. 
-    Computes it on-demand, if not already cached""";
-    r = self._residual.get(eqkey);
-    if r is None:
-      r = self._residual[eqkey] = self.untile_data(self.tile_data(d[eqkey]) - self.tile_data(m[eqkey])*self.gpgq(eqkey));
-    return r;
-    
-  def correct (self,d,eqkey,index=True):
-    """Returns corrected data Gp^{-1}*D*Gq^{H-1}."""
-    if index:
-      d = d[eqkey];
-    return self.untile_data(self.tile_data(d)/self.gpgq(eqkey));
-    
-  def corrupt (self,m,eqkey,cache=False):
-    """Returns corrupted model Gp*M*Gq."""
-    mc = self._corrupt.get(eqkey); 
-    if mc is None or not cache:
-      mc = self.untile_data(self.tile_data(m[eqkey])*self.gpgq(eqkey));
-      if cache:
-        self._corrupt[eqkey] = mc;
-    return mc;
-
+from SubtiledDiagGain import SubtiledDiagGain
 
 class StefCalNode (pynode.PyNode):
   def __init__ (self,*args):
@@ -419,7 +240,7 @@ class StefCalNode (pynode.PyNode):
       # in principle could also handle [N], but let's not bother for now
       raise TypeError,"data and model must be of rank Nx2x2";
     # init gain parms object
-    gain = SubtiledGain(expanded_datashape,gain_subtiling,piqj_solvable,self.epsilon,self.convergence_quota,
+    gain = SubtiledDiagGain(expanded_datashape,gain_subtiling,piqj_solvable,self.epsilon,self.convergence_quota,
            init_value=self._init_value_gain);
     dprintf(0,"solving for %d gain parms using %d of %d inteferometers\n",
       len(gain.gain),
@@ -431,7 +252,7 @@ class StefCalNode (pynode.PyNode):
     # init diffgains
     if num_diffgains:
       diffgains = [ 
-        SubtiledGain(expanded_datashape,dg_subtiling,piqj_solvable,self.epsilon,self.convergence_quota,
+        SubtiledDiagGain(expanded_datashape,dg_subtiling,piqj_solvable,self.epsilon,self.convergence_quota,
           init_value=self._init_value_dg.get(i,self.init_value) ) 
         for i in range(num_diffgains) ];
       dg0 = diffgains[0];
