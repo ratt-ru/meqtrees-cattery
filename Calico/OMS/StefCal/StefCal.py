@@ -179,7 +179,7 @@ class StefCalNode (pynode.PyNode):
               # if not specified, use whole tile as solution interval
               if self.gain_subtiling:
                 # replace nulls in subtiling with solution interval
-                lcm_subtiling = gain_subtiling = [ gs or ds for gs,ds in zip(self.gain_subtiling,datashape) ];
+                lcm_subtiling = gain_subtiling = [ min(gs,ds) or ds for gs,ds in zip(self.gain_subtiling,datashape) ];
               else:
                 lcm_subtiling = gain_subtiling = datashape;
               if len(gain_subtiling) != len(datashape):
@@ -189,7 +189,7 @@ class StefCalNode (pynode.PyNode):
               # if diffgains are also present, then work out the least-common-multiple subtiling
               if num_diffgains:
                 dg_subtiling = self.diffgain_subtiling or datashape;
-                dg_subtiling = [ gs or ds for gs,ds in zip(dg_subtiling,datashape) ];
+                dg_subtiling = [ min(gs,ds) or ds for gs,ds in zip(dg_subtiling,datashape) ];
                 if len(dg_subtiling) != len(datashape):
                   raise ValueError,"diffgain_subtiling vector must have the same length as the data shape";
                 if min(dg_subtiling) < 1:
@@ -318,12 +318,16 @@ class StefCalNode (pynode.PyNode):
             for n,(d,m,c) in enumerate(zip(data1[pq],mm,corr)):
               d += c;
               mm[n] = -c if is_null(m) else m-c;
-          print data1['0','A'][0][0,0],model0['0','A'][0][0,0],model['0','A'][0][0,0],dgmodel[i]['0','A'][0][0,0];
+#          print data1['0','A'][0][0,0],model0['0','A'][0][0,0],model['0','A'][0][0,0],dgmodel[i]['0','A'][0][0,0];
+#          print "d1",data1['0','A'][0],"m1",dgmodel[i]['0','A'][0];
           # iterate this diffgain solution
           for niter in range(self.diffgain_max_iter):
             if dg.iterate(data1,dgmodel[i],first_iter=not niter):
               break;
           dprint(2,"diffgain #%d converged after %d iterations"%(i,niter));
+#          print dg.gain.keys();
+#          print "dE(0)",dg.gain['0',0];
+#          print "dgcorrupt",dg.corrupt(dgmodel[i],('0','A'),cache=True)[0];
           # add back to model, and subtract from data1 if needed
           for pq in self._solvable_ifrs:
             corr = dg.corrupt(dgmodel[i],pq,cache=True);
