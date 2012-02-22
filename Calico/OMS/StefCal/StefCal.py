@@ -31,6 +31,23 @@ def LCM (a,b,*args):
   else:
     return reduce(LCM,[a,b]+list(args));
 
+def print_variance (variance):
+  """Given a dictionary of per-baseline variances, computes per-station and mean overall variance""";
+  meanvar = [];
+  meanvar_sta = {};
+  for pq in variance.keys():
+    dprint(1,"variance on %s-%s is"%pq,[ v if numpy.isscalar(v) else v.flat[0] for v in variance[pq] ]);
+    v1 = [ v if numpy.isscalar(v) else v.flat[0] for v in variance[pq] if v != 0 ];
+    meanvar += v1;
+    meanvar_sta[pq[0]] = meanvar_sta.get(pq[0],[]) + v1;
+    meanvar_sta[pq[1]] = meanvar_sta.get(pq[1],[]) + v1;
+  # compute mean
+  meanvar = math.sqrt((numpy.array(meanvar)**2).mean());
+  meanvar_sta = dict([ (p,math.sqrt((numpy.array(x)**2).mean())) for p,x in meanvar_sta.iteritems() ]);
+  for p,x in meanvar_sta.iteritems():
+    dprint(1,"variance on %s is %f"%(p,x));
+  dprint(1,"overall mean variance is",meanvar);
+
 
 class StefCalNode (pynode.PyNode):
   def __init__ (self,*args):
@@ -54,8 +71,9 @@ class StefCalNode (pynode.PyNode):
     mystate('full_polarization',False);
     # convergence criteria
     mystate('epsilon',1e-5);            # updates <epsilon are considered converged
-    mystate('max_iter',50);
-    mystate('diffgain_max_iter',5);
+    mystate('max_iter',50);             # max gain iters in major cycle 1
+    mystate('max_iter1',10);            # max iter in major cycle 2 and up
+    mystate('diffgain_max_iter',5);     # max diffgain iters
     mystate('max_major',10);
     mystate('convergence_quota',0.9);   # what percentage of parms should converge
     # subtiling for gains
@@ -69,6 +87,8 @@ class StefCalNode (pynode.PyNode):
     mystate('init_value',1);
     # regularization factor applied to gain solutions for correction
     mystate('regularization_factor',0);
+    # regularize intermediate corrections (when solving for dEs)?
+    mystate('regularize_intermediate',False);
     # return residuals (else data)
     mystate('residuals',True);
     # return corrected residuals/data (else uncorrected)
@@ -81,6 +101,8 @@ class StefCalNode (pynode.PyNode):
     mystate('ifr_gain_table','ifrgains.cp');
     # verbosity level
     mystate('verbose',0);
+    # print the per-baseline variance of incoming data
+    mystate('print_variance',False);
     # lis of all ifrs, as p,q pairs
     self._ifrs = [ tuple(x.split(':')) for x in self.ifrs ];
     # parse set of solvable ifrs
@@ -137,6 +159,8 @@ class StefCalNode (pynode.PyNode):
                         # for each diff gain, mapping from (p,q) to M1,M2,... model time-freq planes (4 each)
     model = {};         # this is the full model, M0+M1+M2
 
+    # per-baseline noise
+    variance = {};
     #
     datares = children[0]
     modelres = children[1];
@@ -219,6 +243,11 @@ class StefCalNode (pynode.PyNode):
             # add to data/model matrices, applying the padding function defined above
             m0 = model0.setdefault(pq,[0,0,0,0])[num] = pad_array(m);
             data.setdefault(pq,[0,0,0,0])[num]  = pad_array(d);
+            # add the noise variance
+            if self.print_variance:
+              v = d[1:,...]-d[:-1,...];
+              v = v[numpy.isfinite(v)];
+              variance.setdefault(pq,[0,0,0,0])[num] = (v.real.std(0)+v.imag.std(0))/2;
             # also accumulate initial model, as M0+M1+M2
             # if max_major==0, then we don't solve for diff
             if num_diffgains:
@@ -247,13 +276,15 @@ class StefCalNode (pynode.PyNode):
     # init gain parms object
     gain = GainClass(expanded_datashape,gain_subtiling,self._solvable_ifrs,
               self.epsilon,self.convergence_quota,
-              regularization_factor=self.regularization_factor,
               init_value=self._init_value_gain);
     dprintf(0,"solving for %d gain parms using %d of %d inteferometers\n",len(gain.gain),
       len(self._solvable_ifrs)/2,len(self.ifrs));
     dprint(1,"convergence target",gain.convergence_target,"of",gain.total_parms,"parms");
     dprint(1,"initial gain value is",self._init_value_gain.values()[0].flat[0] if isinstance(self._init_value_gain,dict) else
       self._init_value_gain);
+
+    if self.print_variance:
+      print_variance(variance);
 
     # init diffgains
     if num_diffgains:
@@ -288,9 +319,10 @@ class StefCalNode (pynode.PyNode):
     # start major loop -- alternates over gains and diffgains
     for nmajor in range(self.max_major+1):
       # first iterate normal gains to convergence
-      for niter in range(self.max_iter):
+      for niter in range(self.max_iter1 if nmajor else self.max_iter):
         # iterate over normal gains
         converged = gain.iterate(data,model,first_iter=not niter);
+#        print "value",gain.gain.values()[0][0][0,0];
         # check chi-square
         if ( niter and not niter%10 ) or niter >= self.max_iter-1 or converged:
           chisq = compute_chisq();
@@ -306,7 +338,9 @@ class StefCalNode (pynode.PyNode):
       else:
         # model is the full model, M0+corrupt(M1)+corrupt(M2)+....
         # subtract this from corrected data: D1 = correct(D)-M0-corrupt(M1)-corrupt(M2)-...
-        data1 = dict([ (pq,matrix_sub(gain.correct(data,pq),model[pq])) for pq in self._solvable_ifrs ]);
+        data1 = dict([ (pq,matrix_sub(gain.correct(data,pq,
+            regularize=self.regularization_factor if self.regularize_intermediate else 0),model[pq]))
+            for pq in self._solvable_ifrs ]);
 #        for pq in list(self._solvable_ifrs)[:1]:
 #          print [ (pq,[ d1 if is_null(d1) else abs(d1).max() for d1 in data1[pq] ]) for pq in self._solvable_ifrs ];
         # now loop over all diffgains and iterate each set once
@@ -376,13 +410,14 @@ class StefCalNode (pynode.PyNode):
 #            print pq,(m*dh).sum(),(d*dh).sum(),sri/ssq;
 
     # work out result -- residual or corrected visibilities, depending on our state
+    variance = {};
     nvells = maxres = 0;
     for pq in self._ifrs:
       m = model.get(pq);
       r = gain.residual(data,model,pq);
       out = r if self.residuals else data[pq];
       if self.correct:
-        out = gain.correct(out,pq,index=False);
+        out = gain.correct(out,pq,index=False,regularize=self.regularization_factor);
       for n,x in enumerate(out):
         val = getattr(datares.vellsets[nvells],'value',None);
         if val is not None:
@@ -391,9 +426,16 @@ class StefCalNode (pynode.PyNode):
               and not is_null(x) else x;
           except:
             print x,getattr(x,'shape',None);
+          if self.print_variance:
+            v = val[1:,...] - val[:-1,...];
+            v = v[numpy.isfinite(v)];
+            variance.setdefault(pq,[0,0,0,0])[n] = (v.real.std(0)+v.imag.std(0))/2;
         # compute stats
         maxres = max(maxres,abs(r[n]).max() if not numpy.isscalar(r[n]) else abs(r[n]));
         nvells += 1;
+
+    if self.print_variance:
+      print_variance(variance);
 
     # if last domain, then write ifr gains to file
     if self.solve_ifr_gains and time1 >= numtime:

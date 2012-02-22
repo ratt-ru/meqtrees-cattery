@@ -409,15 +409,15 @@ class MSReadFlagSelector (MSFlagSelector):
 
 
 class MSWriteFlagSelector (MSFlagSelector):
-  doc_flagset = """If new data flags are generated within the tree, they may be stored 
+  doc_flagset = """If new data flags are generated within the tree, they may be stored
     in an existing or new flagset. Select the output flagset name here.""";
-  doc_flagset_none = """<P>This MS appears to be missing a BITFLAG column, so 
-    separate output flagsets are not available, and you may only write flags to the 
+  doc_flagset_none = """<P>This MS appears to be missing a BITFLAG column, so
+    separate output flagsets are not available, and you may only write flags to the
     CASA-standard FLAG and FLAG_ROW columns. This severely restricts MeqTrees-related flagging functionality.</P>
-    
-    <P>It is highly recommended that you add a BITFLAG column to this MS by running the 
+
+    <P>It is highly recommended that you add a BITFLAG column to this MS by running the
     "addbitflagcol" utility, then reload this TDL script.</P>""";
-  
+
   def __init__ (self,namespace='ms_wfl'):
     """Creates options for selecting an output flagset of an MS.
     namespace:  the TDLOption namespace name, used to qualify TDL options created here.
@@ -464,7 +464,7 @@ class MSSelector (object):
   HANNING_NONE = None;
   HANNING_PRETAPERED = 1;
   HANNING_DOTAPER = 2;
-  
+
   """An MSSelector implements TDL options for selecting an MS and a subset therein""";
   def __init__ (self,
                 pattern="*.ms *.MS",
@@ -583,8 +583,8 @@ class MSSelector (object):
        doc="""<P>Hanning tapering can be applied to the data on-the-fly as it is being read.
        If the MS is already Hanning-tapered, you probably need to select the "MS is tapered" option, so that
        the effective channel widths are multiplied by 1.25 (NB: if the CHAN_WIDTH column of the MS SPECTRAL_WINDOW
-       sub-table has already been adjusted in this way to reflect that Hanning tapering has been done, then 
-       you actually need to select "None" here. However, neither CASA nor any other tool known to me actually 
+       sub-table has already been adjusted in this way to reflect that Hanning tapering has been done, then
+       you actually need to select "None" here. However, neither CASA nor any other tool known to me actually
        do this adjustment, so the "MS is tapered" option is safer better bet.)</P>"""));
     else:
       self.ms_apply_hanning = None;
@@ -606,15 +606,15 @@ class MSSelector (object):
         toggle="ms_read_flags",default=True,namespace=self,open=False,
         doc="""<P>If the MS contains data flags, enable this option to propagate the flags
         into the tree. Flagged data is (normally) ignored in all calculations.</P>
-        
+
         <P>MeqTrees supports multiple independent sets of data flags (called <I>flagsets</I>) by extending
         the MS standard with a custom BITFLAG column. This may be added to any existing MS by running
-        the "addbitflagcol" utility. Multiple flagsets allow for easy revision and "backing out" of 
+        the "addbitflagcol" utility. Multiple flagsets allow for easy revision and "backing out" of
         flags if e.g. too much data has been flagged -- a situation that is very difficult to
         undo when only a single FLAG column is used. </P>
-        
-        <P>The CASA-standard FLAG column is treated as a single flagset called <I>legacy</I> or <I>standard</I> flags. 
-        Bitflags can provide up to 32 additional flagsets with user-defined labels. This menu allows you 
+
+        <P>The CASA-standard FLAG column is treated as a single flagset called <I>legacy</I> or <I>standard</I> flags.
+        Bitflags can provide up to 32 additional flagsets with user-defined labels. This menu allows you
         to include or exclude each flagset from the overall "active" set of data flags that affects calculations
         within the tree.</P>
         """,
@@ -1065,12 +1065,22 @@ class ImagingSelector (object):
     chan_opt.when_changed(show_chansel_menu);
     # weight options
     weight_opt = TDLOption('imaging_weight',"Imaging weights",
-                  ["natural","uniform","briggs","radial",None],namespace=self,
+                  ["natural","uniform","superuniform","briggs","briggsabs","radial",None],namespace=self,
                  doc="""Selected imaging weights will be recalculated and written to the
                   IMAGING_WEIGHT column of the MS. You can select the 'None' option to reuse the
                   current weights. This will save some time when re-running the imager on the same MS,
                   but will fail if the weights have not been set previously."""
     );
+    robust_opt = TDLOption('imaging_robust',"Robustness parameter",[-2,0,2],more=float,namespace=self,
+                 doc="""The robustness (<I>R</I>) parameter for briggs weighting. To quote the CASA manual:
+                 "The scaling of R is such that R = 0 gives a good tradeoff between resolution and sensitivity.
+                 R takes value between -2.0 (close to uniform weighting) to 2.0 (close to natural)."
+                 (NB: in practice, at least some versions of CASA and the lwimager seem to treat briggs
+                 and uniform weighting as the same, and use the R parameter in both cases.) See http://casa.nrao.edu/docs/casaref/imager.weight.html
+                 for details.""");
+    noise_opt = TDLOption('imaging_noise',"Noise value for briggsabs weighting, Jy",[1],more=float,namespace=self,
+                 doc="""The &sigma; parameter for briggsabs weighting.
+                 See http://casa.nrao.edu/docs/casaref/imager.weight.html for details.""");
     taper_opt = TDLMenu("Apply Gaussian taper to visibilities",toggle='imaging_taper_gauss',namespace=self,
           doc="""Applies an additional Gaussian taper to the imaging weights. The size of the taper
           is specified in terms of feature size on the image plane.""",
@@ -1078,15 +1088,17 @@ class ImagingSelector (object):
               TDLOption('imaging_taper_bmin',"Minor axis (arcsec)",[12],more=float,namespace=self),
               TDLOption('imaging_taper_bpa',"Position angle (deg)",[0],more=float,namespace=self),
           ));
-    def show_taper_menu (value):
+    def show_weight_options (value):
       taper_opt.show(value is not None);
-    weight_opt.when_changed(show_taper_menu);
+      robust_opt.show(value in ("uniform","superuniform","briggs","briggsabs"));
+      noise_opt.show(value in ("briggsabs"));
+    weight_opt.when_changed(show_weight_options);
     # insert intooption list
     self._opts += [
       chan_opt,
       chan_menu,
       freq_opt,
-      weight_opt,taper_opt,
+      weight_opt,robust_opt,noise_opt,taper_opt,
       TDLOption('imaging_stokes',"Stokes parameters to image",
                 ["I","IQ","IV","IQUV"],namespace=self)
     ];
@@ -1143,7 +1155,7 @@ class ImagingSelector (object):
                           toggle="imaging_custom_ms_select",namespace=self,
                           doc="""<P>Normally, the same MS selection as that set in the "Data selection"
                           menu above is automatically used for imaging. If you would like to image a different
-                          subset of the MS, enable this checkbox and set up the options 
+                          subset of the MS, enable this checkbox and set up the options
                           within accordingly.</P>""",
                           *self.subset_selector.option_list());
       self._opts.append(custom_sel_menu);
@@ -1242,6 +1254,8 @@ class ImagingSelector (object):
       [ 'ms='+self.mssel.msname,
         'mode='+imgmode,
         'weight='+(self.imaging_weight or "default"),
+        'robust=%f'%self.imaging_robust,
+        'noise=%f'%self.imaging_noise,
         'stokes='+self.imaging_stokes,
         'npix=%d'%npix,
         'prefervelocity='+("True" if self.imaging_freqmode is FREQMODE_VELO else "False"),

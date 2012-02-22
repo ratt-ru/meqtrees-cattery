@@ -40,11 +40,9 @@ class SubtiledDiagGain (object):
 
     If the common case of a 1,1,... subtiling, all these can be an identity
   """;
-  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,
-                regularization_factor=0,init_value=1):
+  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1):
     self._solve_ifrs = solve_ifrs;
     self._epsilon = epsilon;
-    self._regularization_factor = regularization_factor;
     self.datashape = datashape;
     self.subtiling = subtiling;
     self.gainshape = tuple([ nd/nt for nd,nt in zip(datashape,subtiling) ]);
@@ -205,7 +203,7 @@ class SubtiledDiagGain (object):
                                                 numpy.conj(self.gain.get((pq[1],j),self._unity)) );
     return g;
 
-  def gpgq_inv (self,pq,i,j):
+  def gpgq_inv (self,pq,i,j,reg=0):
     """Returns 1/((Gp+reg)*conj(Gq+reg)), tiled into subtile shape.
     Computes it on-demand, if not already cached""";
     g = self._gpgq_inv.get((pq,i,j));
@@ -215,7 +213,7 @@ class SubtiledDiagGain (object):
       for pi in (p,i),(q,j):
         gpi = self._gp_inv.get(pi);
         if gpi is None:
-          gpi = self._gp_inv[pi] =  1/(self.gain.get(pi,self._unity)+self._regularization_factor);
+          gpi = self._gp_inv[pi] =  1/(self.gain.get(pi,self._unity)+reg);
           if pi[0] in verbose_stations_corr:
             print "G:%s:%s"%pi,self.gain[pi][verbose_element];
             print "Ginv:%s:%s"%pi,gpi[verbose_element];
@@ -248,11 +246,12 @@ class SubtiledDiagGain (object):
         print pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in res ];
     return res;
 
-  def correct (self,data,pq,index=True):
+  def correct (self,data,pq,index=True,regularize=0):
     """Returns corrected data Gp^{-1}*D*Gq^{H-1}."""
     if index:
       data = data[pq];
-    corr = [ 0 if is_null(d) else self.untile_data(self.tile_data(d)*self.gpgq_inv(pq,i,j)) for d,(i,j) in zip(data,IJ2x2) ];
+    corr = [ 0 if is_null(d) else self.untile_data(self.tile_data(d)*self.gpgq_inv(pq,i,j,regularize))
+              for d,(i,j) in zip(data,IJ2x2) ];
     if pq in verbose_baselines_corr:
       print pq,"UNCORR",[ 0 if is_null(g) else g[verbose_element] for g in data ];
       print pq,"CORR",[ 0 if is_null(g) else g[verbose_element] for g in corr ];

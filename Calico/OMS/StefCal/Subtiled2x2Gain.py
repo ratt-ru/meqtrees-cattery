@@ -27,11 +27,9 @@ class Subtiled2x2Gain (object):
 
     If the common case of a 1,1,... subtiling, all these can be an identity
   """;
-  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,
-                regularization_factor=0,init_value=1):
+  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1):
     self._solve_ifrs = solve_ifrs;
     self._epsilon = epsilon;
-    self._regularization_factor = regularization_factor;
     self.datashape = datashape;
     self.subtiling = subtiling;
     self.gainshape = tuple([ nd/nt for nd,nt in zip(datashape,subtiling) ]);
@@ -200,21 +198,21 @@ class Subtiled2x2Gain (object):
       g = self._gconj[p] = matrix_conj(self._G(p));
     return g;
 
-  def _Ginv (self,p):
-    gi = self._ginv.get(p);
+  def _Ginv (self,p,reg=0):
+    gi = self._ginv.get((p,reg));
     if gi is None:
       a,b,c,d = self._G(p);
-      gi = self._ginv[p] = matrix_invert((a+self._regularization_factor,b,c,d+self._regularization_factor));
+      gi = self._ginv[p,reg] = matrix_invert((a+reg,b,c,d+reg));
       if p in verbose_stations_corr:
         print p,"G",[ g[verbose_element] for g in a,b,c,d ];
         print p,"Ginv",[ g[verbose_element] for g in gi ];
 #      print "Inverting",p;
     return gi;
 
-  def _Ginvconj (self,p):
-    gi = self._ginvconj.get(p);
+  def _Ginvconj (self,p,reg=0):
+    gi = self._ginvconj.get((p,reg));
     if gi is None:
-      gi = self._ginvconj[p] = matrix_conj(self._Ginv(p));
+      gi = self._ginvconj[p,reg] = matrix_conj(self._Ginv(p,reg));
     return gi;
 
   def get_last_timeslot (self):
@@ -239,11 +237,12 @@ class Subtiled2x2Gain (object):
         print pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in r ];
     return r;
 
-  def correct (self,data,pq,index=True):
+  def correct (self,data,pq,index=True,regularize=0):
     """Returns corrected data Gp^{-1}*D*Gq^{H-1}."""
     p,q = pq;
     data = data[pq] if index else data;
-    corr = map(self.untile_data,matrix_multiply(self._Ginv(p),matrix_multiply(map(self.tile_data,data),self._Ginvconj(q))));
+    corr = map(self.untile_data,matrix_multiply(self._Ginv(p,regularize),
+      matrix_multiply(map(self.tile_data,data),self._Ginvconj(q,regularize))));
 #    print "Correcting",p,q;
     if pq in verbose_baselines_corr:
       print pq,"UNCORR",[ 0 if is_null(g) else g[verbose_element] for g in data ];
