@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy
 import math
+import scipy.ndimage.filters
 
 from MatrixOps import *
 
@@ -40,12 +41,13 @@ class SubtiledDiagGain (object):
 
     If the common case of a 1,1,... subtiling, all these can be an identity
   """;
-  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1):
+  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1,smoothing=None):
     self._solve_ifrs = solve_ifrs;
     self._epsilon = epsilon;
     self.datashape = datashape;
     self.subtiling = subtiling;
     self.gainshape = tuple([ nd/nt for nd,nt in zip(datashape,subtiling) ]);
+    self.smoothing = smoothing;
     # if subtiling is 1,1,... then override methods with identity relations
     if max(subtiling) == 1:
       self.tile_data = self.untile_data = self.tile_gain = self.reduce_subtiles = identity_function;
@@ -131,6 +133,10 @@ class SubtiledDiagGain (object):
           sum_reim += self.reduce_subtiles(dmh);
           sum_sq += self.reduce_subtiles(mh2);
       # generate update
+      if self.smoothing:
+        sum_sq = scipy.ndimage.filters.gaussian_filter(sum_sq.real,self.smoothing,mode='constant');
+        sum_reim.real = scipy.ndimage.filters.gaussian_filter(sum_reim.real,self.smoothing,mode='constant');
+        sum_reim.imag = scipy.ndimage.filters.gaussian_filter(sum_reim.imag,self.smoothing,mode='constant');
       if verbose:
         print p,i,sum_sq.min(),sum_sq.max();
 #      if p == '0' and i==1:
@@ -167,9 +173,14 @@ class SubtiledDiagGain (object):
                 "Gp",gain1[p,i][verbose_element],"V",mh[verbose_element],"DHV",dmh[verbose_element],"VHV",mh2[verbose_element];
           sum_reim += self.reduce_subtiles(dmh);
           sum_sq += self.reduce_subtiles(mh2);
+          # smoothing?
 #      if q == '0' and j==1:
 #        print "S1 %s:%s"%(q,j),"sum VHV",sum_sq[verbose_element];
       # generate update
+      if self.smoothing:
+        sum_sq = scipy.ndimage.filters.gaussian_filter(sum_sq.real,self.smoothing,mode='constant');
+        sum_reim.real = scipy.ndimage.filters.gaussian_filter(sum_reim.real,self.smoothing,mode='constant');
+        sum_reim.imag = scipy.ndimage.filters.gaussian_filter(sum_reim.imag,self.smoothing,mode='constant');
       if verbose:
         print q,j,sum_sq.min(),sum_sq.max();
       if q in verbose_stations:

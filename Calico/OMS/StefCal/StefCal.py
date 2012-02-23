@@ -79,6 +79,9 @@ class StefCalNode (pynode.PyNode):
     # subtiling for gains
     mystate('gain_subtiling',[1,1]);
     mystate('diffgain_subtiling',[]);
+    # smoothing for gains and differential gains
+    mystate('gain_smoothing',[]);
+    mystate('diffgain_smoothing',[]);
     # use stored solution (if available) as starting guess
     mystate('init_from_table',True);
     # use previous tile (timeslot) as starting guess -- if table not available
@@ -275,10 +278,11 @@ class StefCalNode (pynode.PyNode):
     GainClass = Subtiled2x2Gain if self.full_polarization else SubtiledDiagGain;
     # init gain parms object
     gain = GainClass(expanded_datashape,gain_subtiling,self._solvable_ifrs,
-              self.epsilon,self.convergence_quota,
+              self.epsilon,self.convergence_quota,smoothing=self.gain_smoothing,
               init_value=self._init_value_gain);
-    dprintf(0,"solving for %d gain parms using %d of %d inteferometers\n",len(gain.gain),
-      len(self._solvable_ifrs)/2,len(self.ifrs));
+    dprintf(0,"solving with %d of %d inteferometers\n",len(self._solvable_ifrs),len(self.ifrs));
+    if self.gain_smoothing:
+      dprint(0,"a Gaussian smoothing kernel of size",self.gain_smoothing,"will be applied");
     dprint(1,"convergence target",gain.convergence_target,"of",gain.total_parms,"parms");
     dprint(1,"initial gain value is",self._init_value_gain.values()[0].flat[0] if isinstance(self._init_value_gain,dict) else
       self._init_value_gain);
@@ -290,31 +294,19 @@ class StefCalNode (pynode.PyNode):
     if num_diffgains:
       diffgains = [
         GainClass(expanded_datashape,dg_subtiling,self._solvable_ifrs,self.epsilon,self.convergence_quota,
+          smoothing=self.diffgain_smoothing,
           init_value=self._init_value_dg.get(i,self.init_value) )
         for i in range(num_diffgains) ];
       dg0 = diffgains[0];
       dprintf(0,"also solving for %dx%d differential gains\n",num_diffgains,len(dg0.gain));
+      if self.diffgain_smoothing:
+        dprint(0,"a Gaussian smoothing kernel of size",self.diffgain_smoothing,"will be applied");
       dprint(1,"convergence target for each is ",dg0.convergence_target,"of",dg0.total_parms,"parms");
       for i in range(num_diffgains):
         initval = self._init_value_dg.get(i,self.init_value);
         dprint(1,"initial gain value #%d is"%i,initval.items()[0] if isinstance(initval,dict) else initval);
     else:
       diffgains = [];
-
-    def compute_chisq ():
-      chisq = 0;
-      nterms = 0;
-      for pq in self._solvable_ifrs:
-        for r in gain.residual(data,model,pq):
-          if numpy.isscalar(r):
-            chisq1 = (r*numpy.conj(r));
-            nterms += 1;
-          else:
-            chisq1 = (r*numpy.conj(r)).sum();
-            nterms += r.size;
-#          print pq,"chi-sqare contribution is",chisq1,"r",r if numpy.isscalar(r) else r[5,0];
-          chisq += chisq1;
-      return chisq/nterms;
 
     # start major loop -- alternates over gains and diffgains
     for nmajor in range(self.max_major+1):
@@ -325,7 +317,7 @@ class StefCalNode (pynode.PyNode):
 #        print "value",gain.gain.values()[0][0][0,0];
         # check chi-square
         if ( niter and not niter%10 ) or niter >= self.max_iter-1 or converged:
-          chisq = compute_chisq();
+          chisq = self.compute_chisq(gain,data,model);
           dprint(3,"iter %d max gain update is %g converged %.2f chisq is %g"%(niter+1,
                     gain.maxdiff,gain.num_converged/float(gain.total_parms),chisq));
         # break out if converged
@@ -458,8 +450,26 @@ class StefCalNode (pynode.PyNode):
         traceback.print_exc();
         dprint(0,"error saving ifr gains to",self.ifr_gain_table);
 
-    dprint(0,"%s residual max %g chisq %g (last G update %g) after %d iterations and %.2f seconds"%(
-              request.request_id,maxres,chisq,gain.maxdiff,niter,time.time()-timestamp0));
+    dt = time.time()-timestamp0;
+    m,s = divmod(dt,60);
+    dprint(0,"%s residual max %g last chisq %g (last G update %g), elapsed time %dm%0.2fs"%(
+              request.request_id,maxres,chisq,gain.maxdiff,m,s));
 
     return datares;
+
+  def compute_chisq (self,gain,data,model):
+    chisq = 0;
+    nterms = 0;
+    for pq in self._solvable_ifrs:
+      for r in gain.residual(data,model,pq):
+        if numpy.isscalar(r):
+          chisq1 = (r*numpy.conj(r));
+          nterms += 1;
+        else:
+          chisq1 = (r*numpy.conj(r)).sum();
+          nterms += r.size;
+#          print pq,"chi-sqare contribution is",chisq1,"r",r if numpy.isscalar(r) else r[5,0];
+        chisq += chisq1;
+    return chisq/nterms;
+
 

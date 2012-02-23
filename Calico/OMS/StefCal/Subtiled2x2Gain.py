@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy
 import math
-
+import scipy.ndimage.filters
 from MatrixOps import *
 
 verbose_baselines = ()#set([('0','C'),('C','0')]);
@@ -27,11 +27,13 @@ class Subtiled2x2Gain (object):
 
     If the common case of a 1,1,... subtiling, all these can be an identity
   """;
-  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1):
+  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,
+    smoothing=None,init_value=1):
     self._solve_ifrs = solve_ifrs;
     self._epsilon = epsilon;
     self.datashape = datashape;
     self.subtiling = subtiling;
+    self.smoothing = smoothing;
     self.gainshape = tuple([ nd/nt for nd,nt in zip(datashape,subtiling) ]);
     # if subtiling is 1,1,... then override methods with identity relations
     if max(subtiling) == 1:
@@ -158,6 +160,15 @@ class Subtiled2x2Gain (object):
         if all([is_null(x) for x in sum_vhv]):
           gain1[p] = gain0[p];
         else:
+          # smooth
+          if self.smoothing:
+            sum_vhv = [ x if is_null(x) else scipy.ndimage.filters.gaussian_filter(x.real,self.smoothing,mode='constant')
+                        for x in sum_vhv ];
+            for x in sum_dv:
+              if not is_null(x):
+                x.real = scipy.ndimage.filters.gaussian_filter(x.real,self.smoothing,mode='constant');
+                x.imag = scipy.ndimage.filters.gaussian_filter(x.imag,self.smoothing,mode='constant');
+          #
           g1 = gain1[p] = matrix_multiply(sum_dv,matrix_invert(sum_vhv));
           if p in verbose_stations:
             print "S%d"%step,p,"sum DV",[ g[verbose_element] for g in sum_dv ],"sum VHV",[ g[verbose_element] for g in sum_vhv ];
