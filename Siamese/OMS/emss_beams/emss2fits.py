@@ -30,6 +30,8 @@ separate the per-component groups with '+'.""");
                     help="component labels, to be substituted for @label in the filename");
   parser.add_option("--rotate",metavar="DEG",type="float",default=0,
                     help="rotate the pattern by the specified number of degrees.");
+  parser.add_option("--neg_rot_xy",action="store_false", dest="rotate_xy", default=True,
+                    help="do not rotate data from theta/phi to Stokes coordinate system; default is to do the rotation");
   parser.add_option("--ampl",action="store_true",
                     help="generate the amplitude pattern.");
   parser.add_option("--real",action="store_true",
@@ -121,6 +123,7 @@ separate the per-component groups with '+'.""");
     patfile2 = [ patfile1.replace("@freq",freq) for freq in freqs ]; 
     vb = interpolator(patfile2,y=options.y,
                       spline_order=options.spline_order,
+                      rotate_xy=options.rotate_xy,
                       theta_step=options.theta_stepping,phi_step=options.phi_stepping,rotate=options.rotate,
                       verbose=options.verbose);
     print "Creating %s voltage beam from %s"%("Y" if options.y else "X"," ".join(patfile2));
@@ -300,4 +303,3 @@ separate the per-component groups with '+'.""");
     make_image(fitsfile if options.real else fitsfile+"_real.fits",image.real,"real pattern");
   if not nout or options.imag:
     make_image(fitsfile if options.imag else fitsfile+"_imag.fits",image.imag,"imaginary pattern");
-  
