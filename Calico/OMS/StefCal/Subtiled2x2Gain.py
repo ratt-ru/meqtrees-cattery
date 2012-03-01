@@ -174,11 +174,16 @@ class Subtiled2x2Gain (object):
             print "S%d"%step,p,"sum DV",[ g[verbose_element] for g in sum_dv ],"sum VHV",[ g[verbose_element] for g in sum_vhv ];
             print "S%d"%step,p,"G'",g1[3],[ g[verbose_element] for g in g1 ];
           # take mean with previous value, and mask out infs/nans
-          for g,g0 in zip(g1,gain0[p]):
-            g += g0;
-            g /= 2;
-            mask = ~numpy.isfinite(g);
-            g[mask] = g0[mask];
+          if step is 0:
+            for g,g0 in zip(g1,gain0[p]):
+              mask = ~numpy.isfinite(g);
+              g[mask] = g0[mask];
+          else:
+            for g,g0 in zip(g1,gain0[p]):
+              g += g0;
+              g /= 2;
+              mask = ~numpy.isfinite(g);
+              g[mask] = g0[mask];
       # end of step -- update gains
       gain0 = gain1;
       #print "step",step,"G:0",[ g[verbose_element] for g in gain0['0'] ];

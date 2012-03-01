@@ -145,7 +145,8 @@ class SubtiledDiagGain (object):
         print "S0 %s:%s"%(p,i),"sum DV",sum_reim[verbose_element],"sum VHV",sum_sq[verbose_element];
         print "S0 %s:%s"%(p,i),"G'",(sum_reim/sum_sq),(sum_reim/sum_sq)[verbose_element];
       mask = sum_sq==0;
-      gain1[p,i] = (sum_reim/sum_sq + self.gain[p,i])/2;
+#      gain1[p,i] = (sum_reim/sum_sq + self.gain[p,i])/2;
+      gain1[p,i] = sum_reim/sum_sq;
       gain1[p,i][mask] = self.gain[p,i][mask];
       if p in verbose_stations:
         print "S0 %s:%s"%(p,i),"G''",gain1[p,i],gain1[p,i][verbose_element];
