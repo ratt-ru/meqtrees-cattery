@@ -86,8 +86,9 @@ class SubtiledDiagGain (object):
     # setup various counts and convergence targets
     self.total_parms = len(parms)*reduce(lambda a,b:a*b,self.gainshape);
     self.convergence_target = int(self.total_parms*conv_quota);
-    self._residual = {};
-    self._corrupt = {};
+    self._residual_cache = {};
+    self._apply_cache = {};
+    self._apply_inverse_cache = {};
     self._gpgq = {};
 
   # define methods
@@ -103,25 +104,27 @@ class SubtiledDiagGain (object):
         x = x.sum(ax);
     return x;
 
-  def iterate (self,data,model,first_iter=False,verbose=0):
-    self._residual = {};
-    self._corrupt = {};
+  def iterate (self,lhs,rhs,first_iter=False,verbose=0):
+    """Does one iteration of Gp*lhs*Gq^H -> rhs""";
+    self._residual_cache = {};
+    self._apply_cache = {};
+    self._apply_inverse_cache = {};
     self._gpgq = {};
     self._gpgq_inv = {};
     self._gp_inv = {};
     gain1 = {};  # dict of gain parm updates from this step
     #
 #    if verbose:
-#      print [ (data[key].min(),model[key].min()) for key in self._solve_ifrs ];
+#      print [ (rhs[key].min(),lhs[key].min()) for key in self._solve_ifrs ];
     # converge from one side (solve for Gp)
     for p,i in self.gain.keys():
       # build up sums
       sum_reim = numpy.zeros(self.gainshape,dtype=complex);
       sum_sq = 0;
       for q,j in self.gain.keys():
-        pq,direct,conjugate = pq_direct_conjugate(p,q,data);
+        pq,direct,conjugate = pq_direct_conjugate(p,q,rhs);
         if pq in self._solve_ifrs:
-          m,d = conjugate(model[pq][i*2+j]),direct(data[pq][i*2+j]);
+          m,d = conjugate(lhs[pq][i*2+j]),direct(rhs[pq][i*2+j]);
           mh = self.tile_data(m)*self.tile_gain(self.gain[q,j]);
           dmh = self.tile_data(d)*mh;
           mh2 = abs(mh)**2;
@@ -160,9 +163,9 @@ class SubtiledDiagGain (object):
       sum_reim = numpy.zeros(self.gainshape,dtype=complex);
       sum_sq = 0;
       for p,i in self.gain.keys():
-        pq,direct,conjugate = pq_direct_conjugate(p,q,data);
+        pq,direct,conjugate = pq_direct_conjugate(p,q,rhs);
         if pq in self._solve_ifrs:
-          m,d = direct(model[pq][i*2+j]),conjugate(data[pq][i*2+j]);
+          m,d = direct(lhs[pq][i*2+j]),conjugate(rhs[pq][i*2+j]);
           mh = self.tile_data(m)*self.tile_gain(gain1[p,i]);
           dmh = self.tile_data(d)*mh;
           mh2 = abs(mh)**2;
@@ -244,39 +247,43 @@ class SubtiledDiagGain (object):
   def reset_residuals (self):
     self._residual = {};
 
-  def residual (self,data,model,pq):
-    """Returns residual R = D - Gp*M*conj(Gq), tiled into subtile shape.
+  def residual (self,lhs,rhs,pq):
+    """Returns residual R = apply(lhs) - rhs, tiled into subtile shape.
     Computes it on-demand, if not already cached""";
-    res = self._residual.get(pq);
+    res = self._residual_cache.get(pq);
     if res is None:
-      corr = self.corrupt(model,pq,True);
-      self._residual[pq] = res = [ d - c for d,c in zip(data[pq],corr) ];
+      corr = self.apply(lhs,pq,index=True,cache=True);
+      self._residual_cache[pq] = res = matrix_sub(corr,rhs[pq]);
       if pq in verbose_baselines_corr:
-        print pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in data[pq] ];
-        print pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in model[pq] ];
+        print pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ];
+        print pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ];
         print pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in corr ];
         print pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in res ];
     return res;
 
-  def correct (self,data,pq,index=True,regularize=0):
-    """Returns corrected data Gp^{-1}*D*Gq^{H-1}."""
+  def apply (self,lhs,pq,index=True,cache=False):
+    """Returns lhs with gains applied: Gp*lhs*Gq^H."""
     if index:
-      data = data[pq];
-    corr = [ 0 if is_null(d) else self.untile_data(self.tile_data(d)*self.gpgq_inv(pq,i,j,regularize))
-              for d,(i,j) in zip(data,IJ2x2) ];
-    if pq in verbose_baselines_corr:
-      print pq,"UNCORR",[ 0 if is_null(g) else g[verbose_element] for g in data ];
-      print pq,"CORR",[ 0 if is_null(g) else g[verbose_element] for g in corr ];
+      lhs = lhs[pq];
+    corr = self._apply_cache.get(pq) if cache else None;
+    if corr is None:
+      corr = [ 0 if is_null(d) else self.untile_data(self.tile_data(d)*self.gpgq(pq,i,j))
+                                   for d,(i,j) in zip(lhs,IJ2x2) ];
+      if cache:
+        self._apply_cache[pq] = corr;
+      if pq in verbose_baselines_corr:
+        print pq,"UNCORR",[ 0 if is_null(g) else g[verbose_element] for g in lhs ];
+        print pq,"CORR",[ 0 if is_null(g) else g[verbose_element] for g in corr ];
     return corr;
 
 
-  def corrupt (self,model,pq,cache=False):
-    """Returns corrupted model Gp*M*Gq."""
-    corr = self._corrupt.get(pq);
-    if corr is None or not cache:
-      mod = model[pq];
-      corr = [ 0 if is_null(m) else self.untile_data(self.tile_data(m)*self.gpgq(pq,i,j)) for m,(i,j) in zip(mod,IJ2x2) ];
+  def apply_inverse (self,rhs,pq,cache=False):
+    """Returns rhs with inverse gains applied: Gp^{-1}*rhs*Gq^{H-1}."""
+    corr = self._apply_inverse_cache.get(pq) if cache else None;
+    if corr is None:
+      mod = rhs[pq];
+      corr = [ 0 if is_null(m) else self.untile_data(self.tile_data(m)*self.gpgq_inv(pq,i,j)) for m,(i,j) in zip(mod,IJ2x2) ];
       if cache:
-        self._corrupt[pq] = corr;
+        self._apply_inverse_cache[pq] = corr;
     return corr;
 

@@ -49,6 +49,19 @@ def print_variance (variance):
   dprint(1,"overall mean variance is",meanvar);
 
 
+def dump_data_model (data,model,ifrs,filename="dump.txt"):
+  ff = file(filename,"w");
+  numpy.set_printoptions(threshold=1000000000);
+  for pq in ifrs:
+    for i,(d,m) in enumerate(zip(data[pq],model[pq])):
+      xy = ("xx","xy","yx","yy")[i];
+      if not numpy.isscalar(d) and not numpy.isscalar(m):
+        ff.write("# data %s-%s %d (%s)\n"%(pq[0],pq[1],i,xy));
+        ff.write(numpy.array_str(d)+"\n");
+        ff.write("# model %s-%s %d (%s)\n"%(pq[0],pq[1],i,xy));
+        ff.write(numpy.array_str(m)+"\n");
+  ff.close();
+
 class StefCalNode (pynode.PyNode):
   def __init__ (self,*args):
     pynode.PyNode.__init__(self,*args);
@@ -104,6 +117,9 @@ class StefCalNode (pynode.PyNode):
     mystate('ifr_gain_table','ifrgains.cp');
     # verbosity level
     mystate('verbose',0);
+    # enables dumping of intermediates to text file, if >=0
+    mystate('dump_diffgain',-1);
+    mystate('dump_domain',-1);
     # print the per-baseline variance of incoming data
     mystate('print_variance',False);
     # lis of all ifrs, as p,q pairs
@@ -310,6 +326,8 @@ class StefCalNode (pynode.PyNode):
 
     # start major loop -- alternates over gains and diffgains
     for nmajor in range(self.max_major+1):
+      if not nmajor and domain_id == self.dump_domain: 
+        dump_data_model(data,model,self._solvable_ifrs,"dump_G.txt");
       # first iterate normal gains to convergence
       for niter in range(self.max_iter1 if nmajor else self.max_iter):
         # iterate over normal gains
@@ -328,27 +346,29 @@ class StefCalNode (pynode.PyNode):
       if not num_diffgains or nmajor >= self.max_major:
         break;
       else:
+        # we have solved for G=inverse of G-Jones essentially, thus minimzing
+        # G*D*G^H <- M0+corrupt(M1)+corrupt(M2)+...
         # model is the full model, M0+corrupt(M1)+corrupt(M2)+....
-        # subtract this from corrected data: D1 = correct(D)-M0-corrupt(M1)-corrupt(M2)-...
-        data1 = dict([ (pq,matrix_sub(gain.correct(data,pq,
-            regularize=self.regularization_factor if self.regularize_intermediate else 0),model[pq]))
-            for pq in self._solvable_ifrs ]);
+        # subtract this from corrected data: D1 = G*D*G^H - M0 - corrupt(M1) - corrupt(M2) - ... to obtain residuals
+        data1 = dict([ (pq,gain.residual(data,model,pq)) for pq in self._solvable_ifrs ]);
 #        for pq in list(self._solvable_ifrs)[:1]:
 #          print [ (pq,[ d1 if is_null(d1) else abs(d1).max() for d1 in data1[pq] ]) for pq in self._solvable_ifrs ];
         # now loop over all diffgains and iterate each set once
         for i,dg in enumerate(diffgains):
-          # add current estimate of corrupt(Mi) back into data1, and subtract from model
+          # add current estimate of corrupt(Mi) back into data1, and subtract from current model
           for pq in self._solvable_ifrs:
-            corr = dg.corrupt(dgmodel[i],pq,cache=True);
+            corr = dg.apply(dgmodel[i],pq,cache=True);
             mm = model[pq];
             for n,(d,m,c) in enumerate(zip(data1[pq],mm,corr)):
               d += c;
               mm[n] = -c if is_null(m) else m-c;
 #          print data1['0','A'][0][0,0],model0['0','A'][0][0,0],model['0','A'][0][0,0],dgmodel[i]['0','A'][0][0,0];
 #          print "d1",data1['0','A'][0],"m1",dgmodel[i]['0','A'][0];
+          if not nmajor and i == self.dump_diffgain and domain_id == self.dump_domain: 
+            dump_data_model(dgmodel[i],data1,self._solvable_ifrs,"dump_E.txt");
           # iterate this diffgain solution
           for niter in range(self.diffgain_max_iter):
-            if dg.iterate(data1,dgmodel[i],first_iter=not niter):
+            if dg.iterate(dgmodel[i],data1,first_iter=not niter):
               break;
           dprint(2,"diffgain #%d converged after %d iterations"%(i,niter));
 #          print dg.gain.keys();
@@ -356,7 +376,7 @@ class StefCalNode (pynode.PyNode):
 #          print "dgcorrupt",dg.corrupt(dgmodel[i],('0','A'),cache=True)[0];
           # add back to model, and subtract from data1 if needed
           for pq in self._solvable_ifrs:
-            corr = dg.corrupt(dgmodel[i],pq,cache=True);
+            corr = dg.apply(dgmodel[i],pq,cache=True);
             for d,m,c in zip(data1[pq],model[pq],corr):
               m += c;
               if i<num_diffgains-1:
@@ -372,7 +392,7 @@ class StefCalNode (pynode.PyNode):
       for pq in set(self._ifrs)-set(self._solvable_ifrs):
         model[pq] = model0[pq];
         for i,dg in enumerate(diffgains):
-          for m,c in zip(model[pq],dg.corrupt(dgmodel[i],pq,cache=True)):
+          for m,c in zip(model[pq],dg.apply(dgmodel[i],pq,cache=True)):
             m += c;
 
     # remember init value for next tile
@@ -385,7 +405,7 @@ class StefCalNode (pynode.PyNode):
     if self.solve_ifr_gains:
       for pq in self._ifrs:
         dd = data[pq];
-        mm = gain.corrupt(model,pq,cache=True);
+        mm = gain.apply_inverse(model,pq,cache=True);
         for num,(d,m) in enumerate(zip(dd,mm)):
           # work out update to ifr gains
           if numpy.isscalar(m):
@@ -406,10 +426,9 @@ class StefCalNode (pynode.PyNode):
     nvells = maxres = 0;
     for pq in self._ifrs:
       m = model.get(pq);
-      r = gain.residual(data,model,pq);
-      out = r if self.residuals else data[pq];
-      if self.correct:
-        out = gain.correct(out,pq,index=False,regularize=self.regularization_factor);
+      out = res = gain.residual(data,model,pq);
+      if not self.residuals:
+        out = gain.apply(data,pq);
       for n,x in enumerate(out):
         val = getattr(datares.vellsets[nvells],'value',None);
         if val is not None:
@@ -423,7 +442,7 @@ class StefCalNode (pynode.PyNode):
             v = v[numpy.isfinite(v)];
             variance.setdefault(pq,[0,0,0,0])[n] = (v.real.std(0)+v.imag.std(0))/2;
         # compute stats
-        maxres = max(maxres,abs(r[n]).max() if not numpy.isscalar(r[n]) else abs(r[n]));
+        maxres = max(maxres,abs(res[n]).max() if not numpy.isscalar(res[n]) else abs(res[n]));
         nvells += 1;
 
     if self.print_variance:
