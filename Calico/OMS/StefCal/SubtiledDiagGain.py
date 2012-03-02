@@ -203,9 +203,7 @@ class SubtiledDiagGain (object):
     deltanorm_sq = sum([(gain2[pp] - self.gain[pp])**2 for pp in self.gain.iterkeys()]);
     gainnorm_sq = sum([gain2[pp]**2 for pp in self.gain.iterkeys()]);
     # find how many have converged
-    self.num_converged = 0;
-    for pp in self.gain.iterkeys():
-      self.num_converged += (deltanorm_sq/gainnorm_sq <= self._epsilon**2).sum();
+    self.num_converged = (deltanorm_sq/gainnorm_sq <= self._epsilon**2).sum();
     self.maxdiff = numpy.sqrt(deltanorm_sq.max());
     self.gain = gain2;
     return self.num_converged >= self.convergence_target;
@@ -287,4 +285,9 @@ class SubtiledDiagGain (object):
       if cache:
         self._apply_inverse_cache[pq] = corr;
     return corr;
+    
+#  def get_2x2_gains (self):
+#    for 
+#    return dict([(pq,self.tile_gain(self.gain.get((pq[0],i),self._unity) ]);
+    
 

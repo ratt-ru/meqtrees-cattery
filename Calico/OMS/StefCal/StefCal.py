@@ -61,6 +61,34 @@ def dump_data_model (data,model,ifrs,filename="dump.txt"):
         ff.write("# model %s-%s %d (%s)\n"%(pq[0],pq[1],i,xy));
         ff.write(numpy.array_str(m)+"\n");
   ff.close();
+  
+  
+global_gains = {};
+
+class StefCalVisualizer (pynode.PyNode):
+  def __init__ (self,*args):
+    pynode.PyNode.__init__(self,*args);
+  
+  def update_state (self,mystate):
+    mystate('freq_average',False);
+    mystate('gain_label','G');
+    
+  def get_result (self,request,*children):
+    vellsets = [];
+    gains = global_gains[self.gain_label];
+    if gains is None:
+      return meq.result();
+    keys = sorted(gains.keys());
+    for pp in keys:
+      if self.freq_average:
+        vellsets += [ meq.vells(x).mean(1) for x in gains[pp] ];
+      else:
+        vellsets += [ meq.vells(x) for x in gains[pp] ];
+    res = meq.result(cells=request.cells);
+    res.vellsets = vellsets;
+    result.dims = [len(keys),2,2]
+    return result;
+
 
 class StefCalNode (pynode.PyNode):
   def __init__ (self,*args):
@@ -115,6 +143,10 @@ class StefCalNode (pynode.PyNode):
     mystate('apply_ifr_gains',True);
     # name of ifr gain tables
     mystate('ifr_gain_table','ifrgains.cp');
+    # visualize G gains by saving them in the gloabl_gains disct
+    mystate('visualize_gains',False);
+    # visualize dE gains by saving them in the gloabl_gains disct
+    mystate('visualize_diffgains',False);
     # verbosity level
     mystate('verbose',0);
     # enables dumping of intermediates to text file, if >=0
@@ -394,6 +426,13 @@ class StefCalNode (pynode.PyNode):
         for i,dg in enumerate(diffgains):
           for m,c in zip(model[pq],dg.apply(dgmodel[i],pq,cache=True)):
             m += c;
+            
+    # visualie gains
+    if self.visualize_gains:
+      global_gains['G'] = gain.get_2x2_gains();
+    if self.visualize_diffgains and num_diffgains:
+      for i,dg in enumerate(diffgains):
+        global_gains['dE:%d'%i] = dg.get_2x2_gains();
 
     # remember init value for next tile
     if self.init_from_previous:
