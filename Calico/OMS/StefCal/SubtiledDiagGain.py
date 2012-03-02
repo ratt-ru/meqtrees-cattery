@@ -84,8 +84,8 @@ class SubtiledDiagGain (object):
       default[...] = init_value;
       self.gain = dict([ (pp,default) for pp in parms ]);
     # setup various counts and convergence targets
-    self.total_parms = len(parms)*reduce(lambda a,b:a*b,self.gainshape);
-    self.convergence_target = int(self.total_parms*conv_quota);
+    self.total_parms = reduce(lambda a,b:a*b,self.gainshape);
+    self.convergence_target = round(self.total_parms*conv_quota);
     self._residual_cache = {};
     self._apply_cache = {};
     self._apply_inverse_cache = {};
@@ -199,13 +199,14 @@ class SubtiledDiagGain (object):
     if verbose:
       print "done right iter";
 #    print "step 1 G:0",gain2['0',0][verbose_element],gain2['0',1][verbose_element];
-    self.gaindiff = {};
+    # compute ||G_new-G_old|| and ||G_new|| for each time/freq slot
+    deltanorm_sq = sum([(gain2[pp] - self.gain[pp])**2 for pp in self.gain.iterkeys()]);
+    gainnorm_sq = sum([gain2[pp]**2 for pp in self.gain.iterkeys()]);
+    # find how many have converged
     self.num_converged = 0;
     for pp in self.gain.iterkeys():
-      delta = abs(gain2[pp] - self.gain[pp]);
-      self.num_converged += (delta < self._epsilon).sum();
-      self.gaindiff[pp] = abs(delta).max();
-    self.maxdiff = max(self.gaindiff.itervalues());
+      self.num_converged += (deltanorm_sq/gainnorm_sq <= self._epsilon**2).sum();
+    self.maxdiff = numpy.sqrt(deltanorm_sq.max());
     self.gain = gain2;
     return self.num_converged >= self.convergence_target;
 
