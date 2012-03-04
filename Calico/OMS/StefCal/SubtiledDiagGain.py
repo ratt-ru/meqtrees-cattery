@@ -4,6 +4,7 @@ import math
 import scipy.ndimage.filters
 
 from MatrixOps import *
+from Timba.Meq import meq
 
 verbose_baselines = ()#set([('0','C'),('C','0')]);
 verbose_baselines_corr = ()#set([('0','C'),('C','0')]);
@@ -50,7 +51,8 @@ class SubtiledDiagGain (object):
     self.smoothing = smoothing;
     # if subtiling is 1,1,... then override methods with identity relations
     if max(subtiling) == 1:
-      self.tile_data = self.untile_data = self.tile_gain = self.reduce_subtiles = identity_function;
+      self.tile_data = self.untile_data = self.tile_gain = self.reduce_subtiles =  identity_function;
+      self.expand_gain_to_datashape = array_to_vells;
     else:
       self.subtiled_shape = [];
       self.gain_expansion_slice = [];
@@ -59,8 +61,10 @@ class SubtiledDiagGain (object):
         self.gain_expansion_slice += [slice(None),numpy.newaxis];
       self.subtiled_axes = range(1,len(datashape)*2,2)[-1::-1];
     # init empty parms
+    self._antennas = set();
     self._parms = parms = set();
     for ifr in self._solve_ifrs:
+      self._antennas.update(ifr);
       self._parms.update([(p,i) for p in ifr for i in range(2)]);
     self._unity = numpy.ones(self.gainshape,dtype=complex);
     # init_value=1: init each parm with the _unity array
@@ -98,6 +102,18 @@ class SubtiledDiagGain (object):
     return x.reshape(self.datashape) if not numpy.isscalar(x) else x;
   def tile_gain (self,x):
     return x[self.gain_expansion_slice] if not numpy.isscalar(x) else x;
+  def expand_gain_to_datashape (self,x,datashape,expanded_dataslice):
+    if expanded_dataslice:
+      a = numpy.empty(self.subtiled_shape,dtype=complex);
+      a[...] = self.tile_gain(x);
+      b = meq.complex_vells(datashape);
+      b[...] = self.untile_data(a)[expanded_dataslice];
+      return b;
+    else:
+      a = meq.complex_vells(self.subtiled_shape);
+      a[...] = self.tile_gain(x);
+      return self.untile_data(a);
+      
   def reduce_subtiles (self,x):
     if not numpy.isscalar(x):
       for ax in self.subtiled_axes:
@@ -200,12 +216,14 @@ class SubtiledDiagGain (object):
       print "done right iter";
 #    print "step 1 G:0",gain2['0',0][verbose_element],gain2['0',1][verbose_element];
     # compute ||G_new-G_old|| and ||G_new|| for each time/freq slot
-    deltanorm_sq = sum([(gain2[pp] - self.gain[pp])**2 for pp in self.gain.iterkeys()]);
-    gainnorm_sq = sum([gain2[pp]**2 for pp in self.gain.iterkeys()]);
+    square = lambda x:x*numpy.conj(x);
+    deltanorm_sq = sum([square(gain2[pp] - self.gain[pp]) for pp in self.gain.iterkeys()]);
+    gainnorm_sq = sum([square(gain2[pp]) for pp in self.gain.iterkeys()]);
     # find how many have converged
     self.num_converged = (deltanorm_sq/gainnorm_sq <= self._epsilon**2).sum();
     self.maxdiff = numpy.sqrt(deltanorm_sq.max());
     self.gain = gain2;
+    # print norm (maye generate norm as a diagnostic?)
     return self.num_converged >= self.convergence_target;
 
   def gpgq (self,pq,i,j):
@@ -286,8 +304,13 @@ class SubtiledDiagGain (object):
         self._apply_inverse_cache[pq] = corr;
     return corr;
     
-#  def get_2x2_gains (self):
-#    for 
-#    return dict([(pq,self.tile_gain(self.gain.get((pq[0],i),self._unity) ]);
+  def get_2x2_gains (self,datashape,expanded_dataslice):
+    gainsdict = {};
+    for p in self._antennas:
+      gx = self.gain.get((p,0),self._unity);
+      gy = self.gain.get((p,1),self._unity);
+      gainsdict[p] = [ self.expand_gain_to_datashape(gx,datashape,expanded_dataslice),meq.sca_vells(0),meq.sca_vells(0),
+                       self.expand_gain_to_datashape(gy,datashape,expanded_dataslice) ];
+    return gainsdict;
     
 

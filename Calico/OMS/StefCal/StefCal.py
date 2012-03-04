@@ -71,23 +71,24 @@ class StefCalVisualizer (pynode.PyNode):
   
   def update_state (self,mystate):
     mystate('freq_average',False);
-    mystate('gain_label','G');
+    mystate('label','G');
+    self.set_symdeps("Domain");
     
   def get_result (self,request,*children):
     vellsets = [];
-    gains = global_gains[self.gain_label];
+    gains = global_gains.get(self.label);
     if gains is None:
       return meq.result();
     keys = sorted(gains.keys());
     for pp in keys:
       if self.freq_average:
-        vellsets += [ meq.vells(x).mean(1) for x in gains[pp] ];
+        vellsets += [ meq.vellset(array_to_vells(x.mean(1)) if x.ndim>1 else x) for x in gains[pp] ];
       else:
-        vellsets += [ meq.vells(x) for x in gains[pp] ];
+        vellsets += [ meq.vellset(x) for x in gains[pp] ];
     res = meq.result(cells=request.cells);
     res.vellsets = vellsets;
-    result.dims = [len(keys),2,2]
-    return result;
+    res.dims = [len(keys),2,2]
+    return res;
 
 
 class StefCalNode (pynode.PyNode):
@@ -112,6 +113,7 @@ class StefCalNode (pynode.PyNode):
     mystate('full_polarization',False);
     # convergence criteria
     mystate('epsilon',1e-5);            # updates <epsilon are considered converged
+    mystate('diffgain_epsilon',1e-5);            # updates <epsilon are considered converged
     mystate('max_iter',50);             # max gain iters in major cycle 1
     mystate('max_iter1',10);            # max iter in major cycle 2 and up
     mystate('diffgain_max_iter',5);     # max diffgain iters
@@ -341,7 +343,8 @@ class StefCalNode (pynode.PyNode):
     # init diffgains
     if num_diffgains:
       diffgains = [
-        GainClass(expanded_datashape,dg_subtiling,self._solvable_ifrs,self.epsilon,self.convergence_quota,
+        GainClass(expanded_datashape,dg_subtiling,self._solvable_ifrs,
+          self.diffgain_epsilon,self.convergence_quota,
           smoothing=self.diffgain_smoothing,
           init_value=self._init_value_dg.get(i,self.init_value) )
         for i in range(num_diffgains) ];
@@ -361,12 +364,14 @@ class StefCalNode (pynode.PyNode):
       if not nmajor and domain_id == self.dump_domain: 
         dump_data_model(data,model,self._solvable_ifrs,"dump_G.txt");
       # first iterate normal gains to convergence
+      gain_maxdiffs = [];
       for niter in range(self.max_iter1 if nmajor else self.max_iter):
         # iterate over normal gains
         converged = gain.iterate(data,model,first_iter=not niter);
+        gain_maxdiffs.append(gain.maxdiff);
 #        print "value",gain.gain.values()[0][0][0,0];
         # check chi-square
-        if ( niter and not niter%10 ) or niter >= self.max_iter-1 or converged:
+        if ( niter and not niter%100 ) or niter >= self.max_iter-1 or converged:
           chisq = self.compute_chisq(gain,data,model);
           dprint(3,"iter %d max gain update is %g converged %.2f chisq is %g"%(niter+1,
                     gain.maxdiff,gain.num_converged/float(gain.total_parms),chisq));
@@ -374,6 +379,7 @@ class StefCalNode (pynode.PyNode):
         if converged:
           break;
       dprint(1,"gains converge to chisq %g (last G update %g) after %d iterations"%(chisq,gain.maxdiff,niter+1));
+      dprint(2,"  convergence was"," ".join(["%.2g"%x for x in gain_maxdiffs]));
       # break out if no diffgains to iterate over, or if we're on the last major cycle
       if not num_diffgains or nmajor >= self.max_major:
         break;
@@ -399,10 +405,14 @@ class StefCalNode (pynode.PyNode):
           if not nmajor and i == self.dump_diffgain and domain_id == self.dump_domain: 
             dump_data_model(dgmodel[i],data1,self._solvable_ifrs,"dump_E.txt");
           # iterate this diffgain solution
+          gain_maxdiffs = [];
           for niter in range(self.diffgain_max_iter):
-            if dg.iterate(dgmodel[i],data1,first_iter=not niter):
+            converged = dg.iterate(dgmodel[i],data1,first_iter=not niter);
+            gain_maxdiffs.append(dg.maxdiff);
+            if converged:
               break;
           dprint(2,"diffgain #%d converged after %d iterations"%(i,niter));
+          dprint(2,"  convergence was"," ".join(["%.2g"%x for x in gain_maxdiffs]));
 #          print dg.gain.keys();
 #          print "dE(0)",dg.gain['0',0];
 #          print "dgcorrupt",dg.corrupt(dgmodel[i],('0','A'),cache=True)[0];
@@ -429,10 +439,10 @@ class StefCalNode (pynode.PyNode):
             
     # visualie gains
     if self.visualize_gains:
-      global_gains['G'] = gain.get_2x2_gains();
+      global_gains['G'] = gain.get_2x2_gains(datashape,expanded_dataslice);
     if self.visualize_diffgains and num_diffgains:
       for i,dg in enumerate(diffgains):
-        global_gains['dE:%d'%i] = dg.get_2x2_gains();
+        global_gains['dE:%d'%i] = dg.get_2x2_gains(datashape,expanded_dataslice);
 
     # remember init value for next tile
     if self.init_from_previous:

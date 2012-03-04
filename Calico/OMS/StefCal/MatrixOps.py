@@ -1,5 +1,8 @@
+# -*- coding: utf-8 -*-
 import math
 import numpy
+from Timba.Meq import meq
+
 
 identity_function = lambda x:x;
 
@@ -45,4 +48,13 @@ def matrix_invert (A):
   a,b,c,d = A;
   idet = 1/(a*d-b*c);
   return d*idet,-b*idet,-c*idet,a*idet;
+
+def array_to_vells (x,vellshape=None,expanded_slice=None):
+  if expanded_slice is not None:
+    a = meq.complex_vells(vellshape);
+    a[...] = x[expanded_slice];
+  else:
+    a = meq.complex_vells(x.shape);
+    a[...] = x;
+  return a;
 
