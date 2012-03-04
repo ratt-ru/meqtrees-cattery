@@ -367,18 +367,18 @@ class StefCalNode (pynode.PyNode):
       gain_maxdiffs = [];
       for niter in range(self.max_iter1 if nmajor else self.max_iter):
         # iterate over normal gains
-        converged = gain.iterate(data,model,first_iter=not niter);
-        gain_maxdiffs.append(gain.maxdiff);
+        converged,maxdiff,deltas = gain.iterate(data,model,first_iter=not niter);
+        gain_maxdiffs.append(maxdiff);
 #        print "value",gain.gain.values()[0][0][0,0];
         # check chi-square
         if ( niter and not niter%100 ) or niter >= self.max_iter-1 or converged:
           chisq = self.compute_chisq(gain,data,model);
           dprint(3,"iter %d max gain update is %g converged %.2f chisq is %g"%(niter+1,
-                    gain.maxdiff,gain.num_converged/float(gain.total_parms),chisq));
+                    gain.delta_max,gain.num_converged/float(gain.total_parms),chisq));
         # break out if converged
         if converged:
           break;
-      dprint(1,"gains converge to chisq %g (last G update %g) after %d iterations"%(chisq,gain.maxdiff,niter+1));
+      dprint(1,"gains converge to chisq %g (last G update %g) after %d iterations"%(chisq,gain.delta_max,niter+1));
       dprint(2,"  convergence was"," ".join(["%.2g"%x for x in gain_maxdiffs]));
       # break out if no diffgains to iterate over, or if we're on the last major cycle
       if not num_diffgains or nmajor >= self.max_major:
@@ -407,8 +407,8 @@ class StefCalNode (pynode.PyNode):
           # iterate this diffgain solution
           gain_maxdiffs = [];
           for niter in range(self.diffgain_max_iter):
-            converged = dg.iterate(dgmodel[i],data1,first_iter=not niter);
-            gain_maxdiffs.append(dg.maxdiff);
+            converged,maxdiff,deltas = dg.iterate(dgmodel[i],data1,first_iter=not niter);
+            gain_maxdiffs.append(maxdiff);
             if converged:
               break;
           dprint(2,"diffgain #%d converged after %d iterations"%(i,niter));
@@ -521,7 +521,7 @@ class StefCalNode (pynode.PyNode):
     dt = time.time()-timestamp0;
     m,s = divmod(dt,60);
     dprint(0,"%s residual max %g last chisq %g (last G update %g), elapsed time %dm%0.2fs"%(
-              request.request_id,maxres,chisq,gain.maxdiff,m,s));
+              request.request_id,maxres,chisq,gain.delta_max,m,s));
 
     return datares;
 

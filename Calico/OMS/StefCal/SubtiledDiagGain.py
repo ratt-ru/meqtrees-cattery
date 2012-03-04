@@ -128,103 +128,65 @@ class SubtiledDiagGain (object):
     self._gpgq = {};
     self._gpgq_inv = {};
     self._gp_inv = {};
-    gain1 = {};  # dict of gain parm updates from this step
+    gain0 = {};  # dict of gain parm updates from steps 0 and 1
+    gain1 = {};
     #
 #    if verbose:
 #      print [ (rhs[key].min(),lhs[key].min()) for key in self._solve_ifrs ];
-    # converge from one side (solve for Gp)
-    for p,i in self.gain.keys():
-      # build up sums
-      sum_reim = numpy.zeros(self.gainshape,dtype=complex);
-      sum_sq = 0;
-      for q,j in self.gain.keys():
-        pq,direct,conjugate = pq_direct_conjugate(p,q,rhs);
-        if pq in self._solve_ifrs:
-          m,d = conjugate(lhs[pq][i*2+j]),direct(rhs[pq][i*2+j]);
-          mh = self.tile_data(m)*self.tile_gain(self.gain[q,j]);
-          dmh = self.tile_data(d)*mh;
-          mh2 = abs(mh)**2;
-#          if p == '0' and i==1:
-#            print "S0 %s%s:%s%s"%(p,q,i,j),"VHV",mh2[verbose_element];
-          if (p,q) in verbose_baselines and i==j:
-            print "%s%s:%s%s"%(p,q,i,j),"D",d[verbose_element],"MH",m[verbose_element], \
-                "Gq",self.gain[q,j][verbose_element],"V",mh[verbose_element],"DV",dmh[verbose_element],"VHV",mh2[verbose_element];
-          sum_reim += self.reduce_subtiles(dmh);
-          sum_sq += self.reduce_subtiles(mh2);
-      # generate update
-      if self.smoothing:
-        sum_sq = scipy.ndimage.filters.gaussian_filter(sum_sq.real,self.smoothing,mode='constant');
-        sum_reim.real = scipy.ndimage.filters.gaussian_filter(sum_reim.real,self.smoothing,mode='constant');
-        sum_reim.imag = scipy.ndimage.filters.gaussian_filter(sum_reim.imag,self.smoothing,mode='constant');
-      if verbose:
-        print p,i,sum_sq.min(),sum_sq.max();
-#      if p == '0' and i==1:
-#        print "S0 %s:%s"%(p,i),"sum VHV",sum_sq[verbose_element];
-      if p in verbose_stations:
-        print "S0 %s:%s"%(p,i),"sum DV",sum_reim[verbose_element],"sum VHV",sum_sq[verbose_element];
-        print "S0 %s:%s"%(p,i),"G'",(sum_reim/sum_sq),(sum_reim/sum_sq)[verbose_element];
-      mask = sum_sq==0;
-#      gain1[p,i] = (sum_reim/sum_sq + self.gain[p,i])/2;
-      gain1[p,i] = sum_reim/sum_sq;
-      gain1[p,i][mask] = self.gain[p,i][mask];
-      if p in verbose_stations:
-        print "S0 %s:%s"%(p,i),"G''",gain1[p,i],gain1[p,i][verbose_element];
-#    print "step 0 G:0",gain1['0',0][verbose_element],gain1['0',1][verbose_element];
-    if verbose:
-      print "done left iter";
-    gain2 = {};  # dict of gain parm updates from this step
-    # then solve for Gq
-    for q,j in self.gain.keys():
-      # build up sums
-      sum_reim = numpy.zeros(self.gainshape,dtype=complex);
-      sum_sq = 0;
+    for step,g0,g1 in (0,self.gain,gain0),(1,gain0,gain1):
+      # converge from one side (solve for Gp)
       for p,i in self.gain.keys():
-        pq,direct,conjugate = pq_direct_conjugate(p,q,rhs);
-        if pq in self._solve_ifrs:
-          m,d = direct(lhs[pq][i*2+j]),conjugate(rhs[pq][i*2+j]);
-          mh = self.tile_data(m)*self.tile_gain(gain1[p,i]);
-          dmh = self.tile_data(d)*mh;
-          mh2 = abs(mh)**2;
-#          if q == '0' and j==1:
-#            print "S1 %s%s:%s%s"%(p,q,i,j),"VHV",mh2[verbose_element];
-          if (p,q) in verbose_baselines and i==j:
-#          if q == 'A' and i==j and j==1:
-            print "%s%s:%s%s"%(p,q,i,j),"DH",d[verbose_element],"M",m[verbose_element], \
-                "Gp",gain1[p,i][verbose_element],"V",mh[verbose_element],"DHV",dmh[verbose_element],"VHV",mh2[verbose_element];
-          sum_reim += self.reduce_subtiles(dmh);
-          sum_sq += self.reduce_subtiles(mh2);
-          # smoothing?
-#      if q == '0' and j==1:
-#        print "S1 %s:%s"%(q,j),"sum VHV",sum_sq[verbose_element];
-      # generate update
-      if self.smoothing:
-        sum_sq = scipy.ndimage.filters.gaussian_filter(sum_sq.real,self.smoothing,mode='constant');
-        sum_reim.real = scipy.ndimage.filters.gaussian_filter(sum_reim.real,self.smoothing,mode='constant');
-        sum_reim.imag = scipy.ndimage.filters.gaussian_filter(sum_reim.imag,self.smoothing,mode='constant');
-      if verbose:
-        print q,j,sum_sq.min(),sum_sq.max();
-      if q in verbose_stations:
-        print "S1 %s:%s"%(q,j),"sum DV",sum_reim[verbose_element],"sum VHV",sum_sq[verbose_element];
-        print "S1 %s:%s"%(q,j),"G'",(sum_reim/sum_sq),(sum_reim/sum_sq)[verbose_element];
-      mask = sum_sq==0;
-      gain2[q,j] = (sum_reim/sum_sq + gain1[q,j])/2;
-      gain2[q,j][mask] = gain1[q,j][mask];
-      if q in verbose_stations:
-        print "S1 %s:%s"%(q,j),"G''",gain2[q,j],gain2[q,j][verbose_element];
-    # check for convergence
-    if verbose:
-      print "done right iter";
+        # build up sums
+        sum_reim = numpy.zeros(self.gainshape,dtype=complex);
+        sum_sq = 0;
+        for q,j in self.gain.keys():
+          pq,direct,conjugate = pq_direct_conjugate(p,q,rhs);
+          if pq in self._solve_ifrs:
+            m,d = conjugate(lhs[pq][i*2+j]),direct(rhs[pq][i*2+j]);
+            mh = self.tile_data(m)*self.tile_gain(g0[q,j]);
+            dmh = self.tile_data(d)*mh;
+            mh2 = abs(mh)**2;
+  #          if p == '0' and i==1:
+  #            print "S0 %s%s:%s%s"%(p,q,i,j),"VHV",mh2[verbose_element];
+            if (p,q) in verbose_baselines and i==j:
+              print "S%d %s%s:%s%s"%(step,p,q,i,j),"D",d[verbose_element],"MH",m[verbose_element], \
+                  "Gq",g0[q,j][verbose_element],"V",mh[verbose_element],"DV",dmh[verbose_element],"VHV",mh2[verbose_element];
+            sum_reim += self.reduce_subtiles(dmh);
+            sum_sq += self.reduce_subtiles(mh2);
+        # generate update
+        if self.smoothing:
+          sum_sq = scipy.ndimage.filters.gaussian_filter(sum_sq.real,self.smoothing,mode='constant');
+          sum_reim.real = scipy.ndimage.filters.gaussian_filter(sum_reim.real,self.smoothing,mode='constant');
+          sum_reim.imag = scipy.ndimage.filters.gaussian_filter(sum_reim.imag,self.smoothing,mode='constant');
+        if verbose:
+          print step,p,i,sum_sq.min(),sum_sq.max();
+  #      if p == '0' and i==1:
+  #        print "S0 %s:%s"%(p,i),"sum VHV",sum_sq[verbose_element];
+        if p in verbose_stations:
+          print "S%d %s:%s"%(step,p,i),"sum DV",sum_reim[verbose_element],"sum VHV",sum_sq[verbose_element];
+          print "S%d %s:%s"%(step,p,i),"G'",(sum_reim/sum_sq),(sum_reim/sum_sq)[verbose_element];
+        mask = sum_sq==0;
+  #      gain1[p,i] = (sum_reim/sum_sq + self.gain[p,i])/2;
+        g1[p,i] = sum_reim/sum_sq;
+        g1[p,i][mask] = g0[p,i][mask];
+        if p in verbose_stations:
+          print "S%d %s:%s"%(step,p,i),"G''",g1[p,i],g1[p,i][verbose_element];
+    # after two steps, take the average of the previous two solutions, i.e. G(i) and G(i-1)
+    for pi,g0 in gain0.iteritems():
+      gain1[pi] = (gain1[pi] + g0)/2;
+    # compare to self.gain (i.e. G(i-2))
 #    print "step 1 G:0",gain2['0',0][verbose_element],gain2['0',1][verbose_element];
     # compute ||G_new-G_old|| and ||G_new|| for each time/freq slot
     square = lambda x:x*numpy.conj(x);
-    deltanorm_sq = sum([square(gain2[pp] - self.gain[pp]) for pp in self.gain.iterkeys()]);
-    gainnorm_sq = sum([square(gain2[pp]) for pp in self.gain.iterkeys()]);
+    deltanorm_sq = sum([square(gain1[pp] - self.gain[pp]) for pp in self.gain.iterkeys()]);
+    gainnorm_sq = sum([square(gain1[pp]) for pp in self.gain.iterkeys()]);
     # find how many have converged
-    self.num_converged = (deltanorm_sq/gainnorm_sq <= self._epsilon**2).sum();
-    self.maxdiff = numpy.sqrt(deltanorm_sq.max());
-    self.gain = gain2;
+    self.delta_sq = deltanorm_sq/gainnorm_sq;
+    self.num_converged = (self.delta_sq <= self._epsilon**2).sum();
+    self.delta_max = numpy.sqrt(delta_sq.max());
+    self.gain = gain1;
     # print norm (maye generate norm as a diagnostic?)
-    return self.num_converged >= self.convergence_target;
+    return (self.num_converged >= self.convergence_target),self.delta_max,self.delta_sq;
 
   def gpgq (self,pq,i,j):
     """Returns Gp*conj(Gq), tiled into subtile shape.
@@ -282,27 +244,26 @@ class SubtiledDiagGain (object):
     """Returns lhs with gains applied: Gp*lhs*Gq^H."""
     if index:
       lhs = lhs[pq];
-    corr = self._apply_cache.get(pq) if cache else None;
-    if corr is None:
-      corr = [ 0 if is_null(d) else self.untile_data(self.tile_data(d)*self.gpgq(pq,i,j))
+    appl = self._apply_cache.get(pq) if cache else None;
+    if appl is None:
+      appl = [ 0 if is_null(d) else self.untile_data(self.tile_data(d)*self.gpgq(pq,i,j))
                                    for d,(i,j) in zip(lhs,IJ2x2) ];
       if cache:
-        self._apply_cache[pq] = corr;
+        self._apply_cache[pq] = appl;
       if pq in verbose_baselines_corr:
-        print pq,"UNCORR",[ 0 if is_null(g) else g[verbose_element] for g in lhs ];
-        print pq,"CORR",[ 0 if is_null(g) else g[verbose_element] for g in corr ];
-    return corr;
-
+        print pq,"LHS",[ 0 if is_null(g) else g[verbose_element] for g in lhs ];
+        print pq,"APPL(LHS)",[ 0 if is_null(g) else g[verbose_element] for g in appl ];
+    return appl;
 
   def apply_inverse (self,rhs,pq,cache=False):
     """Returns rhs with inverse gains applied: Gp^{-1}*rhs*Gq^{H-1}."""
     corr = self._apply_inverse_cache.get(pq) if cache else None;
-    if corr is None:
+    if appl is None:
       mod = rhs[pq];
-      corr = [ 0 if is_null(m) else self.untile_data(self.tile_data(m)*self.gpgq_inv(pq,i,j)) for m,(i,j) in zip(mod,IJ2x2) ];
+      appl = [ 0 if is_null(m) else self.untile_data(self.tile_data(m)*self.gpgq_inv(pq,i,j)) for m,(i,j) in zip(mod,IJ2x2) ];
       if cache:
-        self._apply_inverse_cache[pq] = corr;
-    return corr;
+        self._apply_inverse_cache[pq] = appl;
+    return appl;
     
   def get_2x2_gains (self,datashape,expanded_dataslice):
     gainsdict = {};
