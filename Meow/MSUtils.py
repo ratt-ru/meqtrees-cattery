@@ -1074,9 +1074,8 @@ class ImagingSelector (object):
     robust_opt = TDLOption('imaging_robust',"Robustness parameter",[-2,0,2],more=float,namespace=self,
                  doc="""The robustness (<I>R</I>) parameter for briggs weighting. To quote the CASA manual:
                  "The scaling of R is such that R = 0 gives a good tradeoff between resolution and sensitivity.
-                 R takes value between -2.0 (close to uniform weighting) to 2.0 (close to natural)."
-                 (NB: in practice, at least some versions of CASA and the lwimager seem to treat briggs
-                 and uniform weighting as the same, and use the R parameter in both cases.) See http://casa.nrao.edu/docs/casaref/imager.weight.html
+                 R takes value between -2.0 (close to uniform weighting) to 2.0 (close to natural).
+                 See http://casa.nrao.edu/docs/casaref/imager.weight.html
                  for details.""");
     noise_opt = TDLOption('imaging_noise',"Noise value for briggsabs weighting, Jy",[1],more=float,namespace=self,
                  doc="""The &sigma; parameter for briggsabs weighting.
@@ -1090,8 +1089,8 @@ class ImagingSelector (object):
           ));
     def show_weight_options (value):
       taper_opt.show(value is not None);
-      robust_opt.show(value in ("uniform","superuniform","briggs","briggsabs"));
-      noise_opt.show(value in ("briggsabs"));
+      robust_opt.show(value in ("briggs","briggsabs"));
+      noise_opt.show(value in ("briggsabs",));
     weight_opt.when_changed(show_weight_options);
     # insert intooption list
     self._opts += [

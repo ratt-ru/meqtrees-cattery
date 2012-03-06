@@ -90,10 +90,7 @@ class SubtiledDiagGain (object):
     # setup various counts and convergence targets
     self.total_parms = reduce(lambda a,b:a*b,self.gainshape);
     self.convergence_target = round(self.total_parms*conv_quota);
-    self._residual_cache = {};
-    self._apply_cache = {};
-    self._apply_inverse_cache = {};
-    self._gpgq = {};
+    self._reset();
 
   # define methods
   def tile_data (self,x):
@@ -113,21 +110,25 @@ class SubtiledDiagGain (object):
       a = meq.complex_vells(self.subtiled_shape);
       a[...] = self.tile_gain(x);
       return self.untile_data(a);
-      
+
   def reduce_subtiles (self,x):
     if not numpy.isscalar(x):
       for ax in self.subtiled_axes:
         x = x.sum(ax);
     return x;
 
-  def iterate (self,lhs,rhs,first_iter=False,verbose=0):
-    """Does one iteration of Gp*lhs*Gq^H -> rhs""";
+  def _reset (self):
     self._residual_cache = {};
+    self._residual_inverse_cache = {};
     self._apply_cache = {};
     self._apply_inverse_cache = {};
     self._gpgq = {};
     self._gpgq_inv = {};
     self._gp_inv = {};
+
+  def iterate (self,lhs,rhs,first_iter=False,verbose=0):
+    """Does one iteration of Gp*lhs*Gq^H -> rhs""";
+    self._reset();
     gain0 = {};  # dict of gain parm updates from steps 0 and 1
     gain1 = {};
     #
@@ -183,10 +184,10 @@ class SubtiledDiagGain (object):
     # find how many have converged
     self.delta_sq = deltanorm_sq/gainnorm_sq;
     self.num_converged = (self.delta_sq <= self._epsilon**2).sum();
-    self.delta_max = numpy.sqrt(delta_sq.max());
+    self.delta_max = numpy.sqrt(self.delta_sq.max());
     self.gain = gain1;
     # print norm (maye generate norm as a diagnostic?)
-    return (self.num_converged >= self.convergence_target),self.delta_max,self.delta_sq;
+    return (self.num_converged >= self.convergence_target),self.delta_max,self.delta_sq,0;
 
   def gpgq (self,pq,i,j):
     """Returns Gp*conj(Gq), tiled into subtile shape.
@@ -197,7 +198,7 @@ class SubtiledDiagGain (object):
                                                 numpy.conj(self.gain.get((pq[1],j),self._unity)) );
     return g;
 
-  def gpgq_inv (self,pq,i,j,reg=0):
+  def gpgq_inv (self,pq,i,j,regularize=0):
     """Returns 1/((Gp+reg)*conj(Gq+reg)), tiled into subtile shape.
     Computes it on-demand, if not already cached""";
     g = self._gpgq_inv.get((pq,i,j));
@@ -240,6 +241,20 @@ class SubtiledDiagGain (object):
         print pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in res ];
     return res;
 
+  def residual_inverse (self,lhs,rhs,pq,regularize=0):
+    """Returns residual R = apply_inverse(lhs) - rhs, tiled into subtile shape.
+    Computes it on-demand, if not already cached""";
+    res = self._residual_inverse_cache.get(pq);
+    if res is None:
+      corr = self.apply_inverse(lhs,pq,index=True,cache=True,regularize=regularize);
+      self._residual_inverse_cache[pq] = res = matrix_sub(corr,rhs[pq]);
+      if pq in verbose_baselines_corr:
+        print pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ];
+        print pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ];
+        print pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in corr ];
+        print pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in res ];
+    return res;
+
   def apply (self,lhs,pq,index=True,cache=False):
     """Returns lhs with gains applied: Gp*lhs*Gq^H."""
     if index:
@@ -255,16 +270,17 @@ class SubtiledDiagGain (object):
         print pq,"APPL(LHS)",[ 0 if is_null(g) else g[verbose_element] for g in appl ];
     return appl;
 
-  def apply_inverse (self,rhs,pq,cache=False):
+  def apply_inverse (self,rhs,pq,cache=False,regularize=0):
     """Returns rhs with inverse gains applied: Gp^{-1}*rhs*Gq^{H-1}."""
     corr = self._apply_inverse_cache.get(pq) if cache else None;
     if appl is None:
       mod = rhs[pq];
-      appl = [ 0 if is_null(m) else self.untile_data(self.tile_data(m)*self.gpgq_inv(pq,i,j)) for m,(i,j) in zip(mod,IJ2x2) ];
+      appl = [ 0 if is_null(m) else self.untile_data(self.tile_data(m)*
+                  self.gpgq_inv(pq,i,j,regularize=regularize)) for m,(i,j) in zip(mod,IJ2x2) ];
       if cache:
         self._apply_inverse_cache[pq] = appl;
     return appl;
-    
+
   def get_2x2_gains (self,datashape,expanded_dataslice):
     gainsdict = {};
     for p in self._antennas:
@@ -273,5 +289,5 @@ class SubtiledDiagGain (object):
       gainsdict[p] = [ self.expand_gain_to_datashape(gx,datashape,expanded_dataslice),meq.sca_vells(0),meq.sca_vells(0),
                        self.expand_gain_to_datashape(gy,datashape,expanded_dataslice) ];
     return gainsdict;
-    
+
 

@@ -61,33 +61,40 @@ def dump_data_model (data,model,ifrs,filename="dump.txt"):
         ff.write("# model %s-%s %d (%s)\n"%(pq[0],pq[1],i,xy));
         ff.write(numpy.array_str(m)+"\n");
   ff.close();
-  
-  
+
+
 global_gains = {};
 
 class StefCalVisualizer (pynode.PyNode):
   def __init__ (self,*args):
     pynode.PyNode.__init__(self,*args);
-  
+
   def update_state (self,mystate):
     mystate('freq_average',False);
     mystate('label','G');
+    mystate('index',[]);
     self.set_symdeps("Domain");
-    
+
   def get_result (self,request,*children):
     vellsets = [];
-    gains = global_gains.get(self.label);
-    if gains is None:
+    gainsets = global_gains.get(self.label);
+    if not gainsets:
       return meq.result();
-    keys = sorted(gains.keys());
+    nsets = len(gainsets);
+    keys = sorted(gainsets[0].keys());
+    self.set_state('plot_label',keys);
     for pp in keys:
-      if self.freq_average:
-        vellsets += [ meq.vellset(array_to_vells(x.mean(1)) if x.ndim>1 else x) for x in gains[pp] ];
-      else:
-        vellsets += [ meq.vellset(x) for x in gains[pp] ];
+      for gains in (gainsets if self.index == [] else [gainsets[self.index]]):
+        if self.freq_average:
+          vellsets += [ meq.vellset(array_to_vells(x.mean(1)) if x.ndim>1 else x) for x in gains[pp] ];
+        else:
+          vellsets += [ meq.vellset(x) for x in gains[pp] ];
     res = meq.result(cells=request.cells);
     res.vellsets = vellsets;
-    res.dims = [len(keys),2,2]
+    if self.index == []:
+      res.dims = [ len(keys),nsets,2,2 ];
+    else:
+      res.dims = [ len(keys),2,2 ];
     return res;
 
 
@@ -119,6 +126,7 @@ class StefCalNode (pynode.PyNode):
     mystate('diffgain_max_iter',5);     # max diffgain iters
     mystate('max_major',10);
     mystate('convergence_quota',0.9);   # what percentage of parms should converge
+    mystate('diffgain_convergence_quota',1);   # what percentage of parms should converge
     # subtiling for gains
     mystate('gain_subtiling',[1,1]);
     mystate('diffgain_subtiling',[]);
@@ -139,16 +147,19 @@ class StefCalNode (pynode.PyNode):
     mystate('residuals',True);
     # return corrected residuals/data (else uncorrected)
     mystate('correct',True);
+    # If True, equation is GDG^H=M. Else use D=GMG^H.
+    mystate('gain_bounds',[]);
+    mystate('gains_on_data',True);
     # solve for ifr gains as we go along
     mystate('solve_ifr_gains',True);
     # apply previous ifr gain solution, if available
     mystate('apply_ifr_gains',True);
     # name of ifr gain tables
     mystate('ifr_gain_table','ifrgains.cp');
-    # visualize G gains by saving them in the gloabl_gains disct
-    mystate('visualize_gains',False);
-    # visualize dE gains by saving them in the gloabl_gains disct
-    mystate('visualize_diffgains',False);
+    # visualize G gains by saving them in the global_gains dict. If >1, then all intermediate iterations will also be saved.
+    mystate('visualize_gains',0);
+    # visualize dE gains by saving them in the gloabl_gains dict
+    mystate('visualize_diffgains',0);
     # verbosity level
     mystate('verbose',0);
     # enables dumping of intermediates to text file, if >=0
@@ -329,10 +340,13 @@ class StefCalNode (pynode.PyNode):
     # init gain parms object
     gain = GainClass(expanded_datashape,gain_subtiling,self._solvable_ifrs,
               self.epsilon,self.convergence_quota,smoothing=self.gain_smoothing,
+              bounds=self.gain_bounds,
               init_value=self._init_value_gain);
     dprintf(0,"solving with %d of %d inteferometers\n",len(self._solvable_ifrs),len(self.ifrs));
     if self.gain_smoothing:
       dprint(0,"a Gaussian smoothing kernel of size",self.gain_smoothing,"will be applied");
+    if self.gain_bounds:
+      dprint(0,"gains will be flagged on amplitudes outside of",self.gain_bounds);
     dprint(1,"convergence target",gain.convergence_target,"of",gain.total_parms,"parms");
     dprint(1,"initial gain value is",self._init_value_gain.values()[0].flat[0] if isinstance(self._init_value_gain,dict) else
       self._init_value_gain);
@@ -344,7 +358,7 @@ class StefCalNode (pynode.PyNode):
     if num_diffgains:
       diffgains = [
         GainClass(expanded_datashape,dg_subtiling,self._solvable_ifrs,
-          self.diffgain_epsilon,self.convergence_quota,
+          self.diffgain_epsilon,self.diffgain_convergence_quota,
           smoothing=self.diffgain_smoothing,
           init_value=self._init_value_dg.get(i,self.init_value) )
         for i in range(num_diffgains) ];
@@ -359,16 +373,21 @@ class StefCalNode (pynode.PyNode):
     else:
       diffgains = [];
 
+    gain_iterate = (data,model) if self.gains_on_data else (model,data);
     # start major loop -- alternates over gains and diffgains
     for nmajor in range(self.max_major+1):
-      if not nmajor and domain_id == self.dump_domain: 
+      if not nmajor and domain_id == self.dump_domain:
         dump_data_model(data,model,self._solvable_ifrs,"dump_G.txt");
       # first iterate normal gains to convergence
       gain_maxdiffs = [];
       for niter in range(self.max_iter1 if nmajor else self.max_iter):
         # iterate over normal gains
-        converged,maxdiff,deltas = gain.iterate(data,model,first_iter=not niter);
+        converged,maxdiff,deltas,nfl = gain.iterate(niter=niter,*gain_iterate);
         gain_maxdiffs.append(maxdiff);
+        if self.visualize_gains > 1:
+          global_gains.setdefault('G',[]).append(gain.get_2x2_gains(datashape,expanded_dataslice));
+        if nfl:
+          dprint(2,"%d out-of-bound gains flagged at iteration %d"%(nfl,niter));
 #        print "value",gain.gain.values()[0][0][0,0];
         # check chi-square
         if ( niter and not niter%100 ) or niter >= self.max_iter-1 or converged:
@@ -388,7 +407,12 @@ class StefCalNode (pynode.PyNode):
         # G*D*G^H <- M0+corrupt(M1)+corrupt(M2)+...
         # model is the full model, M0+corrupt(M1)+corrupt(M2)+....
         # subtract this from corrected data: D1 = G*D*G^H - M0 - corrupt(M1) - corrupt(M2) - ... to obtain residuals
-        data1 = dict([ (pq,gain.residual(data,model,pq)) for pq in self._solvable_ifrs ]);
+        if self.gains_on_data:
+          data1 = dict([ (pq,gain.residual(data,model,pq)) for pq in self._solvable_ifrs ]);
+        else:
+          data1 = dict([ (pq,gain.residual_inverse(data,model,pq,
+              regularize=self.regularization_factor if self.regularize_intermediate else 0))
+              for pq in self._solvable_ifrs ]);
 #        for pq in list(self._solvable_ifrs)[:1]:
 #          print [ (pq,[ d1 if is_null(d1) else abs(d1).max() for d1 in data1[pq] ]) for pq in self._solvable_ifrs ];
         # now loop over all diffgains and iterate each set once
@@ -402,12 +426,12 @@ class StefCalNode (pynode.PyNode):
               mm[n] = -c if is_null(m) else m-c;
 #          print data1['0','A'][0][0,0],model0['0','A'][0][0,0],model['0','A'][0][0,0],dgmodel[i]['0','A'][0][0,0];
 #          print "d1",data1['0','A'][0],"m1",dgmodel[i]['0','A'][0];
-          if not nmajor and i == self.dump_diffgain and domain_id == self.dump_domain: 
+          if not nmajor and i == self.dump_diffgain and domain_id == self.dump_domain:
             dump_data_model(dgmodel[i],data1,self._solvable_ifrs,"dump_E.txt");
           # iterate this diffgain solution
           gain_maxdiffs = [];
           for niter in range(self.diffgain_max_iter):
-            converged,maxdiff,deltas = dg.iterate(dgmodel[i],data1,first_iter=not niter);
+            converged,maxdiff,deltas,nfl = dg.iterate(dgmodel[i],data1,niter=niter);
             gain_maxdiffs.append(maxdiff);
             if converged:
               break;
@@ -436,13 +460,13 @@ class StefCalNode (pynode.PyNode):
         for i,dg in enumerate(diffgains):
           for m,c in zip(model[pq],dg.apply(dgmodel[i],pq,cache=True)):
             m += c;
-            
-    # visualie gains
-    if self.visualize_gains:
-      global_gains['G'] = gain.get_2x2_gains(datashape,expanded_dataslice);
+
+    # visualize gains
+    if self.visualize_gains == 1:
+      global_gains['G'] = [ gain.get_2x2_gains(datashape,expanded_dataslice) ];
     if self.visualize_diffgains and num_diffgains:
       for i,dg in enumerate(diffgains):
-        global_gains['dE:%d'%i] = dg.get_2x2_gains(datashape,expanded_dataslice);
+        global_gains['dE:%d'%i] = [ dg.get_2x2_gains(datashape,expanded_dataslice) ];
 
     # remember init value for next tile
     if self.init_from_previous:
@@ -454,7 +478,10 @@ class StefCalNode (pynode.PyNode):
     if self.solve_ifr_gains:
       for pq in self._ifrs:
         dd = data[pq];
-        mm = gain.apply_inverse(model,pq,cache=True);
+        if self.gains_on_data:
+          mm = gain.apply_inverse(model,pq,cache=True,regularize=self.regularization_factor);
+        else:
+          mm = gain.apply(model,pq,cache=True);
         for num,(d,m) in enumerate(zip(dd,mm)):
           # work out update to ifr gains
           if numpy.isscalar(m):
@@ -475,9 +502,14 @@ class StefCalNode (pynode.PyNode):
     nvells = maxres = 0;
     for pq in self._ifrs:
       m = model.get(pq);
-      out = res = gain.residual(data,model,pq);
-      if not self.residuals:
-        out = gain.apply(data,pq);
+      if self.gains_on_data:
+        out = res = gain.residual(data,model,pq);
+        if not self.residuals:
+          out = gain.apply(data,pq);
+      else:
+        out = res = gain.residual_inverse(data,model,pq,regularize=self.regularization_factor);
+        if not self.residuals:
+          out = gain.apply_inverse(data,pq,regularize=self.regularization_factor);
       for n,x in enumerate(out):
         val = getattr(datares.vellsets[nvells],'value',None);
         if val is not None:
@@ -529,7 +561,11 @@ class StefCalNode (pynode.PyNode):
     chisq = 0;
     nterms = 0;
     for pq in self._solvable_ifrs:
-      for r in gain.residual(data,model,pq):
+      if self.gains_on_data:
+        res = gain.residual(data,model,pq);
+      else:
+        res = gain.residual(model,data,pq);
+      for r in res:
         if numpy.isscalar(r):
           chisq1 = (r*numpy.conj(r));
           nterms += 1;

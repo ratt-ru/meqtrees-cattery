@@ -4,8 +4,8 @@ import math
 import scipy.ndimage.filters
 from MatrixOps import *
 
-verbose_baselines = ()#set([('0','C'),('C','0')]);
-verbose_baselines_corr = ()#set([('0','C'),('C','0')]);
+verbose_baselines = ()#set([('0','5'),('5','0')]);
+verbose_baselines_corr = ()#set([('0','5'),('5','0')]);
 verbose_element = 5,0;
 
 verbose_stations = set([p[0] for p in verbose_baselines]+[p[1] for p in verbose_baselines]);
@@ -28,13 +28,14 @@ class Subtiled2x2Gain (object):
     If the common case of a 1,1,... subtiling, all these can be an identity
   """;
   def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,
-    smoothing=None,init_value=1):
+    smoothing=None,bounds=None,init_value=1):
     self._solve_ifrs = solve_ifrs;
     self._epsilon = epsilon;
     self.datashape = datashape;
     self.subtiling = subtiling;
     self.smoothing = smoothing;
     self.gainshape = tuple([ nd/nt for nd,nt in zip(datashape,subtiling) ]);
+    self._bounds = (min(bounds),max(bounds)) if bounds else None;
     # if subtiling is 1,1,... then override methods with identity relations
     if max(subtiling) == 1:
       self.tile_data = self.untile_data = self.tile_gain = self.reduce_subtiles = identity_function;
@@ -52,7 +53,9 @@ class Subtiled2x2Gain (object):
       self._antennas.update(ifr);
     self._zero  = numpy.zeros(self.gainshape,dtype=complex);
     self._unity = numpy.ones(self.gainshape,dtype=complex);
+    self._nullflag =  numpy.zeros(self.gainshape,dtype=bool);
     self.gain = dict([(p,(self._unity,self._zero,self._zero,self._unity)) for p in self._antennas]);
+    self.gainflags = dict([(p,[self._nullflag]*4) for p in self._antennas]);
     # init_value=1: init each parm with the _unity array
     # if init_value is a dict, use it to initialize each array with a different value
     # presumably this happens when going to the next tile -- we use the previous tile's solution
@@ -73,7 +76,7 @@ class Subtiled2x2Gain (object):
       self.gain = dict([ (p,(default,self._zero,self._zero,default)) for p in self._antennas ]);
     # setup various counts and convergence targets
     self.total_parms = reduce(lambda a,b:a*b,self.gainshape);
-    self.convergence_target = int(self.total_parms*conv_quota);
+    self.convergence_target = round(self.total_parms*conv_quota);
     self._reset();
 
   # define methods
@@ -102,9 +105,10 @@ class Subtiled2x2Gain (object):
       return self.untile_data(a);
 
   def _reset (self):
-    self._residual_cache = {};
     self._apply_cache = {};
     self._apply_inverse_cache = {};
+    self._residual_cache = {};
+    self._residual_inverse_cache = {};
     self._gmat = {};
     self._ginv = {};
     self._gconj = {};
@@ -126,21 +130,28 @@ class Subtiled2x2Gain (object):
     else:
       return None;
 
-  def iterate (self,lhs,rhs,verbose=0,first_iter=False):
+  def iterate (self,lhs,rhs,verbose=0,niter=0):
     self._reset();
     # iterates G*lhs*G^H -> rhs
     # G updates from step 0 and 1 go here
     gain0dict = {};
     gain1dict = {};
-    for step,gain0,gain1 in (0,self.gain,gain0dict),(1,gain0dict,gain1dict):
+    nflag = 0;
+    nflag_per_antenna = {};
+    for step,(gain0,gain1) in enumerate([(self.gain,gain0dict),(gain0dict,gain1dict)]):
       # loop over all antennas
       for p in self._antennas:
         # build up sums
         sum_dv = sum_vhv = NULL_MATRIX;
         for q in self._antennas:
           if (p,q) in self._solve_ifrs or (q,p) in self._solve_ifrs:
-            m = self._get_conj_matrix(p,q,lhs);
-            d = self._get_matrix(p,q,rhs);
+            # get D/D^H and M/M^H, depending on p<q or p>q
+            if not step:
+              m = self._get_conj_matrix(p,q,lhs);
+              d = self._get_matrix(p,q,rhs);
+            else:
+              m = self._get_matrix(q,p,lhs);
+              d = self._get_conj_matrix(q,p,rhs);
             if m is None or d is None:
               continue;
             # multiply and accumulate
@@ -159,7 +170,7 @@ class Subtiled2x2Gain (object):
 #          print "%s:1"%p,"sum VHV",sum_vhv[3][verbose_element];
         # accumulation done, now invert and multiply
         #print p,"SUM VHV:",sum_vhv;
-        # if sum is null, then we had no data for this station
+        # if sum is null, then we had no rhs for this station
         if all([is_null(x) for x in sum_vhv]):
           gain1[p] = gain0[p];
         else:
@@ -176,26 +187,55 @@ class Subtiled2x2Gain (object):
           if p in verbose_stations:
             print "S%d"%step,p,"sum DV",[ g[verbose_element] for g in sum_dv ],"sum VHV",[ g[verbose_element] for g in sum_vhv ];
             print "S%d"%step,p,"G'",g1[3],[ g[verbose_element] for g in g1 ];
-          # mask out infs/nans
+          # take mean with previous value, and mask out infs/nans
           for g,g0 in zip(g1,gain0[p]):
             mask = ~numpy.isfinite(g);
+            g += g0;
+            g /= 2;
             g[mask] = g0[mask];
+          # flag out-of-bounds gains
+          if self._bounds and niter:
+            for i,g in enumerate(g1):
+              absg = abs(g);
+              flag = ((absg<self._bounds[0])|(absg>self._bounds[1]))&~mask;
+              nfl = flag.sum();
+              if nfl:
+                self.gainflags[p][i] = self.gainflags[p][i]|flag;
+                nflag_per_antenna[p] = nfl;
+                nflag += nfl;
+                g[flag] = 1;
+                flag = self.tile_gain(flag);
+                for q in self._antennas:
+                  pq = (p,q) if p<q else (q,p);
+                  for hs in lhs,rhs:
+                    m = hs.get(pq);
+                    if m is not None:
+                      m = self.tile_data(m[i]);
+                      if not is_null(m):
+                        m[flag] = 0;
     # now take the mean of the last two updates
-    for p,gain0 in gain0dict.iteritems():
-      for g1,g0 in zip(gain1dict[p],gain0):
-        g1 += g0;
-        g1 /= 2;
-    
-    square = lambda x:x*numpy.conj(x);
+#    for p,gain0 in gain0dict.iteritems():
+#      for g1,g0 in zip(gain1dict[p],gain0):
+#        g1 += g0;
+#        g1 /= 2;
+
+    square = lambda x:(x*numpy.conj(x)).real;
     deltanorm_sq = sum([ sum([ square(g1-g0) for g0,g1 in zip(gain0,gain1dict[p]) ]) for p,gain0 in self.gain.iteritems() ]);
     gainnorm_sq  = sum([ sum([ square(g1) for g1 in gain1 ]) for p,gain1 in gain1.iteritems() ]);
+#    # print per-antenna max
+#    print "--- iter %d max updates per-antenna --"%niter;
+#    for i,p in enumerate(sorted(self.gain.keys())):
+#      print i,p,[ "%.2g"%math.sqrt((square(g1-g0)/gainnorm_sq).max()) for g0,g1 in zip(self.gain[p],gain1dict[p]) ],\
+#                [ "%.2g %.2g"%(math.sqrt(square(g1).min()),math.sqrt(square(g1).max())) for g1 in gain1dict[p] ],\
+#                [ fl.sum() for fl in self.gainflags[p] ];
     # find how many have converged
     self.delta_sq = deltanorm_sq/gainnorm_sq;
     self.num_converged = (self.delta_sq <= self._epsilon**2).sum();
-    self.delta_max = numpy.sqrt(self.delta_sq.max());
+    self.delta_max = math.sqrt(self.delta_sq.max());
     self.gain = gain1dict;
+    print "%d timeslots converged, max delta is %f"%(self.num_converged,self.delta_max);
     # print norm (maye generate norm as a diagnostic?)
-    return (self.num_converged >= self.convergence_target),self.delta_max,self.delta_sq;
+    return (self.num_converged >= self.convergence_target),self.delta_max,self.delta_sq,nflag;
 
   def _G (self,p):
     g = self._gmat.get(p);
@@ -234,16 +274,30 @@ class Subtiled2x2Gain (object):
   def reset_residuals (self):
     self._residual = {};
 
-  def residual (self,data,model,pq):
-    """Returns residual R = D - Gp*M*conj(Gq), tiled into subtile shape.
+  def residual (self,lhs,rhs,pq):
+    """Returns residual R = Gp*lhs*conj(Gq) - rhs, tiled into subtile shape.
     Computes it on-demand, if not already cached""";
     r = self._residual_cache.get(pq);
     if r is None:
-      c = self.apply(data,pq,True)
-      r = self._residual_cache[pq] = matrix_sub(c,model[pq]);
+      c = self.apply(lhs,pq,cache=True);
+      r = self._residual_cache[pq] = matrix_sub(c,rhs[pq]);
       if pq in verbose_baselines_corr:
-        print pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in data[pq] ];
-        print pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in model[pq] ];
+        print pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ];
+        print pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ];
+        print pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in c ];
+        print pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in r ];
+    return r;
+
+  def residual_inverse (self,lhs,rhs,pq,regularize=0):
+    """Returns residual R = Gp^{-1}*lhs*Gq^{-1H} - rhs, tiled into subtile shape.
+    Computes it on-demand, if not already cached""";
+    r = self._residual_inverse_cache.get(pq);
+    if r is None:
+      c = self.apply_inverse(lhs,pq,cache=True,regularize=regularize);
+      r = self._residual_inverse_cache[pq] = matrix_sub(c,rhs[pq]);
+      if pq in verbose_baselines_corr:
+        print pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ];
+        print pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ];
         print pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in c ];
         print pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in r ];
     return r;
@@ -265,11 +319,11 @@ class Subtiled2x2Gain (object):
     appl = self._apply_inverse_cache.get(pq);
     if appl is None or not cache:
       appl = map(self.untile_data,matrix_multiply(self._Ginv(p,regularize),
-        matrix_multiply(map(self.tile_data,rhs),self._Ginvconj(q,regularize))));
+        matrix_multiply(map(self.tile_data,rhs[pq]),self._Ginvconj(q,regularize))));
       if cache:
         self._apply_inverse_cache[pq] = appl;
       if pq in verbose_baselines_corr:
-        print pq,"RHS",[ 0 if is_null(g) else g[verbose_element] for g in rhs ];
+        print pq,"RHS",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ];
         print pq,"APPLINV",[ 0 if is_null(g) else g[verbose_element] for g in appl ];
     return appl;
 
@@ -278,5 +332,5 @@ class Subtiled2x2Gain (object):
     for p,gmat in self.gain.iteritems():
       gainsdict[p] = [ self.expand_gain_to_datashape(x,datashape,expanded_dataslice) for x in gmat ];
     return gainsdict;
-    
+
 
