@@ -42,7 +42,7 @@ class SubtiledDiagGain (object):
 
     If the common case of a 1,1,... subtiling, all these can be an identity
   """;
-  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1,smoothing=None):
+  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1,bounds=None,smoothing=None):
     self._solve_ifrs = solve_ifrs;
     self._epsilon = epsilon;
     self.datashape = datashape;
@@ -126,7 +126,7 @@ class SubtiledDiagGain (object):
     self._gpgq_inv = {};
     self._gp_inv = {};
 
-  def iterate (self,lhs,rhs,first_iter=False,verbose=0):
+  def iterate (self,lhs,rhs,niter=0,verbose=0):
     """Does one iteration of Gp*lhs*Gq^H -> rhs""";
     self._reset();
     gain0 = {};  # dict of gain parm updates from steps 0 and 1
@@ -186,7 +186,8 @@ class SubtiledDiagGain (object):
     self.num_converged = (self.delta_sq <= self._epsilon**2).sum();
     self.delta_max = numpy.sqrt(self.delta_sq.max());
     self.gain = gain1;
-    # print norm (maye generate norm as a diagnostic?)
+    # print norm (maybe generate norm as a diagnostic?)
+    print "%d slots converged, max delta is %f"%(self.num_converged,self.delta_max);
     return (self.num_converged >= self.convergence_target),self.delta_max,self.delta_sq,0;
 
   def gpgq (self,pq,i,j):

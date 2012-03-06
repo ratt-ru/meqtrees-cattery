@@ -1071,15 +1071,18 @@ class ImagingSelector (object):
                   current weights. This will save some time when re-running the imager on the same MS,
                   but will fail if the weights have not been set previously."""
     );
-    robust_opt = TDLOption('imaging_robust',"Robustness parameter",[-2,0,2],more=float,namespace=self,
+    robust_opt = TDLOption('imaging_robust',"Robustness parameter",[0,-2,2],more=float,namespace=self,
                  doc="""The robustness (<I>R</I>) parameter for briggs weighting. To quote the CASA manual:
                  "The scaling of R is such that R = 0 gives a good tradeoff between resolution and sensitivity.
                  R takes value between -2.0 (close to uniform weighting) to 2.0 (close to natural).
                  See http://casa.nrao.edu/docs/casaref/imager.weight.html
-                 for details.""");
-    noise_opt = TDLOption('imaging_noise',"Noise value for briggsabs weighting, Jy",[1],more=float,namespace=self,
+                 for details.<BR>
+                 For old versions of lwimager that do not support the robust argument, use a value of 0.""");
+    noise_opt = TDLOption('imaging_noise',"Noise value for briggsabs weighting, Jy",[None,.1,1],more=float,namespace=self,
                  doc="""The &sigma; parameter for briggsabs weighting.
-                 See http://casa.nrao.edu/docs/casaref/imager.weight.html for details.""");
+                 See http://casa.nrao.edu/docs/casaref/imager.weight.html for details.<BR>
+                 For old versions of lwimager that do not support the noise argument, use a value of None.
+                 """);
     taper_opt = TDLMenu("Apply Gaussian taper to visibilities",toggle='imaging_taper_gauss',namespace=self,
           doc="""Applies an additional Gaussian taper to the imaging weights. The size of the taper
           is specified in terms of feature size on the image plane.""",
@@ -1253,8 +1256,6 @@ class ImagingSelector (object):
       [ 'ms='+self.mssel.msname,
         'mode='+imgmode,
         'weight='+(self.imaging_weight or "default"),
-        'robust=%f'%self.imaging_robust,
-        'noise=%f'%self.imaging_noise,
         'stokes='+self.imaging_stokes,
         'npix=%d'%npix,
         'prefervelocity='+("True" if self.imaging_freqmode is FREQMODE_VELO else "False"),
@@ -1264,6 +1265,10 @@ class ImagingSelector (object):
         'padding=%f'%self.imaging_padding,
         'image_viewer=%s'%(self.image_viewer if run_viewer else 'none'),
       ];
+    if self.imaging_weight == "briggsabs" and self.imaging_noise is not None:
+      args += [ 'noise=%f'%self.imaging_noise ];
+    if self.imaging_robust and self.imaging_weight.startswith("briggs"):
+      args += [ 'robust=%f'%self.imaging_robust ];
     # add taper arguments
     if self.imaging_weight is not None and self.imaging_taper_gauss:
       if _IMAGER == "glish":
