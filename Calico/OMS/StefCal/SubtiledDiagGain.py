@@ -247,7 +247,7 @@ class SubtiledDiagGain (object):
     Computes it on-demand, if not already cached""";
     res = self._residual_inverse_cache.get(pq);
     if res is None:
-      corr = self.apply_inverse(lhs,pq,index=True,cache=True,regularize=regularize);
+      corr = self.apply_inverse(lhs,pq,cache=True,regularize=regularize);
       self._residual_inverse_cache[pq] = res = matrix_sub(corr,rhs[pq]);
       if pq in verbose_baselines_corr:
         print pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ];
