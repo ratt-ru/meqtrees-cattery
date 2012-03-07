@@ -182,7 +182,7 @@ class MSContentSelector (object):
     else:
       self.select_channels = False;
     # additional taql string
-    self.ms_taql_string = None;
+    self.ms_taql_str = None;
     self._opts += [
         TDLOption('ms_taql_str',"Additional TaQL selection",[None],more=str,namespace=self)
     ];
@@ -234,7 +234,8 @@ class MSContentSelector (object):
     return self.ddid_index or 0;
 
   def get_taql_string (self):
-    return self.ms_taql_string or '';
+#    print "taql:",self.ms_taql_string;
+    return self.ms_taql_str or '';
 
   def create_selection_record (self):
     """Forms up a selection record that can be added to an MS input record""";
