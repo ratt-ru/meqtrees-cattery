@@ -273,7 +273,7 @@ class SubtiledDiagGain (object):
 
   def apply_inverse (self,rhs,pq,cache=False,regularize=0):
     """Returns rhs with inverse gains applied: Gp^{-1}*rhs*Gq^{H-1}."""
-    corr = self._apply_inverse_cache.get(pq) if cache else None;
+    appl = self._apply_inverse_cache.get(pq) if cache else None;
     if appl is None:
       mod = rhs[pq];
       appl = [ 0 if is_null(m) else self.untile_data(self.tile_data(m)*
