@@ -67,7 +67,7 @@ if __name__ == '__main__':
   run("ls WSRT.MS");
   run("lwimager ms=WSRT.MS data=CORRECTED_DATA mode=channel weight=natural npix=10");
   # make test LSMs
-  run("""tigger-convert test-lsm.txt --rename --format "ra_d dec_d i q u v" -f""");
+  run("""tigger-convert test-lsm.txt --rename --format "ra_d dec_d i q u v" --center 0.1,60.5 -f""");
   run("""tigger-convert test-lsm.lsm.html test-lsm1.txt --output-format "name ra_h dec_d i q u v freq0 spi rm tags..." -f""");
   run("""cut -d " " -f 1-10 test-lsm1.txt >test-lsm1.txt.tmp""");
   run("""diff test-lsm1.txt.tmp %s"""%path('test-lsm1.txt.reference'));
