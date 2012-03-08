@@ -3,6 +3,7 @@
 from Timba import pynode
 from Timba.Meq import meq
 import numpy
+import sys
 import math
 import Kittens.utils
 import time
@@ -11,8 +12,6 @@ import os.path
 import traceback
 
 from MatrixOps import *
-from SubtiledDiagGain import SubtiledDiagGain
-from Subtiled2x2Gain import Subtiled2x2Gain
 
 _verbosity = Kittens.utils.verbosity(name="stefcal");
 dprint = _verbosity.dprint;
@@ -116,8 +115,16 @@ class StefCalNode (pynode.PyNode):
     mystate('gain_parm_label',"G");
     mystate('ifr_gain_parm_label',"IG");
     mystate('diffgain_parm_label',"dE");
-    # full polarization or diagonal
-    mystate('full_polarization',False);
+    # which implementation to use
+    # given X.Y.Z, import module X.Y, and use symbol Z from that
+    # given just X, use X.X
+    mystate('implementation',"GainDiag");
+    path = self.implementation.split('.');
+    modname,classname = '.'.join(['Calico.OMS.StefCal']+(path[:-1] or path[-1:])),path[-1];
+    __import__(modname);
+    module = sys.modules[modname];
+    self._impl_class = getattr(module,classname);
+    self._polarized = getattr(self._impl_class,'polarized',True);
     # convergence criteria
     mystate('epsilon',1e-5);            # updates <epsilon are considered converged
     mystate('diffgain_epsilon',1e-5);            # updates <epsilon are considered converged
@@ -255,7 +262,7 @@ class StefCalNode (pynode.PyNode):
           if hasattr(datares.vellsets[nvells],'flags'):
             flag4 += (datares.vellsets[nvells].flags != 0);
           # if model and/or data is null, then we're unpolarized, so skip this from the matrix entirely
-          skip = is_null(d) if self.full_polarization else (is_null(m) or is_null(d));
+          skip = is_null(d) if self._polarized else (is_null(m) or is_null(d));
           if skip:
             pass;
           else:
@@ -336,13 +343,13 @@ class StefCalNode (pynode.PyNode):
       # in principle could also handle [N], but let's not bother for now
       raise TypeError,"data and model must be of rank Nx2x2";
 
-    GainClass = Subtiled2x2Gain if self.full_polarization else SubtiledDiagGain;
+    GainClass = self._impl_class;
     # init gain parms object
     gain = GainClass(expanded_datashape,gain_subtiling,self._solvable_ifrs,
               self.epsilon,self.convergence_quota,smoothing=self.gain_smoothing,
               bounds=self.gain_bounds,
               init_value=self._init_value_gain);
-    dprintf(0,"solving with %d of %d inteferometers\n",len(self._solvable_ifrs),len(self.ifrs));
+    dprintf(0,"solving using %s with %d of %d inteferometers\n",GainClass.__name__,len(self._solvable_ifrs),len(self.ifrs));
     if self.gain_smoothing:
       dprint(0,"a Gaussian smoothing kernel of size",self.gain_smoothing,"will be applied");
     if self.gain_bounds:
@@ -383,6 +390,7 @@ class StefCalNode (pynode.PyNode):
       for niter in range(self.max_iter1 if nmajor else self.max_iter):
         # iterate over normal gains
         converged,maxdiff,deltas,nfl = gain.iterate(niter=niter,*gain_iterate);
+        dprint(3,"%d slots converged, max delta is %f"%(gain.num_converged,gain.delta_max));
         gain_maxdiffs.append(maxdiff);
         if self.visualize_gains > 1:
           global_gains.setdefault('G',[]).append(gain.get_2x2_gains(datashape,expanded_dataslice));
@@ -432,6 +440,7 @@ class StefCalNode (pynode.PyNode):
           gain_maxdiffs = [];
           for niter in range(self.diffgain_max_iter):
             converged,maxdiff,deltas,nfl = dg.iterate(dgmodel[i],data1,niter=niter);
+            dprint(3,"%d slots converged, max delta is %f"%(dg.num_converged,dg.delta_max));
             gain_maxdiffs.append(maxdiff);
             if converged:
               break;

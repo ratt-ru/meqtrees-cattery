@@ -26,7 +26,7 @@ def pq_direct_conjugate (p,q,data):
   else:
     return None,None,None;
 
-class SubtiledDiagGain (object):
+class GainDiag (object):
   """Support class to handle a set of subtiled gains in the form of diagonal G matrices.
     For a data shape of N1,N2,..., and a subtiling of M1,M2,..., we have the following shapes in play:
       gainparm_shape = N1/M1,N2/M2,... Let's call this K1,K2,...
@@ -42,6 +42,8 @@ class SubtiledDiagGain (object):
 
     If the common case of a 1,1,... subtiling, all these can be an identity
   """;
+  polarized = True;
+
   def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1,bounds=None,smoothing=None):
     self._solve_ifrs = solve_ifrs;
     self._epsilon = epsilon;
@@ -187,7 +189,6 @@ class SubtiledDiagGain (object):
     self.delta_max = numpy.sqrt(self.delta_sq.max());
     self.gain = gain1;
     # print norm (maybe generate norm as a diagnostic?)
-    print "%d slots converged, max delta is %f"%(self.num_converged,self.delta_max);
     return (self.num_converged >= self.convergence_target),self.delta_max,self.delta_sq,0;
 
   def gpgq (self,pq,i,j):

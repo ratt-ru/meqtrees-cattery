@@ -11,7 +11,7 @@ verbose_element = 5,0;
 verbose_stations = set([p[0] for p in verbose_baselines]+[p[1] for p in verbose_baselines]);
 verbose_stations_corr = set([p[0] for p in verbose_baselines_corr]+[p[1] for p in verbose_baselines_corr]);
 
-class Subtiled2x2Gain (object):
+class Gain2x2 (object):
   """Support class to handle a set of subtiled gains in the form of diagonal G matrices.
     For a data shape of N1,N2,..., and a subtiling of M1,M2,..., we have the following shapes in play:
       gainparm_shape = N1/M1,N2/M2,... Let's call this K1,K2,...
@@ -233,7 +233,6 @@ class Subtiled2x2Gain (object):
     self.num_converged = (self.delta_sq <= self._epsilon**2).sum();
     self.delta_max = math.sqrt(self.delta_sq.max());
     self.gain = gain1dict;
-    print "%d timeslots converged, max delta is %f"%(self.num_converged,self.delta_max);
     # print norm (maye generate norm as a diagnostic?)
     return (self.num_converged >= self.convergence_target),self.delta_max,self.delta_sq,nflag;
 
