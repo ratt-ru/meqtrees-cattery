@@ -1,11 +1,20 @@
 # -*- coding: utf-8 -*-
 import numpy
 import math
+import operator
 import scipy.ndimage.filters
+import Kittens.utils
+
 from MatrixOps import *
 
-verbose_baselines = ()#set([('0','5'),('5','0')]);
-verbose_baselines_corr = ()#set([('0','5'),('5','0')]);
+_verbosity = Kittens.utils.verbosity(name="gain2x2");
+dprint = _verbosity.dprint;
+dprintf = _verbosity.dprintf;
+
+
+verbose_baselines = (); # set([('CS001HBA0','CS003HBA0'),('CS003HBA0','CS001HBA0')]);
+#verbose_baselines_corr = set(); # set([('0','5'),('5','0')]);
+verbose_baselines_corr = (); # set([('CS001HBA0','CS003HBA0'),('CS003HBA0','CS001HBA0')]);
 verbose_element = 5,0;
 
 verbose_stations = set([p[0] for p in verbose_baselines]+[p[1] for p in verbose_baselines]);
@@ -27,10 +36,20 @@ class Gain2x2 (object):
 
     If the common case of a 1,1,... subtiling, all these can be an identity
   """;
-  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,
-    smoothing=None,bounds=None,init_value=1):
+  polarized = True;
+  nparm = 4;
+
+  def __init__ (self,original_datashape,datashape,subtiling,solve_ifrs,epsilon,conv_quota,
+                twosided=False,averaging=2,verbose=0,
+                smoothing=None,bounds=None,init_value=1):
+    """original_datashape gives the unpadded datashape. This is the one that ought to be used to estimate
+    convergence quotas. datashape is the real, padded, datashape. subtiling gives the subtiling."""
+    _verbosity.set_verbose(verbose);
+    _verbosity.enable_timestamps(True,modulo=6000);
     self._solve_ifrs = solve_ifrs;
     self._epsilon = epsilon;
+    self._twosided = twosided;
+    self._averaging = averaging;
     self.datashape = datashape;
     self.subtiling = subtiling;
     self.smoothing = smoothing;
@@ -75,9 +94,15 @@ class Gain2x2 (object):
       default[...] = init_value;
       self.gain = dict([ (p,(default,self._zero,self._zero,default)) for p in self._antennas ]);
     # setup various counts and convergence targets
-    self.total_parms = reduce(lambda a,b:a*b,self.gainshape);
-    self.convergence_target = round(self.total_parms*conv_quota);
+    # total slots being solved for (which can include padding)
+    self.total_slots  = reduce(operator.mul,self.gainshape);
+    unpadded_gainshape = tuple([ int(math.ceil(nd/float(nt))) for nd,nt in zip(original_datashape,subtiling) ]);
+    real_slots = reduce(operator.mul,unpadded_gainshape);
+    real_target = round(real_slots*conv_quota);
+    self.convergence_target = real_target + (self.total_slots - real_slots);
     self._reset();
+    dprint(1,"convergence target %d of %d real slots (%d of %d padded slots)"%(real_target,real_slots,
+        self.convergence_target,self.total_slots));
 
   # define methods
   def tile_data (self,x):
@@ -118,7 +143,7 @@ class Gain2x2 (object):
     if (p,q) in data:
       return map(self.tile_data,data[p,q]);
     elif (q,p) in data:
-      return map(numpy.conj,map(self.tile_data,data[q,p]));
+      return matrix_conj(map(self.tile_data,data[q,p]));
     else:
       return None;
 
@@ -126,7 +151,7 @@ class Gain2x2 (object):
     if (p,q) in data:
       return matrix_conj(map(self.tile_data,data[p,q]));
     elif (q,p) in data:
-      return matrix_transpose(map(self.tile_data,data[q,p]));
+      return map(self.tile_data,data[q,p]);
     else:
       return None;
 
@@ -146,7 +171,7 @@ class Gain2x2 (object):
         for q in self._antennas:
           if (p,q) in self._solve_ifrs or (q,p) in self._solve_ifrs:
             # get D/D^H and M/M^H, depending on p<q or p>q
-            if not step:
+            if not self._twosided or not step:
               m = self._get_conj_matrix(p,q,lhs);
               d = self._get_matrix(p,q,rhs);
             else:
@@ -190,8 +215,9 @@ class Gain2x2 (object):
           # take mean with previous value, and mask out infs/nans
           for g,g0 in zip(g1,gain0[p]):
             mask = ~numpy.isfinite(g);
-            g += g0;
-            g /= 2;
+            if self._averaging == 1:
+              g += g0;
+              g /= 2;
             g[mask] = g0[mask];
           # flag out-of-bounds gains
           if self._bounds and niter:
@@ -213,11 +239,21 @@ class Gain2x2 (object):
                       m = self.tile_data(m[i]);
                       if not is_null(m):
                         m[flag] = 0;
+
     # now take the mean of the last two updates
-#    for p,gain0 in gain0dict.iteritems():
-#      for g1,g0 in zip(gain1dict[p],gain0):
-#        g1 += g0;
-#        g1 /= 2;
+    if self._averaging == 2:
+      for p,gain0 in gain0dict.iteritems():
+        for g1,g0 in zip(gain1dict[p],gain0):
+          g1 += g0;
+          g1 /= 2;
+
+    ## constrain phases (since we have an inherent phase ambiguity) -- set the sum of the xx phases to 0
+    #phi0 = sum([ numpy.angle(gg[0]) for gg in gain1dict.itervalues() ])/len(gain1dict);
+    #print "correcting G for sum of phases:",phi0[0];
+    #ephi0 = numpy.exp(-1j*phi0);
+    #for gg in gain1dict.itervalues():
+      #for g in gg:
+        #g *= ephi0;
 
     square = lambda x:(x*numpy.conj(x)).real;
     deltanorm_sq = sum([ sum([ square(g1-g0) for g0,g1 in zip(gain0,gain1dict[p]) ]) for p,gain0 in self.gain.iteritems() ]);
@@ -270,9 +306,6 @@ class Gain2x2 (object):
     This can be used to initialize new gain objects (for init_value)"""
     return dict([((p,i,j),self.gain[p,i,j][-1,...]) for p in self._antennas for i,j in IJ2x2 ]);
 
-  def reset_residuals (self):
-    self._residual = {};
-
   def residual (self,lhs,rhs,pq):
     """Returns residual R = Gp*lhs*conj(Gq) - rhs, tiled into subtile shape.
     Computes it on-demand, if not already cached""";
@@ -285,6 +318,9 @@ class Gain2x2 (object):
         print pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ];
         print pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in c ];
         print pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in r ];
+    else:
+      if pq in verbose_baselines_corr:
+        print pq,"R cached",[ 0 if is_null(g) else g[verbose_element] for g in r ];
     return r;
 
   def residual_inverse (self,lhs,rhs,pq,regularize=0):
@@ -298,7 +334,7 @@ class Gain2x2 (object):
         print pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ];
         print pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ];
         print pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in c ];
-        print pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in r ];
+        print pq,"Ri",[ 0 if is_null(g) else g[verbose_element] for g in r ];
     return r;
 
   def apply (self,lhs,pq,cache=False):

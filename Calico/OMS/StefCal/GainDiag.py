@@ -42,9 +42,10 @@ class GainDiag (object):
 
     If the common case of a 1,1,... subtiling, all these can be an identity
   """;
-  polarized = True;
+  polarized = False;
+  nparm = 2;
 
-  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1,bounds=None,smoothing=None):
+  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1,bounds=None,smoothing=None,**kw):
     self._solve_ifrs = solve_ifrs;
     self._epsilon = epsilon;
     self.datashape = datashape;
