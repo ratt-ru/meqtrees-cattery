@@ -11,6 +11,7 @@ import time
 import cPickle
 import os.path
 import traceback
+import scipy.ndimage.measurements
 
 from MatrixOps import *
 
@@ -111,6 +112,10 @@ class StefCalNode (pynode.PyNode):
     mystate('ifrs',[]);
     # list of ifr pairs which we use to solve for gains. If empty, all ifrs are used
     mystate('solve_ifrs',[]);
+    # list of baseline lengths
+    mystate('baselines',[]);
+    if not self.baselines:
+      self.baselines = [0]*len(self.ifrs);
     # correlation names
     mystate('corr_names',["x","y"]);
     # labels for gain, ifr gain and differential gain parameters
@@ -128,15 +133,23 @@ class StefCalNode (pynode.PyNode):
     self._impl_class = getattr(module,classname);
     self._polarized = getattr(self._impl_class,'polarized',True);
     # convergence criteria
-    mystate('epsilon',1e-5);            # updates <epsilon are considered converged
-    mystate('diffgain_epsilon',1e-5);            # updates <epsilon are considered converged
-    mystate('max_iter',50);             # max gain iter in first major cycle
-    mystate('max_iter_1',20);            # max gain iter in middle of major cycle
-    mystate('max_iter_2',20);            # max gain iter in last major cycle
+    mystate('epsilon',1e-5);            # when the update is ||G-G'||<epsilon, we are converged
+    mystate('delta',1e-6);              # when chisq changes by less than delta, we are converged. First loop of major cycle
+    mystate('delta_1',1e-6);            # middle loops of major cycle
+    mystate('delta_2',1e-6);            # last loop of major cycle
+    mystate('diffgain_epsilon',1e-5);   # epsilon for diffgain solutions
+    mystate('diffgain_delta',1e-6);     # delta for diffgain solutions
+    mystate('max_iter',50);             # max gain iter in first loop of major cycle
+    mystate('max_iter_1',20);           # max gain iter in middle loops of major cycle
+    mystate('max_iter_2',20);           # max gain iter in last loop of major cycle
     mystate('diffgain_max_iter',5);     # max diffgain iters
     mystate('max_major',10);
     mystate('convergence_quota',0.9);   # what percentage of parms should converge
     mystate('diffgain_convergence_quota',1);   # what percentage of parms should converge
+    # weigh G solutions using noise estimates
+    mystate('weigh_gains',True);
+    # weigh dE solutions using noise estimates
+    mystate('weigh_diffgains',True);
     # subtiling for gains
     mystate('gain_subtiling',[1,1]);
     mystate('diffgain_subtiling',[]);
@@ -147,14 +160,25 @@ class StefCalNode (pynode.PyNode):
     mystate('init_from_table',True);
     # use previous tile (timeslot) as starting guess -- if table not available
     mystate('init_from_previous',True);
+    # rescale data to model
+    mystate('rescale',True);
     # use this value as starting guess -- if previous two not available
     mystate('init_value',1);
+    # if set, then updated solutions are forward-fed during iteration
+    mystate('omega',.5);
+    mystate('omega_1',.5);
+    mystate('omega_de',.5);
+    # avergaing modes
+    mystate('average',2);
+    mystate('average_1',2);
+    mystate('average_de',2);
+    mystate('feed_forward',False);
+    mystate('feed_forward_1',False);
+    mystate('feed_forward_de',False);
     # regularization factor applied to gain solutions for correction
     mystate('regularization_factor',0);
     # regularize intermediate corrections (when solving for dEs)?
     mystate('regularize_intermediate',False);
-    mystate('iter_twosided',False);
-    mystate('iter_averaging',2);
     # return residuals (else data)
     mystate('residuals',True);
     # return corrected residuals/data (else uncorrected)
@@ -183,6 +207,9 @@ class StefCalNode (pynode.PyNode):
     mystate('print_variance',False);
     # lis of all ifrs, as p,q pairs
     self._ifrs = [ tuple(x.split(':')) for x in self.ifrs ];
+    # make list of ifrs sorted by baselines
+    self.ifr_by_baseline = zip(self._ifrs,self.baselines);
+    self.ifr_by_baseline.sort(lambda x,y:cmp(x[1],y[1]));
     # parse set of solvable ifrs
     self._solvable_ifrs = set([ tuple(x.split(":")) for x in (self.solve_ifrs or self.ifrs) ]);
     # other init
@@ -236,7 +263,12 @@ class StefCalNode (pynode.PyNode):
     dgmodel = [ {} for i in range(num_diffgains) ];
                         # for each diff gain, mapping from (p,q) to M1,M2,... model time-freq planes (4 each)
     model = {};         # this is the full model, M0+M1+M2+...
-    flags = {};         # this is a bool array of flagged values
+
+    # This will contain a mask of flagged values. I would use masked arrays,
+    # but they seem to slow something down, so no no. Instead, we'll use 0.0 for missing values in model and
+    # data (since zeroes do not upset the equations), and maintain a flagmask for computing things like
+    # stats. For each p,q, flagmask contains a boolean array (same shape as model/data).
+    flagmask = {};
 
     antennas = set([p for p,q in self._ifrs]) | set([q for p,q in self._ifrs]);
 
@@ -262,7 +294,6 @@ class StefCalNode (pynode.PyNode):
       for pq in self._ifrs:
         # get IFR gain for this p,q
         ifrgain = self.ifr_gain.get(pq,[1,1,1,1]);
-        flag4 = False;
         # now loop over the 4 matrix elements
         for num,(i,j) in enumerate(IJ2x2):
           # get data, and apply ifr gains if we have them
@@ -272,7 +303,9 @@ class StefCalNode (pynode.PyNode):
           # get model
           m = getattr(modelres.vellsets[nvells],'value',0);
           if hasattr(datares.vellsets[nvells],'flags'):
-            flag4 += (datares.vellsets[nvells].flags != 0);
+            flags = (datares.vellsets[nvells].flags != 0);
+          else:
+            flags = None;
           # if model and/or data is null, then we're unpolarized, so skip this from the matrix entirely
           skip = is_null(d) if self._polarized else (is_null(m) or is_null(d));
           if skip:
@@ -284,6 +317,7 @@ class StefCalNode (pynode.PyNode):
             if not nvells:
               # this is the basic time-frequency shape
               datashape = tuple(d.shape);
+              self._datasize = reduce(operator.mul,datashape);
               # figure out subtiling
               # if not specified, use whole tile as solution interval
               if self.gain_subtiling:
@@ -320,10 +354,10 @@ class StefCalNode (pynode.PyNode):
                   x1[expanded_dataslice] = x;
                   return x1;
                 self._expanded_size = reduce(operator.mul,expanded_datashape);
-                self._expansion_ratio = self._expanded_size/float(reduce(operator.mul,datashape));
+                self._expansion_ratio = self._expanded_size/float(self._datasize);
                 dprint(1,"input arrays will be expanded to shape",expanded_datashape,"ratio %.2f"%self._expansion_ratio);
               else:
-                self._expanded_size = reduce(operator.mul,datashape);
+                self._expanded_size = self._datasize;
                 self._expansion_ratio = 1;
                 expanded_dataslice = None;
                 pad_array = identity_function;
@@ -335,12 +369,20 @@ class StefCalNode (pynode.PyNode):
               raise TypeError,"model shape mismatch at %s:%s:%s:%s"%(pq[0],pq[1],self.corr_names[i],self.corr_names[j]);
             # add to data/model matrices, applying the padding function defined above
             m0 = model0.setdefault(pq,[0,0,0,0])[num] = pad_array(m);
-            data.setdefault(pq,[0,0,0,0])[num] = pad_array(d);
-            # add the noise variance
-            if self.print_variance:
-              v = d[1:,...]-d[:-1,...];
-              v = v[numpy.isfinite(v)];
-              variance.setdefault(pq,[0,0,0,0])[num] = (v.real.std(0)+v.imag.std(0))/2;
+            d0 = data.setdefault(pq,[0,0,0,0])[num] = pad_array(d);
+            # apply flags
+            if flags is not None:
+              flags = pad_array(flags);
+              if not is_null(m0):
+                m0[flags] = 0;
+              if not is_null(d0):
+                d0[flags] = 0;
+              invalid = (d0==0)&(m0==0);
+              if pq in flagmask:
+                flagmask[pq] |= invalid;
+              else:
+                flagmask[pq] = invalid;
+#              print pq,validmask[pq];
             # also accumulate initial model, as M0+M1+M2
             # if max_major==0, then we don't solve for diff
             if num_diffgains:
@@ -348,32 +390,72 @@ class StefCalNode (pynode.PyNode):
               for k in range(num_diffgains):
                 m1 = children[2+k].vellsets[nvells].value
                 m1 = pad_array(m1);
+                if flags is not None and not is_null(m1):
+                  m1[flags] = 0;
                 dgmodel[k].setdefault(pq,[0,0,0,0])[num] = m1;
                 m0 += m1;
-            else:
-              model[pq] = model0[pq];
           # increment vells #
           nvells += 1;
-        # do we have any flags? apply them to all 4 corrs
-        if flag4 is not False:
-          dprint(4,pq,"has",flag4.sum(),"flags");
+        # copy M0 to model, if no diffgains were present
+        if not num_diffgains:
+          model[pq] = model0[pq];
+        # Set all 4 corrs to 0 if at least one is invalid
+        fmask = flagmask.get(pq);
+        if fmask is not None:
+          valid = self._expanded_size - fmask.sum();
+          dprint(4,pq,"has %d of %d unflagged correlation matrices"%(valid,self._datasize));
           for dataset in [data,model,model0] + dgmodel:
-            for x in dataset[pq]:
+            for x in dataset.get(pq,[]):
               if not is_null(x):
-                x[pad_array(flag4)] = 0;
-        # now count valid elements
-        # nel will be a time/freq array with values from 0 to 4, depending on how many data/model visiblities are non-null
-        nel = sum([0 if is_null(d) else ((d!=0)|(m!=0)).astype(int) for d,m in zip(data[pq],model[pq])]);
-        valid = (nel>1).astype(int)
+                x[fmask] = 0;
+        else:
+          dprint(4,pq,"has no flagged correlation matrices");
+          valid = self._datasize;
+        # if nothing is valid, remove baseline from dicts
+        if not valid:
+          for dataset in [data,model,model0] + dgmodel:
+            del dataset[pq];
+        # now count up valid elements
         vis_per_antenna[pq[0]] += valid;
         vis_per_antenna[pq[1]] += valid;
     else:
       # in principle could also handle [N], but let's not bother for now
       raise TypeError,"data and model must be of rank Nx2x2";
 
+    valid_ifrs = data.keys();
+    solvable_ifrs = set(self._solvable_ifrs)&set(valid_ifrs);
+
+    # compute the noise estimate, and weights based on this
+    if self.weigh_gains:
+      nw = nm = nnw = 0;
+      noise,weight = self.compute_noise(data,flagmask);
+      # print and total up stats, check for funny situations
+      for pq,bl in self.ifr_by_baseline:
+        if pq in data:
+          w = weight.get(pq,0);
+          rms = noise.get(pq,0);
+          if rms is not None:
+            dprint(4,"%20s %.2fm"%("-".join(pq),bl),"noise %.2g weight %.2f"%(rms,w));
+          if w:
+            nw += 1;
+          else:
+            if is_null(data[pq][0]):
+              nm += 1;
+            else:
+              fm = flagmask.get(pq);
+              np = self._datasize if fm is None else (self._expanded_size - fm.sum());
+              if np:
+                dprint(1,"funny,",pq,"has zero weights, yet %d valid points"%np);
+                nnw += 1;
+              else:
+                nm += 1;
+      dprint(1,"%d baselines with non-zero weights (%d with null weight, %d have no valid data)"%(nw,nnw,nm));
+    else:
+      weight = noise = None;
+
     GainClass = self._impl_class;
-    dprintf(0,"solving with %s, using %d of %d inteferometers, with %d solvable antennas\n",
-      GainClass.__name__,len(self._solvable_ifrs),len(self.ifrs),len(solvable_antennas));
+    dprintf(0,"solving with %s, using %d of %d inteferometers (%d have valid data), with %d solvable antennas\n",
+      GainClass.__name__,len(self._solvable_ifrs),len(self.ifrs),len(solvable_ifrs),len(solvable_antennas));
 
     # flags will contain a flag array per each baseline (but not per correlation), of shape expanded_datashape.
     # These are additional flags raised in the processing below. Note that data and model will be set to 0 at each flagged point.
@@ -383,7 +465,7 @@ class StefCalNode (pynode.PyNode):
     ## sum([0 if is_null(d) else ((d!=0)|(m!=0)).astype(int) for d,m in zip(data[pq],model[pq])])
     # this gives us the number of valid visibilities (in the solvable IFR set) per each time/freq slot
     nel_pq = dict([(pq,sum([0 if is_null(d) else ((d!=0)|(m!=0)).astype(int)
-                    for d,m in zip(data[pq],model[pq])])) for pq in list(self._solvable_ifrs) ]);
+                    for d,m in zip(data[pq],model[pq])])) for pq in data.iterkeys() ]);
     # this is how many valid visibility matrices we have total per slot
     num_valid_vis = sum([ int(n>1) if numpy.isscalar(n) else (n>1).astype(int) for pq,n in nel_pq.iteritems() ]);
     # we need as many as there are parameters per antenna, times ~4, to constrain the problem fully
@@ -393,16 +475,50 @@ class StefCalNode (pynode.PyNode):
     nfl = invalid_slots.sum();
     if nfl:
       dprintf(1,"%d of %d slots have insufficient visibilities and will be flagged\n",nfl,self._expanded_size);
-      flags = dict([(pq,invalid_slots.copy()) for pq in self._ifrs ]);
+      flags = dict([(pq,invalid_slots.copy()) for pq in data.iterkeys() ]);
+      for pq,fl in flagmask.iteritems():
+        fl[invalid_slots] = True;
       for dataset in [data,model,model0] + dgmodel:
         for dd in dataset.itervalues():
           for d in dd:
             if not is_null(d):
               d[invalid_slots] = 0;
-      # init flags array
-      flags = dict([(pq,invalid_slots.copy()) for pq in self._ifrs]);
-#    mnorm = sum([sum([d*numpy.conj(d) for d in dd]) for dd in model.itervalues() ]);
 
+
+## -------------------- rescale model/data
+    if self.rescale:
+      scale = {};
+      finite = {};
+      # compute scales as s(p) = ||sum_q Mpq||/||sum_q Dpq||
+      for p in antennas:
+        dsum = msum = 0;
+        for q in antennas:
+          d = m = None;
+          if (p,q) in data:
+            d,m = data.get((p,q)),model.get((p,q));
+          elif (q,p) in data:
+            d,m = data.get((q,p)),model.get((q,p));
+          if d is None or m is None:
+            continue;
+          dsum += sum([x*numpy.conj(x) for x in d]);
+          msum += sum([x*numpy.conj(x) for x in m]);
+        s = numpy.sqrt(msum.real/dsum.real);
+        f = numpy.isfinite(s);
+        if (~f).all():
+          dprint(2,"no valid data (and thus no scale) for",p);
+        else:
+          s[~f] = 0;
+          scale[p] = s,f;
+      # apply scales
+      dprint(1,"min/max scaling factors are",min([s[f].min() for s,f in scale.itervalues()]),
+                                             max([s.max() for s,f in scale.itervalues()]));
+      dprint(2,"per-antenna data scaling factors are "," ".join(["%s %.3g,"%(p,s.max()) for p,(s,f) in scale.iteritems() ]));
+      for (p,q),dd in data.iteritems():
+        s,f = scale.get(p,(None,None));
+        if s is not None:
+          matrix_scale1(dd,s);
+
+## -------------------- other init
     if self.gain_smoothing:
       dprint(0,"a Gaussian smoothing kernel of size",self.gain_smoothing,"will be applied");
     if self.gain_bounds:
@@ -410,17 +526,16 @@ class StefCalNode (pynode.PyNode):
     dprint(1,"initial gain value is",self._init_value_gain.values()[0].flat[0] if isinstance(self._init_value_gain,dict) else
       self._init_value_gain);
     # init gain parms object
-    gain = GainClass(datashape,expanded_datashape,gain_subtiling,self._solvable_ifrs,
+    gain = GainClass(datashape,expanded_datashape,gain_subtiling,solvable_ifrs,
               self.epsilon,self.convergence_quota,smoothing=self.gain_smoothing,
               bounds=self.gain_bounds,
-              twosided=self.iter_twosided,averaging=self.iter_averaging,
               init_value=self._init_value_gain,
               verbose=self.verbose);
 
     if self.print_variance:
       print_variance(variance);
 
-    # init diffgains
+## -------------------- init diffgains
     if num_diffgains:
       dprintf(0,"also solving for %d differential gains\n",num_diffgains);
       if self.diffgain_smoothing:
@@ -429,48 +544,63 @@ class StefCalNode (pynode.PyNode):
         initval = self._init_value_dg.get(i,self.init_value);
         dprint(1,"initial gain value #%d is"%i,initval.items()[0] if isinstance(initval,dict) else initval);
       diffgains = [
-        GainClass(datashape,expanded_datashape,dg_subtiling,self._solvable_ifrs,
+        GainClass(datashape,expanded_datashape,dg_subtiling,solvable_ifrs,
           self.diffgain_epsilon,self.diffgain_convergence_quota,
           smoothing=self.diffgain_smoothing,
-          twosided=self.iter_twosided,averaging=self.iter_averaging,
           init_value=self._init_value_dg.get(i,self.init_value),
           verbose=self.verbose)
         for i in range(num_diffgains) ];
     else:
       diffgains = [];
 
+## -------------------- start of major loop
     gain_iterate = (data,model) if self.gains_on_data else (model,data);
     # start major loop -- alternates over gains and diffgains
     for nmajor in range(self.max_major+1):
       if (domain_id == self.dump_domain or self.dump_domain == -1):
-        dump_data_model(data,model,self._solvable_ifrs,"dump_G%d.txt"%nmajor);
-      # first iterate normal gains to convergence
+        dump_data_model(data,model,solvable_ifrs,"dump_G%d.txt"%nmajor);
+  ## -------------------- first, iterate normal gains to convergence
       gain_maxdiffs = [];
-      maxiter = (self.max_iter_2 if nmajor == self.max_major else self.max_iter_1) if nmajor else self.max_iter;
-#      print maxiter,self.max_iter,self.max_iter_1,self.max_iter_2;
+      gain_dchi = [];
+      if nmajor == 0:
+        maxiter,delta = self.max_iter,self.delta;
+      elif nmajor < self.max_major:
+        maxiter,delta = self.max_iter_1,self.delta_1;
+      else:
+        maxiter,delta = self.max_iter_2,self.delta_2;
       t0 = time.time();
       chisq0 = 0;
+      chisq_converged = False;
       for niter in range(maxiter):
         # iterate over normal gains
-        converged,maxdiff,deltas,nfl = gain.iterate(niter=niter,*gain_iterate);
-        dprint(3,"%d slots converged, max delta is %f"%(gain.num_converged,gain.delta_max));
+        converged,maxdiff,deltas,nfl = gain.iterate(niter=niter,weight=weight,flagmask=flagmask,
+          averaging=(self.average_1 if nmajor else self.average),
+          omega=(self.omega_1 if nmajor else self.omega),
+          feed_forward=(self.feed_forward_1 if nmajor else self.feed_forward),
+          *gain_iterate);
+        dprint(4,"%d slots converged, max delta is %f"%(gain.num_converged,gain.delta_max));
         gain_maxdiffs.append(maxdiff);
         if self.visualize_gains > 1:
           global_gains.setdefault('G',[]).append(gain.get_2x2_gains(datashape,expanded_dataslice));
         if nfl:
           dprint(2,"%d out-of-bound gains flagged at iteration %d"%(nfl,niter));
-#        print "value",gain.gain.values()[0][0][0,0];
-        # check chi-square
-        if 1: # ( niter and not niter%100 ) or niter >= maxiter-1 or converged:
-          chisq = self.compute_chisq(gain,data,model,self.gains_on_data);
-          dprint(2,"iter %d max gain update is %g chisq is %.12g diff %.3g"%(niter+1,gain.delta_max,chisq,(chisq0-chisq)/chisq));
+    ## -------------------- check chi-square
+        if niter:
+          chisq,chisq_unnorm = self.compute_chisq(gain,data,model,self.gains_on_data,noise=noise,flagmask=flagmask);
+          dchi = (chisq0-chisq)/chisq;
+          if niter > 1:
+            gain_dchi.append(dchi);
+          chisq_converged = ( dchi >= 0 and dchi < delta );
+          dprint(3,"iter %d ||G||=%g max gain update is %g chisq is %.8g (%.8g) diff %.3g"%(niter+1,gain.gainnorm,gain.delta_max,chisq,chisq_unnorm,dchi));
           chisq0 = chisq;
         # break out if converged
-        if converged:
+        if converged or chisq_converged:
           break;
       dprint(1,"gains %sconverged, chisq %.12g (last G update %g) after %d iterations and %.2fs"%(
-            ("" if converged else "not "),chisq,gain.delta_max,niter+1,time.time()-t0));
-      dprint(2,"  convergence was"," ".join(["%.2g"%x for x in gain_maxdiffs]));
+            ("" if converged else ("chisq-" if chisq_converged else "not ")),chisq,gain.delta_max,niter+1,time.time()-t0));
+      dprint(2,"  delta-chisq were"," ".join(["%.4g"%x for x in gain_dchi]));
+      dprint(2,"  convergence criteria were"," ".join(["%.2g"%x for x in gain_maxdiffs]));
+  ## -------------------- now iterate over diffgains
       # break out if no diffgains to iterate over, or if we're on the last major cycle
       if not num_diffgains or nmajor >= self.max_major:
         break;
@@ -480,62 +610,98 @@ class StefCalNode (pynode.PyNode):
         # model is the full model, M0+corrupt(M1)+corrupt(M2)+....
         # subtract this from corrected data: D1 = G*D*G^H - M0 - corrupt(M1) - corrupt(M2) - ... to obtain residuals
         if self.gains_on_data:
-          data1 = dict([ (pq,gain.residual(data,model,pq)) for pq in self._solvable_ifrs ]);
+          data1 = dict([ (pq,gain.residual(data,model,pq)) for pq in solvable_ifrs ]);
         else:
           data1 = dict([ (pq,gain.residual_inverse(data,model,pq,
               regularize=self.regularization_factor if self.regularize_intermediate else 0))
-              for pq in self._solvable_ifrs ]);
+              for pq in solvable_ifrs ]);
+        if self.weigh_diffgains:
+          resnoise,resweight = self.compute_noise(data1,flagmask);
+          if _verbosity.verbose > 3:
+            for pq,bl in self.ifr_by_baseline:
+              rms = resnoise.get(pq);
+              if rms is not None:
+                dprint(4,"%20s %.2fm"%("-".join(pq),bl),"residual std %.2g weight %.2f"%
+                      (rms,resweight.get(pq,0)));
+        else:
+          resweight = resnoise = None;
 #        for pq in list(self._solvable_ifrs)[:1]:
 #          print [ (pq,[ d1 if is_null(d1) else abs(d1).max() for d1 in data1[pq] ]) for pq in self._solvable_ifrs ];
+        # reset current model to a _copy_ of model0 -- each DG term will be added to it (in place) at the end of
+        # each DG loop iteration
+        for pq in solvable_ifrs:
+          model[pq] = matrix_copy(model0[pq]);
         # now loop over all diffgains and iterate each set once
         for idg,dg in enumerate(diffgains):
           # add current estimate of corrupt(Mi) back into data1, and subtract from current model
-          for pq in self._solvable_ifrs:
+          for pq in solvable_ifrs:
             corr = dg.apply(dgmodel[idg],pq,cache=True);
-            mm = model[pq];
-            for n,(d,m,c) in enumerate(zip(data1[pq],mm,corr)):
-              d += c;
-              mm[n] = -c if is_null(m) else m-c;
+            dd = data1[pq];
+            for n,c in enumerate(corr):
+              dd[n] += c;
 #          print data1['0','A'][0][0,0],model0['0','A'][0][0,0],model['0','A'][0][0,0],dgmodel[idg]['0','A'][0][0,0];
 #          print "d1",data1['0','A'][0],"m1",dgmodel[idg]['0','A'][0];
           if ( idg == self.dump_diffgain or self.dump_diffgain == -1 ) and \
              ( domain_id == self.dump_domain or self.dump_domain == -1 ):
-            dump_data_model(dgmodel[idg],data1,self._solvable_ifrs,"dump_E%d-%d.txt"%(idg,nmajor));
+            dump_data_model(dgmodel[idg],data1,solvable_ifrs,"dump_E%d-%d.txt"%(idg,nmajor));
           # iterate this diffgain solution
           t0 = time.time();
           chisq0 = -1;
+          chisq_converged = False;
           gain_maxdiffs = [];
+          gain_dchi = [];
           for niter in range(self.diffgain_max_iter):
-            converged,maxdiff,deltas,nfl = dg.iterate(dgmodel[idg],data1,niter=niter);
-            dprint(3,"%d slots converged, max delta is %f"%(dg.num_converged,dg.delta_max));
+            converged,maxdiff,deltas,nfl = dg.iterate(dgmodel[idg],data1,flagmask=flagmask,weight=resweight,niter=niter,
+                    averaging=self.average_de,omega=self.omega_de,feed_forward=self.feed_forward_de);
+            dprint(4,"%d slots converged, max delta is %f"%(dg.num_converged,dg.delta_max));
             gain_maxdiffs.append(maxdiff);
-            if 1:# (niter and not niter%100) or niter >= self.diffgain_max_iter-1 or converged:
-              chisq = self.compute_chisq(dg,data1,dgmodel[idg],False);
-              dprint(2,"dg%d iter %d max gain update is %g chisq is %.12g diff %.3g"%(idg,niter+1,gain.delta_max,chisq,(chisq0-chisq)/chisq));
+            if niter: # (niter and not niter%100) or niter >= self.diffgain_max_iter-1 or converged:
+              chisq,chisq_unnorm = self.compute_chisq(dg,data1,dgmodel[idg],False,noise=resnoise,flagmask=flagmask);
+              dchi = (chisq0-chisq)/chisq;
+              if niter > 1:
+                gain_dchi.append(dchi);
+              chisq_converged = ( dchi >= 0 and dchi < self.diffgain_delta );
+              dprint(3,"dg%d iter %d max gain update is %g chisq is %.8g (%.8g) diff %.3g"%(idg,niter+1,gain.delta_max,chisq,chisq_unnorm,dchi));
               chisq0 = chisq;
-            if converged:
+            if converged or chisq_converged:
               break;
-          dprint(2,"diffgain #%d converged after %d iterations and %.2fs"%(idg,niter,time.time()-t0));
-          dprint(2,"  convergence was"," ".join(["%.2g"%x for x in gain_maxdiffs]));
+          dprint(2,"diffgain #%d %sconverged, chisq %.12g after %d iterations and %.2fs"%(idg,
+              ("" if converged else ("chisq-" if chisq_converged else "not ")),chisq,niter+1,time.time()-t0));
+          dprint(2,"  delta-chisq were"," ".join(["%.4g"%x for x in gain_dchi]));
+          dprint(2,"  convergence criteria were"," ".join(["%.2g"%x for x in gain_maxdiffs]));
 #          print dg.gain.keys();
 #          print "dE(0)",dg.gain['0',0];
 #          print "dgcorrupt",dg.corrupt(dgmodel[idg],('0','A'),cache=True)[0];
-          # add back to model, and subtract from data1 if needed
-          for pq in self._solvable_ifrs:
+          # add to model, and subtract back from data1 if needed
+          for pq in solvable_ifrs:
             corr = dg.apply(dgmodel[idg],pq,cache=True);
-            for d,m,c in zip(data1[pq],model[pq],corr):
-              m += c;
+            d1 = data1[pq];
+            mm = model[pq];
+            # serious bug here -- things weren't added back to the model properly. Or were they?
+            for i,c in enumerate(corr):
+              if is_null(mm[i]):
+                mm[i] = c;
+              else:
+                mm[i] += c;
               if idg<num_diffgains-1:
-                d -= c;
+                d1[i] -= c;
+        # just in case, reset flagged model values back to 0
+        for pq,fm in flagmask.iteritems():
+          if pq in model:
+            for m in model[pq]:
+              if not is_null(m):
+                if m[fm].max() != 0:
+                  print "Ooops,",pq,"ended up with a non-zero flagged model or data!";
+                m[fm] = 0;
 
     # if we were solving for diffgains, then model is not completely up-to-date, since the non-solvable baselines
     # have been ignored. Fill them in here. Also, reset residuals
     if num_diffgains:
-      for pq in set(self._ifrs)-set(self._solvable_ifrs):
-        model[pq] = model0[pq];
-        for i,dg in enumerate(diffgains):
-          for m,c in zip(model[pq],dg.apply(dgmodel[i],pq,cache=True)):
-            m += c;
+      for pq in set(valid_ifrs)-set(solvable_ifrs):
+        mm = model[pq] = model0[pq];
+        for idg,dg in enumerate(diffgains):
+          for i,c in enumerate(dg.apply(dgmodel[idg],pq,cache=True)):
+            mm[i] += c;
 
     # visualize gains
     if self.visualize_gains == 1:
@@ -578,39 +744,36 @@ class StefCalNode (pynode.PyNode):
     nvells = maxres = 0;
     for pq in self._ifrs:
       m = model.get(pq);
-      if self.gains_on_data:
-        out = res = gain.residual(data,model,pq);
-        if not self.residuals:
-          out = gain.apply(data,pq);
+      if m is None:
+        nvells += 4;
+        continue;
       else:
-        out = res = gain.residual_inverse(data,model,pq,regularize=self.regularization_factor);
-        if not self.residuals:
-          out = gain.apply_inverse(data,pq,regularize=self.regularization_factor);
-      fl4 = flags.get(pq);
-      for n,x in enumerate(out):
-        vs = datares.vellsets[nvells];
-        val = getattr(vs,'value',None);
-        if val is not None:
-          try:
-            val[...] = x[expanded_dataslice] if expanded_dataslice \
-              and not is_null(x) else x;
-          except:
-            print x,getattr(x,'shape',None);
-          if self.print_variance:
-            v = val[1:,...] - val[:-1,...];
-            v = v[numpy.isfinite(v)];
-            variance.setdefault(pq,[0,0,0,0])[n] = (v.real.std(0)+v.imag.std(0))/2;
-        if fl4 is not None:
-          fl = getattr(vs,'flags',None);
-          if fl is None:
-            fl = vs.flags = meq.flags(expanded_datashape);
-          fl[fl4] |=  self.flagmask;
-        # compute stats
-        maxres = max(maxres,abs(res[n]).max() if not numpy.isscalar(res[n]) else abs(res[n]));
+        if self.gains_on_data:
+          out = res = gain.residual(data,model,pq);
+          if not self.residuals:
+            out = gain.apply(data,pq);
+        else:
+          out = res = gain.residual_inverse(data,model,pq,regularize=self.regularization_factor);
+          if not self.residuals:
+            out = gain.apply_inverse(data,pq,regularize=self.regularization_factor);
+        fl4 = flags.get(pq);
+        for n,x in enumerate(out):
+          vs = datares.vellsets[nvells];
+          val = getattr(vs,'value',None);
+          if val is not None:
+            try:
+              val[...] = x[expanded_dataslice] if expanded_dataslice \
+                and not is_null(x) else x;
+            except:
+              print x,getattr(x,'shape',None);
+          if fl4 is not None:
+            fl = getattr(vs,'flags',None);
+            if fl is None:
+              fl = vs.flags = meq.flags(expanded_datashape);
+            fl[fl4] |=  self.flagmask;
+          # compute stats
+          maxres = max(maxres,abs(res[n]).max() if not numpy.isscalar(res[n]) else abs(res[n]));
         nvells += 1;
-
-    if self.print_variance:
-      print_variance(variance);
 
     # if last domain, then write ifr gains to file
     if self.solve_ifr_gains and time1 >= numtime:
@@ -640,24 +803,56 @@ class StefCalNode (pynode.PyNode):
 
     return datares;
 
-  def compute_chisq (self,gain,data,model,gains_on_data):
-    chisq = 0;
+  def compute_noise (self,data,flagmask):
+    """Computes delta-std and weights of data""";
+    noise = {};
+    weight = {};
+    for pq,dd in data.iteritems():
+      flag = flagmask.get(pq);
+      dvalid = Ellipsis if flag is None else ~(flag[1:,...]|flag[:-1,...]);
+      vv = [];
+      for d in dd:
+        if is_null(d):
+          vv.append(0);
+        else:
+          delta = d[1:,...] - d[:-1,...];
+          v = (delta.real[dvalid].std()+delta.imag[dvalid].std())/(2*math.sqrt(2));
+          vv.append(float(v));
+      # convert to weight
+      if vv[1] or vv[2]:
+        noise[pq] = (vv[1]+vv[2])/2;
+        weight[pq] = (1/noise[pq])**2;
+      elif vv[0] or vv[3]:
+        noise[pq] = (vv[0]+vv[3])/2;
+        weight[pq] = (1/noise[pq])**2;
+    # normalize weights
+    meanweight = sum(weight.itervalues())/len(weight);
+    for pq,w in weight.iteritems():
+      weight[pq] = w/meanweight;
+    return noise,weight;
+
+  def compute_chisq (self,gain,data,model,gains_on_data,noise=None,flagmask={}):
+    chisq0 = chisq1 = 0;
     nterms = 0;
     for pq in self._solvable_ifrs:
+      if pq not in data:
+        continue;
       if gains_on_data:
         res = gain.residual(data,model,pq);
       else:
         res = gain.residual(model,data,pq);
+      rms = noise.get(pq,0) if noise else 1;
+      if not rms or not numpy.isfinite(rms):
+        w = 1;
+      else:
+        w = rms**(-2);
+      fmask = flagmask.get(pq);
+      n = self._datasize if fmask is None else (self._expanded_size - fmask.sum());
       for r in res:
-        if numpy.isscalar(r):
-          chisq1 = (r*numpy.conj(r));
-          nterms += 1; # self._expanded.size;
-        else:
-          chisq1 = (r*numpy.conj(r)).sum();
-          nterms += r.size;
-#          print pq,"chi-sqare contribution is",chisq1,"r",r if numpy.isscalar(r) else r[5,0];
-        chisq += chisq1;
-    # nterms may be exagerrated due to data padding, so correct by the expansion ratio
-    return chisq/nterms*self._expansion_ratio;
+        if not is_null(r):
+          chisq0 += (r*numpy.conj(r)*w).sum();
+          chisq1 += (r*numpy.conj(r)).sum();
+          nterms += n;
+    return chisq0/nterms,chisq1/nterms;
 
 

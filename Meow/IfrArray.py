@@ -46,11 +46,11 @@ uvw_source_opt = TDLOption('uvw_source',"UVW coordinates",
 UVW_REFANT_DEFAULT = "default";
 uvw_refant_opt = TDLOption('uvw_refant',"Reference antenna",[UVW_REFANT_DEFAULT],more=str,
       doc="""<P>This is the reference antenna used to compute antenna-based UVWs.
-      Any antenna will do, as long as correlations to it are present in all timeslots 
-      where data is available. This is the case for most sensible MSs; however, it is possible 
+      Any antenna will do, as long as correlations to it are present in all timeslots
+      where data is available. This is the case for most sensible MSs; however, it is possible
       to produce an MS with missing correlations by importing a UVFITS file that has had AIPS flagging
       applied to it (with flagged data having been excised completely).</P>
-      
+
       <P>The default option is to use the first antenna; if this fails because you have such an oddball MS,
       you will need to look for another suitable antenna.</P>""");
 
@@ -105,6 +105,7 @@ class IfrArray (object):
       self.ifrset = IfrArray.IfrSet(station_list,positions=positions,observatory=observatory);
     # expose some methods of IfrSet directly via our object
     for method in ('stations','ifrs','station_index','ifr_index','subset',
+                   'baseline','baseline_vector',
                    'station_position','number_of_station'):
       setattr(self,method,getattr(self.ifrset,method));
     # other init

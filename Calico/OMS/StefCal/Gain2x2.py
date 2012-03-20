@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy
 import math
+import cmath
 import operator
 import scipy.ndimage.filters
 import Kittens.utils
@@ -15,9 +16,10 @@ dprintf = _verbosity.dprintf;
 verbose_baselines = (); # set([('CS001HBA0','CS003HBA0'),('CS003HBA0','CS001HBA0')]);
 #verbose_baselines_corr = set(); # set([('0','5'),('5','0')]);
 verbose_baselines_corr = (); # set([('CS001HBA0','CS003HBA0'),('CS003HBA0','CS001HBA0')]);
-verbose_element = 5,0;
+verbose_element = 0,0;
 
-verbose_stations = set([p[0] for p in verbose_baselines]+[p[1] for p in verbose_baselines]);
+verbose_stations = (); # set(('CS001HBA0','CS001HBA1'));
+#verbose_stations = set([p[0] for p in verbose_baselines]+[p[1] for p in verbose_baselines]);
 verbose_stations_corr = set([p[0] for p in verbose_baselines_corr]+[p[1] for p in verbose_baselines_corr]);
 
 class Gain2x2 (object):
@@ -40,7 +42,7 @@ class Gain2x2 (object):
   nparm = 4;
 
   def __init__ (self,original_datashape,datashape,subtiling,solve_ifrs,epsilon,conv_quota,
-                twosided=False,averaging=2,verbose=0,
+                twosided=False,verbose=0,
                 smoothing=None,bounds=None,init_value=1):
     """original_datashape gives the unpadded datashape. This is the one that ought to be used to estimate
     convergence quotas. datashape is the real, padded, datashape. subtiling gives the subtiling."""
@@ -49,7 +51,6 @@ class Gain2x2 (object):
     self._solve_ifrs = solve_ifrs;
     self._epsilon = epsilon;
     self._twosided = twosided;
-    self._averaging = averaging;
     self.datashape = datashape;
     self.subtiling = subtiling;
     self.smoothing = smoothing;
@@ -155,7 +156,7 @@ class Gain2x2 (object):
     else:
       return None;
 
-  def iterate (self,lhs,rhs,verbose=0,niter=0):
+  def iterate (self,lhs,rhs,flagmask,verbose=0,niter=0,weight=None,averaging=None,omega=None,feed_forward=False):
     self._reset();
     # iterates G*lhs*G^H -> rhs
     # G updates from step 0 and 1 go here
@@ -164,10 +165,13 @@ class Gain2x2 (object):
     nflag = 0;
     nflag_per_antenna = {};
     for step,(gain0,gain1) in enumerate([(self.gain,gain0dict),(gain0dict,gain1dict)]):
+      active_gain = gain0.copy() if omega is not None else gain0;
       # loop over all antennas
       for p in self._antennas:
+        g0p = gain0[p];
         # build up sums
-        sum_dv = sum_vhv = NULL_MATRIX;
+        sum_dv = NULL_MATRIX();
+        sum_vhv = NULL_MATRIX();
         for q in self._antennas:
           if (p,q) in self._solve_ifrs or (q,p) in self._solve_ifrs:
             # get D/D^H and M/M^H, depending on p<q or p>q
@@ -177,75 +181,109 @@ class Gain2x2 (object):
             else:
               m = self._get_matrix(q,p,lhs);
               d = self._get_conj_matrix(q,p,rhs);
-            if m is None or d is None:
+            if weight is not None:
+              ww = weight.get((p,q)) or weight.get((q,p),0);
+            else:
+              ww = 1;
+            if m is None or d is None or not ww:
               continue;
+#            print p,q,weight;
             # multiply and accumulate
-            v = matrix_multiply(map(self.tile_gain,gain0[q]),m);
-            dv = matrix_multiply(d,v);
-            vhv = matrix_multiply(matrix_conj(v),v);
+            v = vw = matrix_multiply(map(self.tile_gain,active_gain[q]),m);
+            if ww != 1:
+              vw  = matrix_scale(v,ww);
+            dv  = matrix_multiply(d,vw);
+            vhv = matrix_multiply(matrix_conj(v),vw);
 #           if p == '0':
 #             print "%s%s:11"%(p,q),"VHV",vhv[3][verbose_element];
             if (p,q) in verbose_baselines:
               print "%s%s"%(p,q),"D",[ g[verbose_element] for g in d[0],d[3] ],"M",[ g[verbose_element] for g in m[0],m[3] ];
               print "%s%s"%(p,q),"Gq",[ g[verbose_element] for g in gain0[q][0],gain0[q][3] ],"V",[ g[verbose_element] for g in v[0],v[3] ];
               print "%s%s"%(p,q),"DV",[ g[verbose_element] for g in dv[0],dv[3] ],"VHV",[ g[verbose_element] for g in vhv[0],vhv[3] ];
-            sum_dv = matrix_add(sum_dv,map(self.reduce_subtiles,dv));
-            sum_vhv = matrix_add(sum_vhv,map(self.reduce_subtiles,vhv));
+            dv1 = map(self.reduce_subtiles,dv);
+            vhv1 = map(self.reduce_subtiles,vhv);
+            #if self.smoothing:
+              #vhv1 = [ x if is_null(x) else scipy.ndimage.filters.gaussian_filter(x.real,self.smoothing,mode='constant')
+                          #for x in vhv1 ];
+              #dv1 = [ x if is_null(x) else
+                      #scipy.ndimage.filters.gaussian_filter(x.real,self.smoothing,mode='constant')
+                      #+1j*scipy.ndimage.filters.gaussian_filter(x.imag,self.smoothing,mode='constant')
+                          #for x in dv1 ];
+              ## averaging may have smeared dv into invalid slots, so reset these back to zero
+              #if flagmask:
+                #fmask = flagmask.get((p,q));
+                #if fmask is None:
+                  #fmask = flagmask.get((q,p));
+                #if fmask is not None:
+                  #fmask = self.tile_data(fmask);
+                  #for x in dv1:
+                    #x[fmask] = 0;
+                  #for x in vhv1:
+                    #x[fmask] = 0;
+            matrix_add1(sum_dv,dv1);
+            matrix_add1(sum_vhv,vhv1);
 #        if p == '0':
 #          print "%s:1"%p,"sum VHV",sum_vhv[3][verbose_element];
         # accumulation done, now invert and multiply
         #print p,"SUM VHV:",sum_vhv;
         # if sum is null, then we had no rhs for this station
         if all([is_null(x) for x in sum_vhv]):
-          gain1[p] = gain0[p];
-        else:
-          # smooth
-          if self.smoothing:
-            sum_vhv = [ x if is_null(x) else scipy.ndimage.filters.gaussian_filter(x.real,self.smoothing,mode='constant')
-                        for x in sum_vhv ];
-            for x in sum_dv:
-              if not is_null(x):
-                x.real = scipy.ndimage.filters.gaussian_filter(x.real,self.smoothing,mode='constant');
-                x.imag = scipy.ndimage.filters.gaussian_filter(x.imag,self.smoothing,mode='constant');
-          #
-          g1 = gain1[p] = matrix_multiply(sum_dv,matrix_invert(sum_vhv));
+          gain1[p] = g0p;
+          continue;
+        # smooth
+        if self.smoothing:
+          sum_vhv = [ x if is_null(x) else scipy.ndimage.filters.gaussian_filter(x.real,self.smoothing,mode='constant')
+                      for x in sum_vhv ];
+          sdv = [];
+          for x in sum_dv:
+            if is_null(x):
+              sdv.append(x);
+            else:
+              sdv.append( scipy.ndimage.filters.gaussian_filter(x.real,self.smoothing,mode='constant')
+                          +1j*scipy.ndimage.filters.gaussian_filter(x.imag,self.smoothing,mode='constant') );
+          sum_dv = sdv;
+        #
+        g1p = gain1[p] = matrix_multiply(sum_dv,matrix_invert(sum_vhv));
+        if p in verbose_stations:
+#            print "S%d"%step,p,"sum DV",[ g[verbose_element] for g in sum_dv ],"sum VHV",[ g[verbose_element] for g in sum_vhv ];
+          print "S%d"%step,p,"G'"," ".join([ "%.5g@%.3g"%(abs(g[verbose_element]),cmath.phase(g[verbose_element])) for g in g1p ]);
+          print "S%d"%step,p,"G'"," ".join([ "%.7g%+.4g"%(g[verbose_element].real,g[verbose_element].imag) for g in g1p ]);
+        # take mean with previous value
+        if averaging == 1 or ( averaging == 2 and step ):
+          if omega == 0.5:
+            matrix_scale1(matrix_add1(g1p,g0p),0.5);
+          else:
+            matrix_add1(matrix_scale1(g1p,omega),matrix_scale(g0p,(1-omega)));
           if p in verbose_stations:
-            print "S%d"%step,p,"sum DV",[ g[verbose_element] for g in sum_dv ],"sum VHV",[ g[verbose_element] for g in sum_vhv ];
-            print "S%d"%step,p,"G'",g1[3],[ g[verbose_element] for g in g1 ];
-          # take mean with previous value, and mask out infs/nans
-          for g,g0 in zip(g1,gain0[p]):
-            mask = ~numpy.isfinite(g);
-            if self._averaging == 1:
-              g += g0;
-              g /= 2;
-            g[mask] = g0[mask];
-          # flag out-of-bounds gains
-          if self._bounds and niter:
-            for i,g in enumerate(g1):
-              absg = abs(g);
-              flag = ((absg<self._bounds[0])|(absg>self._bounds[1]))&~mask;
-              nfl = flag.sum();
-              if nfl:
-                self.gainflags[p][i] = self.gainflags[p][i]|flag;
-                nflag_per_antenna[p] = nfl;
-                nflag += nfl;
-                g[flag] = 1;
-                flag = self.tile_gain(flag);
-                for q in self._antennas:
-                  pq = (p,q) if p<q else (q,p);
-                  for hs in lhs,rhs:
-                    m = hs.get(pq);
-                    if m is not None:
-                      m = self.tile_data(m[i]);
-                      if not is_null(m):
-                        m[flag] = 0;
-
-    # now take the mean of the last two updates
-    if self._averaging == 2:
-      for p,gain0 in gain0dict.iteritems():
-        for g1,g0 in zip(gain1dict[p],gain0):
-          g1 += g0;
-          g1 /= 2;
+            print "SA",p," ".join([ "%.5g@%.3g"%(abs(g[verbose_element]),cmath.phase(g[verbose_element])) for g in gain1[p] ]);
+            print "SA",p," ".join([ "%.7g%+.4g"%(g[verbose_element].real,g[verbose_element].imag) for g in gain1[p] ]);
+        # mask out infs/nans
+        for g1,g0 in zip(g1p,g0p):
+          mask = ~numpy.isfinite(g1);
+          g1[mask] = g0[mask];
+        # flag out-of-bounds gains
+        if self._bounds and niter:
+          for i,g in enumerate(g1p):
+            absg = abs(g);
+            flag = ((absg<self._bounds[0])|(absg>self._bounds[1]))&~mask;
+            nfl = flag.sum();
+            if nfl:
+              self.gainflags[p][i] = self.gainflags[p][i]|flag;
+              nflag_per_antenna[p] = nfl;
+              nflag += nfl;
+              g[flag] = 1;
+              flag = self.tile_gain(flag);
+              for q in self._antennas:
+                pq = (p,q) if p<q else (q,p);
+                for hs in lhs,rhs:
+                  m = hs.get(pq);
+                  if m is not None:
+                    m = self.tile_data(m[i]);
+                    if not is_null(m):
+                      m[flag] = 0;
+        # feed forward G', if enabled
+        if feed_forward:
+          active_gain[p] = g1p;
 
     ## constrain phases (since we have an inherent phase ambiguity) -- set the sum of the xx phases to 0
     #phi0 = sum([ numpy.angle(gg[0]) for gg in gain1dict.itervalues() ])/len(gain1dict);
@@ -256,8 +294,9 @@ class Gain2x2 (object):
         #g *= ephi0;
 
     square = lambda x:(x*numpy.conj(x)).real;
-    deltanorm_sq = sum([ sum([ square(g1-g0) for g0,g1 in zip(gain0,gain1dict[p]) ]) for p,gain0 in self.gain.iteritems() ]);
-    gainnorm_sq  = sum([ sum([ square(g1) for g1 in gain1 ]) for p,gain1 in gain1.iteritems() ]);
+    deltanorm_sq = sum([ sum([ square(g1-g0) for g0,g1 in zip(self.gain[p],gain1) ]) for p,gain1 in gain1dict.iteritems() ]);
+    gainnorm_sq  = sum([ sum([ square(g1) for g1 in gain1 ]) for p,gain1 in gain1dict.iteritems() ]);
+    self.gainnorm = numpy.sqrt(gainnorm_sq).max();
 #    # print per-antenna max
 #    print "--- iter %d max updates per-antenna --"%niter;
 #    for i,p in enumerate(sorted(self.gain.keys())):
