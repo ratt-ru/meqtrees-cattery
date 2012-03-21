@@ -553,6 +553,22 @@ class StefCalNode (pynode.PyNode):
     else:
       diffgains = [];
 
+
+    #model_unscaled,data_unscaled = model,data;
+    ## send to phase center
+    #corr = {};
+    #for p,q in data.keys():
+      #mm = model[p,q];
+      #phase = numpy.angle(mm[0]*mm[3])/2;
+      #corr = numpy.exp(-1j*phase);
+      #model[p,q] = matrix_scale(mm,corr);
+      #data[p,q] = matrix_scale(data[p,q],corr);
+
+    ## apply depolarisation scaling
+    #dps = self.compute_depol_scaling(solvable_antennas,model);
+    #model = self.apply_scaling(dps,model);
+    #data = self.apply_scaling(dps,data);
+
 ## -------------------- start of major loop
     gain_iterate = (data,model) if self.gains_on_data else (model,data);
     # start major loop -- alternates over gains and diffgains
@@ -569,7 +585,7 @@ class StefCalNode (pynode.PyNode):
       else:
         maxiter,delta = self.max_iter_2,self.delta_2;
       t0 = time.time();
-      chisq0 = 0;
+      chisq0 = dchi = 0;
       chisq_converged = False;
       for niter in range(maxiter):
         # iterate over normal gains
@@ -585,14 +601,13 @@ class StefCalNode (pynode.PyNode):
         if nfl:
           dprint(2,"%d out-of-bound gains flagged at iteration %d"%(nfl,niter));
     ## -------------------- check chi-square
-        if niter:
-          chisq,chisq_unnorm = self.compute_chisq(gain,data,model,self.gains_on_data,noise=noise,flagmask=flagmask);
+        chisq,chisq_unnorm = self.compute_chisq(gain,data,model,self.gains_on_data,noise=noise,flagmask=flagmask);
+        if niter > 1:
           dchi = (chisq0-chisq)/chisq;
-          if niter > 1:
-            gain_dchi.append(dchi);
+          gain_dchi.append(dchi);
           chisq_converged = ( dchi >= 0 and dchi < delta );
-          dprint(3,"iter %d ||G||=%g max gain update is %g chisq is %.8g (%.8g) diff %.3g"%(niter+1,gain.gainnorm,gain.delta_max,chisq,chisq_unnorm,dchi));
-          chisq0 = chisq;
+        dprint(3,"iter %d ||G||=%g max gain update is %g chisq is %.8g (%.8g) diff %.3g"%(niter+1,gain.gainnorm,gain.delta_max,chisq,chisq_unnorm,dchi));
+        chisq0 = chisq;
         # break out if converged
         if converged or chisq_converged:
           break;
@@ -855,4 +870,32 @@ class StefCalNode (pynode.PyNode):
           nterms += n;
     return chisq0/nterms,chisq1/nterms;
 
+  def compute_depol_scaling (self,antennas,model):
+    scaling = {};
+    for p in antennas:
+      modsum = NULL_MATRIX();
+      modsqsum = NULL_MATRIX();
+      have_scale = False;
+      for q in antennas:
+        if (p,q) in model:
+          m = model[p,q];
+          mh = matrix_conj(m);
+        elif (q,p) in model:
+          mh = model[q,p];
+          m = matrix_conj(mh);
+        else:
+          continue;
+        matrix_add1(modsum,mh);
+        matrix_add1(modsqsum,matrix_multiply(mh,m));
+        have_scale = True;
+      if have_scale:
+        scaling[p] = matrix_multiply(modsum,matrix_invert(modsqsum));
+    return scaling;
 
+  def apply_scaling (self,scaling,data):
+    result = {};
+    for (p,q),d in data.iteritems():
+      scale = scaling.get(p);
+      if scale is not None:
+        result[p,q] = matrix_multiply(scale,d);
+    return result;

@@ -75,7 +75,7 @@ class Gain2x2 (object):
     self._unity = numpy.ones(self.gainshape,dtype=complex);
     self._nullflag =  numpy.zeros(self.gainshape,dtype=bool);
     self.gain = dict([(p,(self._unity,self._zero,self._zero,self._unity)) for p in self._antennas]);
-    self.gainflags = dict([(p,[self._nullflag]*4) for p in self._antennas]);
+    self.gainflags = {};
     # init_value=1: init each parm with the _unity array
     # if init_value is a dict, use it to initialize each array with a different value
     # presumably this happens when going to the next tile -- we use the previous tile's solution
@@ -268,13 +268,17 @@ class Gain2x2 (object):
             flag = ((absg<self._bounds[0])|(absg>self._bounds[1]))&~mask;
             nfl = flag.sum();
             if nfl:
-              self.gainflags[p][i] = self.gainflags[p][i]|flag;
+              dprint(1,"G:%s:%d: %d slots out of bounds and will be flagged"%(p,i,nfl));
+              gf = self.gainflags.get(p);
+              if gf is None:
+                gf = self.gainflags[p] = [ False,False,False,False ];
+              gf[i] = gf|flag;
               nflag_per_antenna[p] = nfl;
               nflag += nfl;
               g[flag] = 1;
               flag = self.tile_gain(flag);
               for q in self._antennas:
-                pq = (p,q) if p<q else (q,p);
+                pq = (p,q) if (p,q) in lhs else (q,p);
                 for hs in lhs,rhs:
                   m = hs.get(pq);
                   if m is not None:
