@@ -15,12 +15,12 @@ dprintf = _verbosity.dprintf;
 
 verbose_baselines = (); # set([('CS001HBA0','CS003HBA0'),('CS003HBA0','CS001HBA0')]);
 #verbose_baselines_corr = set(); # set([('0','5'),('5','0')]);
-verbose_baselines_corr = (); # set([('CS001HBA0','CS003HBA0'),('CS003HBA0','CS001HBA0')]);
+verbose_baselines_corr = (); set([('CS001HBA0','CS003HBA0'),('CS003HBA0','CS001HBA0')]);
 verbose_element = 0,0;
 
 verbose_stations = (); # set(('CS001HBA0','CS001HBA1'));
 #verbose_stations = set([p[0] for p in verbose_baselines]+[p[1] for p in verbose_baselines]);
-verbose_stations_corr = set([p[0] for p in verbose_baselines_corr]+[p[1] for p in verbose_baselines_corr]);
+verbose_stations_corr = (); # set([p[0] for p in verbose_baselines_corr]+[p[1] for p in verbose_baselines_corr]);
 
 class Gain2x2 (object):
   """Support class to handle a set of subtiled gains in the form of diagonal G matrices.
@@ -43,7 +43,7 @@ class Gain2x2 (object):
 
   def __init__ (self,original_datashape,datashape,subtiling,solve_ifrs,epsilon,conv_quota,
                 twosided=False,verbose=0,
-                smoothing=None,bounds=None,init_value=1):
+                smoothing=None,bounds=None,init_value=1,**kw):
     """original_datashape gives the unpadded datashape. This is the one that ought to be used to estimate
     convergence quotas. datashape is the real, padded, datashape. subtiling gives the subtiling."""
     _verbosity.set_verbose(verbose);
@@ -163,7 +163,6 @@ class Gain2x2 (object):
     gain0dict = {};
     gain1dict = {};
     nflag = 0;
-    nflag_per_antenna = {};
     for step,(gain0,gain1) in enumerate([(self.gain,gain0dict),(gain0dict,gain1dict)]):
       active_gain = gain0.copy() if omega is not None else gain0;
       # loop over all antennas
@@ -262,29 +261,34 @@ class Gain2x2 (object):
           mask = ~numpy.isfinite(g1);
           g1[mask] = g0[mask];
         # flag out-of-bounds gains
-        if self._bounds and niter:
-          for i,g in enumerate(g1p):
-            absg = abs(g);
-            flag = ((absg<self._bounds[0])|(absg>self._bounds[1]))&~mask;
-            nfl = flag.sum();
-            if nfl:
-              dprint(1,"G:%s:%d: %d slots out of bounds and will be flagged"%(p,i,nfl));
-              gf = self.gainflags.get(p);
-              if gf is None:
-                gf = self.gainflags[p] = [ False,False,False,False ];
-              gf[i] = gf|flag;
-              nflag_per_antenna[p] = nfl;
-              nflag += nfl;
+        if self._bounds and niter>2:
+          absg = map(abs,g1p);
+          # oob[i] will be True if gain element #i is out of bounds, and not masked above
+          oob = [ ((x<self._bounds[0])|(x>self._bounds[1]))&~mask for x in absg ];
+          # reduce to single mask for all 4 gains
+          flag = reduce(operator.or_,oob);
+          nfl = flag.sum();
+          if nfl:
+            dprint(3,"G:%s: %d slots are out of bounds and will be flagged"%(p,nfl));
+            if p in self.gainflags:
+              self.gainflags[p] |= flag;
+            else:
+              self.gainflags[p] = flag;
+            nflag += nfl;
+            # reset gains to unity
+            for g in g1p:
               g[flag] = 1;
-              flag = self.tile_gain(flag);
-              for q in self._antennas:
-                pq = (p,q) if (p,q) in lhs else (q,p);
-                for hs in lhs,rhs:
-                  m = hs.get(pq);
-                  if m is not None:
-                    m = self.tile_data(m[i]);
-                    if not is_null(m):
-                      m[flag] = 0;
+            # reset model and data to 0
+            flag = self.tile_gain(flag);
+            for q in self._antennas:
+              pq = (p,q) if (p,q) in lhs else (q,p);
+              for hs in lhs,rhs:
+                xx = hs.get(pq);
+                if xx is not None:
+                  for x in xx:
+                    x1 = self.tile_data(x);
+                    if not is_null(x1):
+                      x1[flag] = 0;
         # feed forward G', if enabled
         if feed_forward:
           active_gain[p] = g1p;

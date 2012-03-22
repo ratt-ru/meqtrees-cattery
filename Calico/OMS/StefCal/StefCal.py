@@ -413,6 +413,7 @@ class StefCalNode (pynode.PyNode):
           valid = self._datasize;
         # if nothing is valid, remove baseline from dicts
         if not valid:
+          dprint(4,"deleting",pq);
           for dataset in [data,model,model0] + dgmodel:
             del dataset[pq];
         # now count up valid elements
@@ -565,9 +566,9 @@ class StefCalNode (pynode.PyNode):
       #data[p,q] = matrix_scale(data[p,q],corr);
 
     ## apply depolarisation scaling
-    #dps = self.compute_depol_scaling(solvable_antennas,model);
-    #model = self.apply_scaling(dps,model);
-    #data = self.apply_scaling(dps,data);
+#    dps = self.compute_depol_scaling(solvable_antennas,model);
+#    model = self.apply_scaling(dps,model);
+#    data = self.apply_scaling(dps,data);
 
 ## -------------------- start of major loop
     gain_iterate = (data,model) if self.gains_on_data else (model,data);
@@ -615,6 +616,27 @@ class StefCalNode (pynode.PyNode):
             ("" if converged else ("chisq-" if chisq_converged else "not ")),chisq,gain.delta_max,niter+1,time.time()-t0));
       dprint(2,"  delta-chisq were"," ".join(["%.4g"%x for x in gain_dchi]));
       dprint(2,"  convergence criteria were"," ".join(["%.2g"%x for x in gain_maxdiffs]));
+      gainflags = getattr(gain,'gainflags',None);
+      if gainflags:
+        for p in solvable_antennas:
+          gf = gainflags.get(p);
+          if gf is None:
+            continue;
+          flag4 = False;
+          for g in gf:
+#            print flag4,g.shape;
+            flag4 |= g;
+          nf = flag4.sum();
+          if not nf:
+            continue;
+          dprint(2,"  station %s has %d slots flagged due to gains"%(p,nf));
+          for q in antennas:
+            pq = (p,q) if (p,q) in data else ((q,p) if (q,p) in data else None);
+            if pq:
+              if pq in flags:
+                flags[pq] |= flag4;
+              else:
+                flags[pq] = flag4;
   ## -------------------- now iterate over diffgains
       # break out if no diffgains to iterate over, or if we're on the last major cycle
       if not num_diffgains or nmajor >= self.max_major:
@@ -760,7 +782,14 @@ class StefCalNode (pynode.PyNode):
     for pq in self._ifrs:
       m = model.get(pq);
       if m is None:
-        nvells += 4;
+        for i in range(4):
+          vs = datares.vellsets[nvells];
+          if getattr(vs,'value',None) is not None:
+            fl = getattr(vs,'flags',None);
+            if fl is None:
+              fl = vs.flags = meq.flags(datashape);
+            fl[...] |= self.flagmask;
+          nvells += 1;
         continue;
       else:
         if self.gains_on_data:
@@ -784,11 +813,11 @@ class StefCalNode (pynode.PyNode):
           if fl4 is not None:
             fl = getattr(vs,'flags',None);
             if fl is None:
-              fl = vs.flags = meq.flags(expanded_datashape);
-            fl[fl4] |=  self.flagmask;
+              fl = vs.flags = meq.flags(datashape);
+            fl[fl4[expanded_dataslice]] |=  self.flagmask;
           # compute stats
           maxres = max(maxres,abs(res[n]).max() if not numpy.isscalar(res[n]) else abs(res[n]));
-        nvells += 1;
+          nvells += 1;
 
     # if last domain, then write ifr gains to file
     if self.solve_ifr_gains and time1 >= numtime:
@@ -861,6 +890,7 @@ class StefCalNode (pynode.PyNode):
         w = 1;
       else:
         w = rms**(-2);
+#      fmask = reduce(operator.or_,[(d==0)&(m==0) for (d,m) in zip(data[pq],model[pq])]);
       fmask = flagmask.get(pq);
       n = self._datasize if fmask is None else (self._expanded_size - fmask.sum());
       for r in res:
@@ -872,6 +902,19 @@ class StefCalNode (pynode.PyNode):
 
   def compute_depol_scaling (self,antennas,model):
     scaling = {};
+    #for p in antennas:
+      #msum = [0j,0j,0j,0j];
+      #for q in antennas:
+        #if (p,q) in model:
+          #m = model[p,q];
+        #elif (q,p) in model:
+          #m = matrix_conj(model[q,p]);
+        #else:
+          #continue;
+        #for i in range(4):
+          #msum[i] += m[i];
+      #if msum[0] is not 0j and msum[3] is not 0j:
+        #scaling[p] = [1,-msum[1]/msum[3],-msum[2]/msum[0],1];
     for p in antennas:
       modsum = NULL_MATRIX();
       modsqsum = NULL_MATRIX();
@@ -896,6 +939,8 @@ class StefCalNode (pynode.PyNode):
     result = {};
     for (p,q),d in data.iteritems():
       scale = scaling.get(p);
-      if scale is not None:
-        result[p,q] = matrix_multiply(scale,d);
+      result[p,q] = matrix_multiply(scale,d) if scale is not None else d;
+      dh = matrix_conj(d);
+      scale = scaling.get(q);
+      result[q,p] = matrix_multiply(scale,dh) if scale is not None else dh;
     return result;
