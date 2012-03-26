@@ -163,6 +163,7 @@ class Gain2x2 (object):
     gain0dict = {};
     gain1dict = {};
     nflag = 0;
+    flags_per_antenna = {};
     for step,(gain0,gain1) in enumerate([(self.gain,gain0dict),(gain0dict,gain1dict)]):
       active_gain = gain0.copy() if omega is not None else gain0;
       # loop over all antennas
@@ -257,23 +258,24 @@ class Gain2x2 (object):
             print "SA",p," ".join([ "%.5g@%.3g"%(abs(g[verbose_element]),cmath.phase(g[verbose_element])) for g in gain1[p] ]);
             print "SA",p," ".join([ "%.7g%+.4g"%(g[verbose_element].real,g[verbose_element].imag) for g in gain1[p] ]);
         # mask out infs/nans
-        for g1,g0 in zip(g1p,g0p):
-          mask = ~numpy.isfinite(g1);
-          g1[mask] = g0[mask];
+        flag0 = self.gainflags.get(p,False);
+        masks = [ (~numpy.isfinite(g1))|flag0 for g1 in g1p ];
+        for g1,g0,m in zip(g1p,g0p,masks):
+          g1[m] = g0[m];
         # flag out-of-bounds gains
         if self._bounds and niter>2:
           absg = map(abs,g1p);
           # oob[i] will be True if gain element #i is out of bounds, and not masked above
-          oob = [ ((x<self._bounds[0])|(x>self._bounds[1]))&~mask for x in absg ];
+          oob = [ ((x<self._bounds[0])|(x>self._bounds[1]))&~m for x,m in zip(absg,masks) ];
           # reduce to single mask for all 4 gains
           flag = reduce(operator.or_,oob);
           nfl = flag.sum();
           if nfl:
-            dprint(3,"G:%s: %d slots are out of bounds and will be flagged"%(p,nfl));
-            if p in self.gainflags:
-              self.gainflags[p] |= flag;
-            else:
+            flags_per_antenna[p] = nfl;
+            if flag0 is False:
               self.gainflags[p] = flag;
+            else:
+              flag0 |= flag;
             nflag += nfl;
             # reset gains to unity
             for g in g1p:
@@ -300,6 +302,8 @@ class Gain2x2 (object):
     #for gg in gain1dict.itervalues():
       #for g in gg:
         #g *= ephi0;
+    if flags_per_antenna:
+      dprint(3,"new gain-flags: "," ".join(["%s:%d"%x for x in sorted(flags_per_antenna.iteritems())]));
 
     square = lambda x:(x*numpy.conj(x)).real;
     deltanorm_sq = sum([ sum([ square(g1-g0) for g0,g1 in zip(self.gain[p],gain1) ]) for p,gain1 in gain1dict.iteritems() ]);

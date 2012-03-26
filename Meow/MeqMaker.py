@@ -161,33 +161,36 @@ class MeqMaker (object):
 
   def compile_options (self):
     return self._compile_options;
-    
+
   def smearing_options (self):
     return [ TDLOption('smearing_count',"Restrict to N brightest sources only",["all",10,100],more=int,namespace=self,
       doc="""<P>Smearing is somewhat expensive to calculate in this implementation, so you may choose to limit it
       to some number of brightest sources (e.g. 50)</P>""") ];
 
-  def add_sky_models (self,modules):
+  def add_sky_models (self,modules,export_karma=False):
     if self._sky_models:
       raise RuntimeError,"add_sky_models() may only be called once";
     self._compile_options.append(
         self._module_selector("Sky model","sky",modules,use_toggle=False,exclusive=False));
     self._sky_models = modules;
     global _annotation_label_doc;
-    self._compile_options.append(
-      TDLMenu("Export sky model as kvis annotations",toggle="export_kvis",
-                  default=False,namespace=self,
-              *(TDLOption("export_karma_filename","Filename",
-                          TDLFileSelect("*.ann",exist=False,default=None),namespace=self),
-                TDLOption("export_karma_label","Label format",
-                          [None,"%N","%N I=%(I).3g","%N Ia=%(Iapp).3g"],more=str,namespace=self,
-                          doc="This determines the format of source labels."+_annotation_label_doc),
-                TDLOption("export_karma_nlabel","Put labels on brightest N sources only",
-                          ["all",10,50],more=int,namespace=self),
-                TDLOption("export_karma_incremental","Export each N sources as a separate file",
-                          ["all",10,50],more=int,namespace=self)
-              ))
-    );
+    if export_karma:
+      self._compile_options.append(
+        TDLMenu("Export sky model as kvis annotations",toggle="export_kvis",
+                    default=False,namespace=self,
+                *(TDLOption("export_karma_filename","Filename",
+                            TDLFileSelect("*.ann",exist=False,default=None),namespace=self),
+                  TDLOption("export_karma_label","Label format",
+                            [None,"%N","%N I=%(I).3g","%N Ia=%(Iapp).3g"],more=str,namespace=self,
+                            doc="This determines the format of source labels."+_annotation_label_doc),
+                  TDLOption("export_karma_nlabel","Put labels on brightest N sources only",
+                            ["all",10,50],more=int,namespace=self),
+                  TDLOption("export_karma_incremental","Export each N sources as a separate file",
+                            ["all",10,50],more=int,namespace=self)
+                ))
+      );
+    else:
+      self.export_kvis = False;
 
   def add_uv_jones (self,label,name=None,modules=None,pointing=None,flaggable=False):
     return self._add_jones_modules(label,name,modules,is_uvplane=True,flaggable=flaggable,pointing=pointing);
@@ -1220,7 +1223,7 @@ class SourceSubsetSelector (object):
                   = (or ==), !=, &lt;=, &gt;=, &lt;, &gt;, or .eq., .ne., .le., .ge., .lt., .gt. Note also that "value" may be
                   followed by "d", "m" or "s", in which case it is converted from degrees, minutes or seconds into
                   radians.</P>
-                  <P>Successive items are treated as logical-OR (i.e. each item adds to the selection), unless the 
+                  <P>Successive items are treated as logical-OR (i.e. each item adds to the selection), unless the
                   item is prefixed by a modifier (with no space in between):</P>
                   <P>"&<I>selection</I>" means 'and', i.e. "I&ge;1 Q&ge;0 &r&lt;2d" is interpreted as "(I&ge;1 or Q&ge;0) and r&lt;2d".</P>
                   <P>"-<I>selection</I>" means 'except', i.e. "I&ge;1 Q&ge;0 -r&lt;2d" is interpreted as "(I&ge;1 or Q&ge;0) and r&ge;2d". Likewise, "-<i>name</i>" simply deselects sources by name.</P>"""
@@ -1277,14 +1280,14 @@ class SourceSubsetSelector (object):
   # regex matching the tag**value[dms] operation
   # the initial "=" is allowed for backwards compatibility with =tag=value constructs
   _re_tagcomp = re.compile("^(?i)=?([^=<>!.]+)(%s)([^dms]+)([dms])?"%"|".join([key.replace('.','\.') for key in _select_predicates.keys()]));
-  
+
   @staticmethod
   def _parse_float (strval):
     try:
       return float(strval);
     except:
       None;
-  
+
   @staticmethod
   def filter_subset (subset,srclist0,tag_accessor=Meow.SkyComponent.get_attr):
     all = set([src.name for src in srclist0]);
@@ -1300,7 +1303,7 @@ class SourceSubsetSelector (object):
       # strip off modifier at beginning
       if spec[0] in "-&|":
         op = spec[0];
-        spec = spec[1:]; 
+        spec = spec[1:];
       else:
         op = "|";
       # if first modifier is AND or EXCEPT, then implictly select all sources first

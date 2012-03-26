@@ -618,18 +618,11 @@ class StefCalNode (pynode.PyNode):
       dprint(2,"  convergence criteria were"," ".join(["%.2g"%x for x in gain_maxdiffs]));
       gainflags = getattr(gain,'gainflags',None);
       if gainflags:
+        dprint(2,"total gain-flags: "," ".join(["%s:%d"%(p,gf.sum()) for p,gf in sorted(gainflags.iteritems())]));
         for p in solvable_antennas:
-          gf = gainflags.get(p);
-          if gf is None:
+          flag4 = gainflags.get(p);
+          if flag4 is None:
             continue;
-          flag4 = False;
-          for g in gf:
-#            print flag4,g.shape;
-            flag4 |= g;
-          nf = flag4.sum();
-          if not nf:
-            continue;
-          dprint(2,"  station %s has %d slots flagged due to gains"%(p,nf));
           for q in antennas:
             pq = (p,q) if (p,q) in data else ((q,p) if (q,p) in data else None);
             if pq:
@@ -814,7 +807,7 @@ class StefCalNode (pynode.PyNode):
             fl = getattr(vs,'flags',None);
             if fl is None:
               fl = vs.flags = meq.flags(datashape);
-            fl[fl4[expanded_dataslice]] |=  self.flagmask;
+            fl[fl4 if expanded_dataslice is None else fl4[expanded_dataslice]] |=  self.flagmask;
           # compute stats
           maxres = max(maxres,abs(res[n]).max() if not numpy.isscalar(res[n]) else abs(res[n]));
           nvells += 1;
