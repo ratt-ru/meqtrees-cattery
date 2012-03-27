@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
 import numpy
 import math
+import operator
 import scipy.ndimage.filters
 
 from MatrixOps import *
+
 from Timba.Meq import meq
+import Kittens.utils
+
+_verbosity = Kittens.utils.verbosity(name="gaindiag");
+dprint = _verbosity.dprint;
+dprintf = _verbosity.dprintf;
+
 
 verbose_baselines = ()#set([('0','C'),('C','0')]);
 verbose_baselines_corr = ()#set([('0','C'),('C','0')]);
@@ -45,7 +53,11 @@ class GainDiag (object):
   polarized = False;
   nparm = 2;
 
-  def __init__ (self,datashape,subtiling,solve_ifrs,epsilon,conv_quota,init_value=1,bounds=None,smoothing=None,**kw):
+  def __init__ (self,original_datashape,datashape,subtiling,solve_ifrs,epsilon,conv_quota,
+                twosided=False,verbose=0,
+                smoothing=None,bounds=None,init_value=1,**kw):
+    _verbosity.set_verbose(verbose);
+    _verbosity.enable_timestamps(True,modulo=6000);
     self._solve_ifrs = solve_ifrs;
     self._epsilon = epsilon;
     self.datashape = datashape;
@@ -91,9 +103,14 @@ class GainDiag (object):
       default[...] = init_value;
       self.gain = dict([ (pp,default) for pp in parms ]);
     # setup various counts and convergence targets
-    self.total_parms = reduce(lambda a,b:a*b,self.gainshape);
-    self.convergence_target = round(self.total_parms*conv_quota);
+    self.total_slots  = reduce(operator.mul,self.gainshape);
+    unpadded_gainshape = tuple([ int(math.ceil(nd/float(nt))) for nd,nt in zip(original_datashape,subtiling) ]);
+    real_slots = reduce(operator.mul,unpadded_gainshape);
+    real_target = round(real_slots*conv_quota);
+    self.convergence_target = real_target + (self.total_slots - real_slots);
     self._reset();
+    dprint(1,"convergence target %d of %d real slots (%d of %d padded slots)"%(real_target,real_slots,
+        self.convergence_target,self.total_slots));
 
   # define methods
   def tile_data (self,x):
@@ -113,7 +130,6 @@ class GainDiag (object):
       a = meq.complex_vells(self.subtiled_shape);
       a[...] = self.tile_gain(x);
       return self.untile_data(a);
-
   def reduce_subtiles (self,x):
     if not numpy.isscalar(x):
       for ax in self.subtiled_axes:
@@ -129,7 +145,7 @@ class GainDiag (object):
     self._gpgq_inv = {};
     self._gp_inv = {};
 
-  def iterate (self,lhs,rhs,niter=0,verbose=0):
+  def iterate (self,lhs,rhs,flagmask,verbose=0,niter=0,weight=None,averaging=None,omega=None,feed_forward=False):
     """Does one iteration of Gp*lhs*Gq^H -> rhs""";
     self._reset();
     gain0 = {};  # dict of gain parm updates from steps 0 and 1
@@ -177,6 +193,7 @@ class GainDiag (object):
           print "S%d %s:%s"%(step,p,i),"G''",g1[p,i],g1[p,i][verbose_element];
     # after two steps, take the average of the previous two solutions, i.e. G(i) and G(i-1)
     for pi,g0 in gain0.iteritems():
+      #gain1[pi] = numpy.sqrt(gain1[pi]*g0);
       gain1[pi] = (gain1[pi] + g0)/2;
     # compare to self.gain (i.e. G(i-2))
 #    print "step 1 G:0",gain2['0',0][verbose_element],gain2['0',1][verbose_element];
@@ -184,6 +201,7 @@ class GainDiag (object):
     square = lambda x:x*numpy.conj(x);
     deltanorm_sq = sum([square(gain1[pp] - self.gain[pp]) for pp in self.gain.iterkeys()]);
     gainnorm_sq = sum([square(gain1[pp]) for pp in self.gain.iterkeys()]);
+    self.gainnorm = numpy.sqrt(gainnorm_sq).max();
     # find how many have converged
     self.delta_sq = deltanorm_sq/gainnorm_sq;
     self.num_converged = (self.delta_sq <= self._epsilon**2).sum();
@@ -211,7 +229,7 @@ class GainDiag (object):
       for pi in (p,i),(q,j):
         gpi = self._gp_inv.get(pi);
         if gpi is None:
-          gpi = self._gp_inv[pi] =  1/(self.gain.get(pi,self._unity)+reg);
+          gpi = self._gp_inv[pi] =  1/(self.gain.get(pi,self._unity)+regularize);
           if pi[0] in verbose_stations_corr:
             print "G:%s:%s"%pi,self.gain[pi][verbose_element];
             print "Ginv:%s:%s"%pi,gpi[verbose_element];

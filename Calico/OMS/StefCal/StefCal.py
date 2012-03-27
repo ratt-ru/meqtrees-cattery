@@ -470,7 +470,7 @@ class StefCalNode (pynode.PyNode):
     # this is how many valid visibility matrices we have total per slot
     num_valid_vis = sum([ int(n>1) if numpy.isscalar(n) else (n>1).astype(int) for pq,n in nel_pq.iteritems() ]);
     # we need as many as there are parameters per antenna, times ~4, to constrain the problem fully
-    threshold = len(solvable_antennas)*6;
+    threshold = len(solvable_antennas)*4;
     dprintf(1,"%d valid visibility matrices per time/freq slot are required for a solution\n",threshold);
     invalid_slots = (num_valid_vis>0)&(num_valid_vis<threshold);
     nfl = invalid_slots.sum();
@@ -749,7 +749,9 @@ class StefCalNode (pynode.PyNode):
     # update IFR gain solutions, if asked to
     if self.solve_ifr_gains:
       for pq in self._ifrs:
-        dd = data[pq];
+        dd = data.get(pq);
+        if dd is None:
+          continue;
         if self.gains_on_data:
           mm = gain.apply_inverse(model,pq,cache=True,regularize=self.regularization_factor);
         else:
@@ -789,10 +791,14 @@ class StefCalNode (pynode.PyNode):
           out = res = gain.residual(data,model,pq);
           if not self.residuals:
             out = gain.apply(data,pq);
+          elif not self.correct:
+            out = [ -x for x in gain.residual_inverse(model,data,pq) ];
         else:
           out = res = gain.residual_inverse(data,model,pq,regularize=self.regularization_factor);
           if not self.residuals:
             out = gain.apply_inverse(data,pq,regularize=self.regularization_factor);
+          elif not self.correct:
+            out = gain.residual(model,data,pq);
         fl4 = flags.get(pq);
         for n,x in enumerate(out):
           vs = datares.vellsets[nvells];
