@@ -62,6 +62,10 @@ def matrix_sub (A,B):
   """Subtracts two matrices given as a flat 4-list""";
   return [ a-b for a,b in zip(A,B) ];
 
+def matrix_negate (A):
+  """Negates a matrix""";
+  return [ -a for a in A ];
+
 def matrix_invert (A,reg=0):
   """Inverts a matrix given as a flat 4-list""";
   a,b,c,d = A;

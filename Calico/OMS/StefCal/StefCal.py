@@ -792,13 +792,13 @@ class StefCalNode (pynode.PyNode):
           if not self.residuals:
             out = gain.apply(data,pq);
           elif not self.correct:
-            out = [ -x for x in gain.residual_inverse(model,data,pq) ];
+            out = matrix_negate(gain.residual_inverse(model,data,pq));
         else:
           out = res = gain.residual_inverse(data,model,pq,regularize=self.regularization_factor);
           if not self.residuals:
             out = gain.apply_inverse(data,pq,regularize=self.regularization_factor);
           elif not self.correct:
-            out = gain.residual(model,data,pq);
+            out = matrix_negate(gain.residual(model,data,pq));
         fl4 = flags.get(pq);
         for n,x in enumerate(out):
           vs = datares.vellsets[nvells];
