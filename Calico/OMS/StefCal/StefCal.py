@@ -142,7 +142,9 @@ class StefCalNode (pynode.PyNode):
     mystate('max_iter',50);             # max gain iter in first loop of major cycle
     mystate('max_iter_1',20);           # max gain iter in middle loops of major cycle
     mystate('max_iter_2',20);           # max gain iter in last loop of major cycle
+    mystate('max_diverge',2);           # give up if we diverge for that many iterations in a row
     mystate('diffgain_max_iter',5);     # max diffgain iters
+    mystate('diffgain_max_diverge',2);  # give up if we diverge for that many iterations in a row
     mystate('max_major',10);
     mystate('convergence_quota',0.9);   # what percentage of parms should converge
     mystate('diffgain_convergence_quota',1);   # what percentage of parms should converge
@@ -554,7 +556,6 @@ class StefCalNode (pynode.PyNode):
     else:
       diffgains = [];
 
-
     #model_unscaled,data_unscaled = model,data;
     ## send to phase center
     #corr = {};
@@ -576,61 +577,22 @@ class StefCalNode (pynode.PyNode):
     for nmajor in range(self.max_major+1):
       if (domain_id == self.dump_domain or self.dump_domain == -1):
         dump_data_model(data,model,solvable_ifrs,"dump_G%d.txt"%nmajor);
-  ## -------------------- first, iterate normal gains to convergence
-      gain_maxdiffs = [];
-      gain_dchi = [];
+      ## -------------------- first, iterate normal gains to convergence
+      # setup convergence criteria
       if nmajor == 0:
         maxiter,delta = self.max_iter,self.delta;
       elif nmajor < self.max_major:
         maxiter,delta = self.max_iter_1,self.delta_1;
       else:
         maxiter,delta = self.max_iter_2,self.delta_2;
-      t0 = time.time();
-      chisq0 = dchi = 0;
-      chisq_converged = False;
-      for niter in range(maxiter):
-        # iterate over normal gains
-        converged,maxdiff,deltas,nfl = gain.iterate(niter=niter,weight=weight,flagmask=flagmask,
-          averaging=(self.average_1 if nmajor else self.average),
-          omega=(self.omega_1 if nmajor else self.omega),
-          feed_forward=(self.feed_forward_1 if nmajor else self.feed_forward),
-          *gain_iterate);
-        dprint(4,"%d slots converged, max delta is %f"%(gain.num_converged,gain.delta_max));
-        gain_maxdiffs.append(maxdiff);
-        if self.visualize_gains > 1:
-          global_gains.setdefault('G',[]).append(gain.get_2x2_gains(datashape,expanded_dataslice));
-        if nfl:
-          dprint(2,"%d out-of-bound gains flagged at iteration %d"%(nfl,niter));
-    ## -------------------- check chi-square
-        chisq,chisq_unnorm = self.compute_chisq(gain,data,model,self.gains_on_data,noise=noise,flagmask=flagmask);
-        if niter > 1:
-          dchi = (chisq0-chisq)/chisq;
-          gain_dchi.append(dchi);
-          chisq_converged = ( dchi >= 0 and dchi < delta );
-        dprint(3,"iter %d ||G||=%g max gain update is %g chisq is %.8g (%.8g) diff %.3g"%(niter+1,gain.gainnorm,gain.delta_max,chisq,chisq_unnorm,dchi));
-        chisq0 = chisq;
-        # break out if converged
-        if converged or chisq_converged:
-          break;
-      dprint(1,"gains %sconverged, chisq %.12g (last G update %g) after %d iterations and %.2fs"%(
-            ("" if converged else ("chisq-" if chisq_converged else "not ")),chisq,gain.delta_max,niter+1,time.time()-t0));
-      dprint(2,"  delta-chisq were"," ".join(["%.4g"%x for x in gain_dchi]));
-      dprint(2,"  convergence criteria were"," ".join(["%.2g"%x for x in gain_maxdiffs]));
-      gainflags = getattr(gain,'gainflags',None);
-      if gainflags:
-        dprint(2,"total gain-flags: "," ".join(["%s:%d"%(p,gf.sum()) for p,gf in sorted(gainflags.iteritems())]));
-        for p in solvable_antennas:
-          flag4 = gainflags.get(p);
-          if flag4 is None:
-            continue;
-          for q in antennas:
-            pq = (p,q) if (p,q) in data else ((q,p) if (q,p) in data else None);
-            if pq:
-              if pq in flags:
-                flags[pq] |= flag4;
-              else:
-                flags[pq] = flag4;
-  ## -------------------- now iterate over diffgains
+      # run solution loop
+      self.solve_gains("G",gain,gain_iterate,(data,model,self.gains_on_data),
+                      noise,weight,flagmask,flags,
+                      maxiter,self.max_diverge,delta,
+                      averaging=(self.average_1 if nmajor else self.average),
+                      omega=(self.omega_1 if nmajor else self.omega),
+                      feed_forward=(self.feed_forward_1 if nmajor else self.feed_forward));
+      ## -------------------- now iterate over diffgains
       # break out if no diffgains to iterate over, or if we're on the last major cycle
       if not num_diffgains or nmajor >= self.max_major:
         break;
@@ -675,33 +637,12 @@ class StefCalNode (pynode.PyNode):
              ( domain_id == self.dump_domain or self.dump_domain == -1 ):
             dump_data_model(dgmodel[idg],data1,solvable_ifrs,"dump_E%d-%d.txt"%(idg,nmajor));
           # iterate this diffgain solution
-          t0 = time.time();
-          chisq0 = -1;
-          chisq_converged = False;
-          gain_maxdiffs = [];
-          gain_dchi = [];
-          for niter in range(self.diffgain_max_iter):
-            converged,maxdiff,deltas,nfl = dg.iterate(dgmodel[idg],data1,flagmask=flagmask,weight=resweight,niter=niter,
-                    averaging=self.average_de,omega=self.omega_de,feed_forward=self.feed_forward_de);
-            dprint(4,"%d slots converged, max delta is %f"%(dg.num_converged,dg.delta_max));
-            gain_maxdiffs.append(maxdiff);
-            if niter: # (niter and not niter%100) or niter >= self.diffgain_max_iter-1 or converged:
-              chisq,chisq_unnorm = self.compute_chisq(dg,data1,dgmodel[idg],False,noise=resnoise,flagmask=flagmask);
-              dchi = (chisq0-chisq)/chisq;
-              if niter > 1:
-                gain_dchi.append(dchi);
-              chisq_converged = ( dchi >= 0 and dchi < self.diffgain_delta );
-              dprint(3,"dg%d iter %d max gain update is %g chisq is %.8g (%.8g) diff %.3g"%(idg,niter+1,gain.delta_max,chisq,chisq_unnorm,dchi));
-              chisq0 = chisq;
-            if converged or chisq_converged:
-              break;
-          dprint(2,"diffgain #%d %sconverged, chisq %.12g after %d iterations and %.2fs"%(idg,
-              ("" if converged else ("chisq-" if chisq_converged else "not ")),chisq,niter+1,time.time()-t0));
-          dprint(2,"  delta-chisq were"," ".join(["%.4g"%x for x in gain_dchi]));
-          dprint(2,"  convergence criteria were"," ".join(["%.2g"%x for x in gain_maxdiffs]));
-#          print dg.gain.keys();
-#          print "dE(0)",dg.gain['0',0];
-#          print "dgcorrupt",dg.corrupt(dgmodel[idg],('0','A'),cache=True)[0];
+          self.solve_gains("dE:%d"%idg,dg,(dgmodel[idg],data1),(data1,dgmodel[idg],False),
+                          resnoise,resweight,flagmask,
+                          flags=None,
+                          maxiter=self.diffgain_max_iter,max_diverge=self.diffgain_max_diverge,
+                          delta=self.diffgain_delta,averaging=self.average_de,omega=self.omega_de,
+                          feed_forward=self.feed_forward_de);
           # add to model, and subtract back from data1 if needed
           for pq in solvable_ifrs:
             corr = dg.apply(dgmodel[idg],pq,cache=True);
@@ -841,8 +782,8 @@ class StefCalNode (pynode.PyNode):
 
     dt = time.time()-timestamp0;
     m,s = divmod(dt,60);
-    dprint(0,"%s residual max %g last chisq %g (last G update %g), elapsed time %dm%0.2fs"%(
-              request.request_id,maxres,chisq,gain.delta_max,m,s));
+    dprint(0,"%s residual max %g, elapsed time %dm%0.2fs"%(
+              request.request_id,maxres,m,s));
 
     return datares;
 
@@ -943,3 +884,87 @@ class StefCalNode (pynode.PyNode):
       scale = scaling.get(q);
       result[q,p] = matrix_multiply(scale,dh) if scale is not None else dh;
     return result;
+
+
+  def solve_gains (self,label,gain,iter_args,chisq_args,noise,weight,flagmask,flags=None,
+                  maxiter=10,max_diverge=2,delta=1e-6,averaging=2,omega=.5,feed_forward=False):
+    """Runs a single gain solution loop to completion"""
+    gain_dchi = [];
+    gain_maxdiffs = [];
+    # initial chi-sq, and fallback chisq for divergence
+    gain._reset();
+    init_chisq,init_chisq_unnorm = self.compute_chisq(gain,noise=noise,flagmask=flagmask,*chisq_args);
+    lowest_chisq = (init_chisq,gain.get_values());
+    num_diverged = 0;
+    dprint(2,"solving for %s, initial chisq is %.12g"%(label,init_chisq));
+    t0 = time.time();
+    chisq0 = init_chisq;
+    # iterate
+    for niter in range(maxiter):
+      # iterate over normal gains
+      converged,maxdiff,deltas,nfl = gain.iterate(niter=niter,weight=weight,flagmask=flagmask,
+        averaging=averaging,omega=omega,feed_forward=feed_forward,
+        *iter_args);
+      dprint(4,"%d slots converged, max delta is %f"%(gain.num_converged,gain.delta_max));
+      gain_maxdiffs.append(maxdiff);
+      if self.visualize_gains > 1:
+        global_gains.setdefault(label,[]).append(gain.get_2x2_gains(datashape,expanded_dataslice));
+      if nfl:
+        dprint(2,"%d out-of-bound gains flagged at iteration %d"%(nfl,niter));
+      ## check chi-square
+      chisq,chisq_unnorm = self.compute_chisq(gain,noise=noise,flagmask=flagmask,*chisq_args);
+      dchi = (chisq0-chisq)/chisq;
+      gain_dchi.append(dchi);
+      dprint(3,"iter %d ||%s||=%g max update is %g chisq is %.8g (%.8g) diff %.3g"%(niter+1,label,gain.gainnorm,gain.delta_max,chisq,chisq_unnorm,dchi));
+      chisq0 = chisq;
+      # check convergence
+      if converged:
+        dprint(1,"%s converged at chisq %.12g (last gain update %g) after %d iterations and %.2fs"%(
+                label,chisq,gain.delta_max,niter+1,time.time()-t0));
+        break;
+      # if chi-sq decreased, remember this
+      if dchi >= 0:
+        lowest_chisq = (chisq,gain.get_values());
+        num_diverged = 0;
+        # and check for chisq-convergence
+        if niter > 1 and dchi < delta:
+          dprint(1,"%s chisq converged at %.12g (last gain update %g) after %d iterations and %.2fs"%(
+                label,chisq,gain.delta_max,niter+1,time.time()-t0));
+          break;
+      # else chisq is increasing, check if we need to stop
+      else:
+        num_diverged += 1;
+        if num_diverged >= max_diverge:
+          chisq,gainvals = lowest_chisq;
+          gain.set_values(gainvals);
+          dprint(1,"%s chisq diverging, stopping at %.12g after %d iterations and %.2fs"%(
+                    label,chisq,niter+1,time.time()-t0));
+          break;
+    else:
+      dprint(1,"%s max iterations (%d) reached at chisq %.12g (last gain update %g) after %.2fs"%(
+              label,maxiter,chisq,gain.delta_max,time.time()-t0));
+    # check if we have a lower chisq to roll back to
+    if chisq > init_chisq:
+      dprint(1,"DANGER WILL ROBINSON! Final chisq is higher than initial chisq. Rolling back to initial values.");
+      gain.set_values(gainvals);
+    elif chisq > lowest_chisq[0]:
+      chisq,gainvals = lowest_chisq;
+      gain.set_values(gainvals);
+    # print other stats
+    dprint(2,"  delta-chisq were"," ".join(["%.4g"%x for x in gain_dchi]));
+    dprint(2,"  convergence criteria were"," ".join(["%.2g"%x for x in gain_maxdiffs]));
+    if flags is not None:
+      gainflags = getattr(gain,'gainflags',None);
+      if gainflags:
+        dprint(2,"total gain-flags: "," ".join(["%s:%d"%(p,gf.sum()) for p,gf in sorted(gainflags.iteritems())]));
+        for p in solvable_antennas:
+          flag4 = gainflags.get(p);
+          if flag4 is None:
+            continue;
+          for q in antennas:
+            pq = (p,q) if (p,q) in data else ((q,p) if (q,p) in data else None);
+            if pq:
+              if pq in flags:
+                flags[pq] |= flag4;
+              else:
+                flags[pq] = flag4;

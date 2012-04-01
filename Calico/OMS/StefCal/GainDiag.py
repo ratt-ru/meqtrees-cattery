@@ -145,6 +145,13 @@ class GainDiag (object):
     self._gpgq_inv = {};
     self._gp_inv = {};
 
+  def get_values (self):
+    return self.gain.copy();
+
+  def set_values (self,gain):
+    self._reset();
+    self.gain = gain;
+
   def iterate (self,lhs,rhs,flagmask,verbose=0,niter=0,weight=None,averaging=None,omega=None,feed_forward=False):
     """Does one iteration of Gp*lhs*Gq^H -> rhs""";
     self._reset();

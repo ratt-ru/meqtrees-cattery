@@ -140,6 +140,13 @@ class Gain2x2 (object):
     self._gconj = {};
     self._ginvconj = {};
 
+  def get_values (self):
+    return self.gain.copy();
+
+  def set_values (self,gain):
+    self._reset();
+    self.gain = gain;
+
   def _get_matrix (self,p,q,data):
     if (p,q) in data:
       return map(self.tile_data,data[p,q]);
