@@ -20,12 +20,35 @@ plot-ms()
 reset_ms()
 {
   rm -fr $MSNAME
-  (cd `dirname $MSNAME` && tar zxvf `basename $MSNAME`.tgz)
+  if [ -f $MSNAME.precooked.tgz ]; then
+    echo "Untarring pre-cooked MS"
+    (cd `dirname $MSNAME` && tar zxvf `basename $MSNAME`.tgz)
+    return 0
+  elif [ -f $MSNAME.tgz ]; then
+    echo "Untarring normal MS"
+    (cd `dirname $MSNAME` && tar zxvf `basename $MSNAME`.tgz)
+  else
+    echo "No precooked and no initial MS found!"
+    return 1
+  fi
   wsrt_j2convert msin=$MSNAME
   addbitflagcol $MSNAME
   python -c "import pyrap.tables;pyrap.tables.addImagingColumns('$MSNAME')"
   $DOWNWEIGH -I "$IFRS" $MSNAME
   init_flags
+}
+
+## precook_ms: saves MS -- pre-cooked MS will be used by reset_ms if available
+precook_ms()
+{
+  python -c "import pyrap.tables; pyrap.tables.table('$MSNAME',readonly=False).removecols(['MODEL_DATA','CORRECTED_DATA'])"
+  (cd `dirname $MSNAME` && tar zcvf `basename $MSNAME`.precooked.tgz `basename $MSNAME`)
+}
+
+## precook_ms: removes the pre-cooked MS
+removed_precooked_ms()
+{
+  rm -f $MSNAME.precooked.tgz
 }
 
 ## init_flags: called to apply initial flagging to an MS
