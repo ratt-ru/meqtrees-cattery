@@ -30,7 +30,7 @@ def unite_shapes (a,b):
   """
   if a.shape == b.shape:
     return a,b;
-  # promote shapes to same number of dinensions, by padding missing dimensions with 1's
+  # promote shapes to same number of dimensions, by padding missing dimensions with 1's
   sa = [1]*max(a.ndim,b.ndim);
   sb = list(sa);
   sa[:a.ndim] = a.shape;
@@ -49,7 +49,35 @@ def unite_shapes (a,b):
         raise TypeError,"error: trying to unite incompatible shapes %s and %s"%(sa,sb);
   return a,b;
 
-
+def unite_multiple_shapes (*arr0):
+  """Makes two or more arrays have the same shape, as follows:
+  - each axis must be the same shape,
+  - or if one array has shape-1, and another shape-N, then the shape-1 is expanded.
+  """
+  # less than two shapes, or all shapes are equal: return as is
+  if len(arr0) < 2 or all([x.shape == arr0[0].shape for x in arr0[1:]]):
+    return arr0;
+  # promote shapes to same number of dimensions, by padding missing dimensions with 1's
+  ndim = max([x.ndim for x in arr0]);
+  sh0 = [1]*ndim;
+  arr = [];      # output arrays
+  for x in arr0:
+    sh = list(sh0);
+    sh[:x.ndim] = x.shape;
+    arr.append(x.reshape(sh));
+  # now loop over axes, and expand missing ones
+  for axis in range(ndim):
+    nx = [ x.shape[axis] for x in arr ];
+    nx0 = max(nx);
+    if nx0 != 1:
+      for i,x in enumerate(arr):
+        if nx[i] != nx0:
+          if nx[i] == 1:
+            arr[i] = expand_axis(arr[i],axis,nx0);
+          else:
+            raise TypeError,"error: trying to unite incompatible shapes: %s"%" ".join(
+              [ "[%s]"%(",".join(map(str,x.shape))) for x in arr0 ]);
+  return arr;
 
 class InterpolatedVoltageBeam (object):
   """This class implements a complex (interpolated) voltage beam as a function of LM."""

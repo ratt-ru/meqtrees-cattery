@@ -64,11 +64,14 @@ meqmaker = MeqMaker.MeqMaker();
 # specify available sky models
 # these will show up in the menu automatically
 from Siamese.OMS import gridded_sky
+from Siamese.AGW import azel_sky
 from Siamese.OMS import transient_sky
 from Siamese.OMS import fitsimage_sky
-import Meow.LSM
-lsm = Meow.LSM.MeowLSM(include_options=False);
-models = [ gridded_sky,transient_sky,fitsimage_sky,lsm ];
+
+## OMS: time to retire this one
+#import Meow.LSM
+#lsm = Meow.LSM.MeowLSM(include_options=False);
+models = [ gridded_sky,azel_sky,transient_sky,fitsimage_sky ]; # ,lsm ];
 
 try:
   from Siamese.OMS.tigger_lsm import TiggerSkyModel
@@ -103,11 +106,11 @@ from Siamese.OMS import analytic_beams
 from Siamese.OMS import fits_beams0
 from Siamese.OMS import pybeams_fits
 from Siamese.OMS import paf_beams
-from Siamese.OMS import wsrt_beams
+##OMS: retiting this one: from Siamese.OMS import wsrt_beams
 from Siamese.OMS import vla_beams
 from Siamese.SBY import lofar_beams
 from Siamese.OMS import oms_pointing_errors
-meqmaker.add_sky_jones('E','beam',[analytic_beams,pybeams_fits,paf_beams,fits_beams0,wsrt_beams,vla_beams,lofar_beams],
+meqmaker.add_sky_jones('E','beam',[analytic_beams,pybeams_fits,paf_beams,fits_beams0,vla_beams,lofar_beams],
                           pointing=oms_pointing_errors);
 
 # P - Parallactic angle

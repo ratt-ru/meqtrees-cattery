@@ -23,6 +23,10 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+"""<P>This implements a sky model of sources arranged in pleasing geometrical patterns,
+such as a grid.</P> 
+
+<P>Author: O. Smirnov</P>""";
 
 from Timba.TDL import *
 import Meow

@@ -28,7 +28,7 @@ model is provided, but readers are encouraged to contribute models of their own.
 
 <P>See also Calico.OMS.wsrt_beams for a WSRT beam model with solvable pointing and scale.</P> 
 
-<P>Author: O. Smirnov.</P>""";
+<P>Author: O. Smirnov</P>""";
 
 from Timba.TDL import *
 from Meow.Direction import radec_to_lmn
@@ -151,6 +151,36 @@ class circular_aperture_beam (WSRT_cos3_beam):
 #  def compute_tensor (self,E,lm,pointing=None,p=0):
 #    return self.compute(E,lm,pointing,p);
 
+import AnalyticBeams.ClippedSincBeam
+
+class clipped_sinc_beam (WSRT_cos3_beam):
+  label = "clipped_sinc";
+  name  = "Clipped sinc function beam model";
+  
+  def __init__ (self):
+    self._options = [
+      TDLOption('bf',"Beam factor",[1.],more=float,namespace=self),
+      TDLOption('dish_sizes',"Dish size(s)",[25],more=str,namespace=self)
+    ];
+    self._prepared = False;
+    self.ell = 0;
+    
+  def compute (self,E,lm,pointing=None,p=0):
+    ns = E.Subscope();
+    size = self._sizes[min(p,len(self._sizes)-1)];
+    # beamscale is determined by beam factor, plus frequency (divide by 1.4e+9 so that
+    # beamscale is exactly 265.667 at 1.4 GHz), plus dish size
+    scale = 265.667*self.bf*(1/1.4e+9)*(size/25);
+    children = [lm,pointing] if pointing else [lm];
+    E << Meq.PyNode(scale=scale,
+      class_name="ClippedSincBeam",
+      module_name=AnalyticBeams.ClippedSincBeam.__file__,
+      *children);
+    return E;
+
+  def compute_tensor (self,E,lm,pointing=None,p=0):
+    return self.compute(E,lm,pointing,p);
+
 
 def compute_jones (Jones,sources,stations=None,
                     label="beam",pointing_offsets=None,inspectors=[],
@@ -238,7 +268,7 @@ def compute_jones_tensor (Jones,sources,stations=None,lmn=None,
 
 # available beam models
 MODELS = [
-  WSRT_cos3_beam(),circular_aperture_beam()
+  WSRT_cos3_beam(),circular_aperture_beam(),clipped_sinc_beam()
 ];
 
 _model_option = TDLCompileMenu("Beam model",
