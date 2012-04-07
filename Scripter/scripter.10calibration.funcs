@@ -20,7 +20,7 @@ plot-ms()
 reset_ms()
 {
   rm -fr $MSNAME
-  if [ -f $MSNAME.precooked.tgz ]; then
+  if [ "${USE_PRECOOKED:-1}" != "0" -a -f $MSNAME.precooked.tgz ]; then
     echo "Untarring pre-cooked MS"
     (cd `dirname $MSNAME` && tar zxvf `basename $MSNAME`.tgz)
     return 0
