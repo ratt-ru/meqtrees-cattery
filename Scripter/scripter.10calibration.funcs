@@ -23,6 +23,7 @@ reset_ms()
   if [ "${USE_PRECOOKED:-1}" != "0" -a -f $MSNAME.precooked.tgz ]; then
     echo "Untarring pre-cooked MS"
     (cd `dirname $MSNAME` && tar zxvf `basename $MSNAME`.tgz)
+    python -c "import pyrap.tables;pyrap.tables.addImagingColumns('$MSNAME')"
     return 0
   elif [ -f $MSNAME.tgz ]; then
     echo "Untarring normal MS"

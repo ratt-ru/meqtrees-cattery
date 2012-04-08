@@ -508,8 +508,11 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     # now loop over sources and interpolte
     for isrc in range(nsrc):
       # put l,m into grid
-      grid['l'] = lm.vellsets[isrc*nlm  ].value - dl;
-      grid['m'] = lm.vellsets[isrc*nlm+1].value - dm;
+      l,m = lm.vellsets[isrc*nlm].value,lm.vellsets[isrc*nlm+1].value;
+      l,dl = unite_shapes(l,dl);
+      m,dm = unite_shapes(m,dm);
+      grid['l'] = l - dl;
+      grid['m'] = m - dm;
       # interpolate
       for vb in vbs:
         if vb is None:
