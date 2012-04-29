@@ -85,6 +85,21 @@ class FITSAxes (object):
 class FITSVoltageBeam (InterpolatedVoltageBeam):
   """This class implements a complex voltage beam that is read from a FITS file."""
 
+  def hasFrequencyAxis (self):
+    return self._freqToPixel is not None;
+
+  def lmToBeam (self,l,m,rotate=None):
+    if rotate is not None:
+      c,s = numpy.cos(rotate),numpy.sin(rotate);
+      return self._lToPixel(l*c + m*s),self._mToPixel(-l*s + m*c);
+    else:
+      return self._lToPixel(l),self._mToPixel(m);
+
+  def freqToBeam (self,freq):
+    if self._freqToPixel is None:
+      raise RuntimeError,"attempting to interpolated in frequency, but frequency map is not set. This is a bug!";
+    return self._freqToPixel(freq);
+
   def read (self,filename_real,filename_imag=None):
     """Reads beam patterns from FITS files. If only one file is supplied, assumes a real-only beam.
     If two files are supplied, uses them for the real and imaginary parts.
@@ -114,17 +129,17 @@ class FITSVoltageBeam (InterpolatedVoltageBeam):
     if laxis<0 or maxis<0:
       raise TypeError,"FITS file %s missing L or M axis"%filename_real;
     # setup conversion functions
-    lToPixel = Kittens.utils.curry(axes.toPixel,laxis);
-    mToPixel = Kittens.utils.curry(axes.toPixel,maxis);
+    self._lToPixel = Kittens.utils.curry(axes.toPixel,laxis);
+    self._mToPixel = Kittens.utils.curry(axes.toPixel,maxis);
     # find frequency grid. self._freqToPixel will be None if no frequency axis
     freqaxis = axes.iaxis('FREQ');
     if freqaxis >= 0 and axes.naxis(freqaxis) > 1:
       dprint(1,"FREQ axis has %d points"%axes.naxis(freqaxis));
       self.setFreqGrid(axes.grid(freqaxis));
-      freqToPixel = Kittens.utils.curry(axes.toPixel,freqaxis);
+      self._freqToPixel = Kittens.utils.curry(axes.toPixel,freqaxis);
       used_axes = [laxis,maxis,freqaxis];
     else:
-      freqToPixel = None;
+      self._freqToPixel = None;
       used_axes = [laxis,maxis];
     # used_axes is either (l,m,freq) or (l,m)
     # other_axes is all that remains, and they had better be all trivial
@@ -146,7 +161,8 @@ class FITSVoltageBeam (InterpolatedVoltageBeam):
     if freqToPixel:
       dprint(2,"freq grid is",axes.grid(freqaxis));
     # set the beam cube
-    self.setBeamCube(beam,lmap=lToPixel,mmap=mToPixel,freqmap=freqToPixel);
+    self.setBeamCube(beam);
+    
     
 class MultifreqFITSVoltageBeam (FITSVoltageBeam):
   """This class implements an LMVoltageBeam where the

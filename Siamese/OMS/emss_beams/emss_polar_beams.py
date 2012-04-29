@@ -53,11 +53,14 @@ dprintf = _verbosity.dprintf;
 DEG = math.pi/180;
 
 import EMSSVoltageBeam
-from InterpolatedVoltageBeam import unite_shapes
+import InterpolatedVoltageBeam
+from InterpolatedVoltageBeam import unite_shapes,unite_multiple_shapes
 
 SYM_SEPARATE = None;
 SYM_X = "X";
 SYM_Y = "Y";
+COORD_LM = "lm";
+COORD_THETAPHI = "thetaphi";
 
 
 TDLCompileOption("filename_pattern","Filename pattern",["beam_$(hv).pat"],more=str,doc="""<P>
@@ -89,18 +92,30 @@ TDLCompileOption("rotate_xy","Rotate polarization vectors from theta-phi to xy f
   <I>xy</I> frame.</P>""");
 TDLCompileOption("spline_order","Spline order for interpolation",[1,2,3,4,5],default=3);
 TDLCompileOption("hier_interpol","Use hierarchical interpolation (lm, then frequency)",True);
-TDLCompileOption("l_beam_offset","Offset beam pattern in L (deg)",[0.0], more=float,
+
+coord_opt = TDLCompileOption("interpol_coord","Coordinate interpolation",
+  {COORD_LM:"l,m (fast)",COORD_THETAPHI:"theta,phi (all-sky accurate)"},
+  doc="""<P>This determines the coordinate conversion strategy for beam interpolation. Using l,m coordinates is faster,
+  but less accurate in the far sidelobes (and cannot handle backlobes, i.e. sources over 90&deg; at all). Use theta, phi 
+  coordinates for a more accurate but slower interpolation in the far sidelobes, or if you have sources more that 90&deg; 
+  away from the pointing centre.</P>""");
+
+l0opt = TDLCompileOption("l_beam_offset","Offset beam pattern in L (deg)",[0.0], more=float,
 doc="""<P>By default,the beam reference position (<i>&theta;=&phi;=0</i>) is placed at <I>l=m=</I>0 on the sky, i.e.
-at the phase centre. You can use this option to offset the beam pattern.</P>"""),
-TDLCompileOption("m_beam_offset","Offset beam pattern in M (deg)",[0.0], more=float,
+at the phase centre. You can use this option to offset the beam pattern.</P>""");
+
+m0opt = TDLCompileOption("m_beam_offset","Offset beam pattern in M (deg)",[0.0], more=float,
 doc="""<P>By default,the beam reference position (<i>&theta;=&phi;=0</i>) is placed at <I>l=m=</I>0 on the sky, i.e.
-at the phase centre. You can use this option to offset the beam pattern.</P>"""),
+at the phase centre. You can use this option to offset the beam pattern.</P>""");
+
+coord_opt.when_changed(lambda val:(l0opt.show(val is COORD_LM),m0opt.show(val is COORD_LM)));
+
 TDLCompileOption("sky_rotation","Include sky rotation",True,doc="""<P>
-  If True, then the beam will rotate on the sky with parallactic angle. Use for alt-az mounts.
-  </P>""");
+  If True, then the beam will rotate on the sky with parallactic angle. Use for alt-az mounts.</P>""");
+TDLCompileOption("horizon_masking","Include horizon masking",False,doc="""<P>
+  If True, then horizon masking will be included. This may slow things down.</P>""");
 TDLCompileOption("randomize_rotation","Include random rotational offsets",False,doc="""<P>
-  If True, then each station's beam will be rotated by an arbitrary amount. This can help randomize the sidelobes.
-  </P>""");
+  If True, then each station's beam will be rotated by an arbitrary amount. This can help randomize the sidelobes.</P>""");
 TDLCompileOption("verbose_level","Debugging message level",[None,1,2,3],more=int);
 
 def _cells_grid (obj,axis):
@@ -126,6 +141,7 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
     mystate('filename',[]);
     mystate('spline_order',3);
     mystate('hier_interpol',True);
+    mystate('interpol_lm',True);
     mystate('l_0',0.0);
     mystate('m_0',0.0);
     mystate('verbose',0);
@@ -176,25 +192,27 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
       self._vbs.append(vbmat);
     return self._vbs;
 
-  def interpolate_per_source (self,lm,nlm,nsrc,dl,dm,grid,vbs):
+  def interpolate_per_source (self,lm_list,dl,dm,grid,vbs,thetaphi=False,rotate=None,masklist=None):
     # Loops over all source coordinates in the lm tensor, interpolates beams for them, and returns the resulting vellsets.
+    # lm is a list of [[l0,m0],[l1,m1],...] source coordinates
     # This is the "fail-safe" method, as it interpolates per-source, and therefore allows for the source lm arrays to have different
     # time/frequency dependencies per source.
     vellsets = [];
-    for isrc in range(nsrc):
-      l,m = lm.vellsets[isrc*nlm].value,lm.vellsets[isrc*nlm+1].value;
+    for isrc,(l,m) in enumerate(lm_list):
       # apply pointing offsets, if any
       if dl is not None:
         # unite shapes just in case, since l/m and dl/dm may have time/freq axes
-        l,dl = unite_shapes(l,dl);
-        m,dm = unite_shapes(m,dm);
-        l,m = l-dl,m-dm;
+        l,dl,m,dm = unite_multiple_shapes(l,dl,m,dm);
+      # if mask is set, make sure it has the same shape
+      mask = masklist[isrc] if masklist is not None else None;
+      if mask is not None:
+        l,m,mask = unite_multiple_shapes(l,m,mask);
       grid['l'],grid['m'] = l,m;
       # loop over all 2x2 matrices (we may have several, they all need to be added)
       E = [None]*4;
       for vbmat in vbs:
         for i,vb in enumerate(vbmat):
-          beam = vb.interpolate(freqaxis=self._freqaxis,**grid);
+          beam = vb.interpolate(freqaxis=self._freqaxis,lm=self.interpol_lm,thetaphi=thetaphi,rotate=rotate,mask=mask,**grid);
           if E[i] is None:
             E[i] = meq.complex_vells(beam.shape);
           E[i][...] += beam[...];
@@ -202,87 +220,117 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
       for ej in E:
         vellsets.append(meq.vellset(ej));
     return vellsets;
+    
+  def transform_coordinates (self,l,m):
+    return l,m;
 
-  def interpolate_batch (self,lm,nlm,nsrc,dl,dm,grid,vbs):
-    # A faster version of interpolate_per_source(), which assumes that all lm's have the same shape, and stacks them
-    # into a single array for a single interpolation call.
-    # If there's a shape mismatch, it'll fall back to interpolate_per_soucre
-    l0,m0 = lm.vellsets[0].value,lm.vellsets[1].value;
-    for isrc in range(nsrc):
-      l,m = lm.vellsets[isrc*nlm].value,lm.vellsets[isrc*nlm+1].value;
+  def interpolate_batch (self,lm_list,dl,dm,grid,vbs,thetaphi=False,rotate=None,masklist=None):
+    # A faster version of interpolate_per_source(), which assumes that all lm's (as well as the masks, if given) 
+    # have the same shape, and stacks them into a single array for a single interpolation call.
+    # If there's a shape mismatch, it'll fall back to interpolate_per_source
+    # 'maskarr', if given, should be an list of per-source mask arrays 
+    nsrc = len(lm_list);
+    maskcube = None;
+    for isrc,(l,m) in enumerate(lm_list):
+      mask = masklist[isrc] if masklist is not None else None;
       # apply pointing offsets, if any
       if dl is not None:
         # unite shapes just in case, since l/m and dl/dm may have time/freq axes
-        dl,dm = unite_shapes(dl,dm);
-        l,dl = unite_shapes(l,dl);
-        m,dm = unite_shapes(m,dm);
+        l,dl,m,dm = unite_multiple_shapes(l,dl,m,dm);
         l,m = l-dl,m-dm;
-      else:
-        l,m = unite_shapes(l,m);
+      # unite l,m shapes just in case, and transform
+      l,m,mask = unite_multiple_shapes(l,m,mask);
       if not isrc:
         lm_shape = l.shape;
         cubeshape = [nsrc]+list(lm_shape);
         lcube = numpy.zeros(cubeshape,float);
         mcube = numpy.zeros(cubeshape,float);
+        if masklist is not None:
+          maskcube = numpy.zeros(cubeshape,bool);
       else:
         if l.shape != lm_shape:
           dprint(1,"l/m shapes unequal at source %d, falling back to per-source interpolation"%isrc);
-          return self.interpolate_per_source(lm,nlm,nsrc,dl,dm,grid,vbs);
+          return self.interpolate_per_source(lm_list,dl,dm,grid,vbs,thetaphi=thetaphi,rotate=rotate,masklist=masklist);
       lcube[isrc,...] = l;
       mcube[isrc,...] = m;
+      if mask is not None:
+        maskcube[isrc,...] = mask;
+        if mask.any():
+          dprint(0,"source %d has %d slots masked"%(isrc,mask.sum()));
+    # if 'rotate' is specified, it needs to be promoted to the same cube shape, and ravelled
+    if rotate is not None:
+      lcube,mcube,maskcube,rotate = unite_multiple_shapes(lcube,mcube,maskcube,rotate.reshape([1]+list(rotate.shape)));
+      cubeshape = list(lcube.shape);
+      rotate = rotate.ravel();
     # ok, we've stacked things into lm cubes, interpolate
     grid['l'],grid['m'] = lcube.ravel(),mcube.ravel();
     # loop over all 2x2 matrices (we may have several, they all need to be added)
     E = [None]*4;
     for vbmat in vbs:
       for i,vb in enumerate(vbmat):
-        beam = vb.interpolate(freqaxis=self._freqaxis,**grid);
+        beam = vb.interpolate(freqaxis=self._freqaxis,extra_axes=1,thetaphi=thetaphi,rotate=rotate,**grid);
         if E[i] is None:
           E[i] = beam;
         else:
           E[i] += beam;
     # The l/m cubes have a shape of [nsrcs,lm_shape].
     # These are raveled for interpolation, so the resulting Es have a shape of [nsrcs*num_lm_points,num_freq]
-    # Reshape them properly. Note that there's an extra "soucre" axis at the front, so the frequency axis
+    # Reshape them properly. Note that there's an extra "source" axis at the front, so the frequency axis
     # is off by 1.
     if len(cubeshape) <= self._freqaxis+1:
-      cubeshape += [1]*(self._freqaxis - len(cubeshape) + 2);
+      cubeshape = list(cubeshape) + [1]*(self._freqaxis - len(cubeshape) + 2);
     cubeshape[self._freqaxis+1] = len(grid['freq']);
     E = [ ej.reshape(cubeshape) for ej in E ];
+    # apply mask cube, if we had one
+    if maskcube is not None:
+      # the E planes now have the same shape as the maskcube, but with an extra frequency axis. Promote the maskcube
+      # accordingly
+      me = unite_multiple_shapes(maskcube,*E);
+      maskcube = me[0];
+      E = me[1:];
+      dprint(0,"maskcube sum",maskcube.sum());
+      for ej in E:
+        ej[maskcube] = 0;
     # now tease the E's apart plane by plane
     # make vellsets
     vellsets = [];
     for isrc in range(nsrc):
       for ej in E:
+        dprint(0,"source %d has %d null gains"%(isrc,(ej[isrc,...]==0).sum()));
         ejplane = ej[isrc,...];
         value = meq.complex_vells(ejplane.shape,ejplane);
         vellsets.append(meq.vellset(value));
     return vellsets;
 
-
-  def get_result (self,request,*children):
+  def get_result (self,request,lm,dlm=None,azel=None,pa=None):
     # get list of VoltageBeams
     vbs = self.init_voltage_beams();
     # now, figure out the lm and time/freq grid
     # lm may be a 2/3-vector or an Nx2/3 tensor
-    lm = children[0];
     dims = getattr(lm,'dims',[len(lm.vellsets)]);
     if len(dims) == 2 and dims[1] in (2,3):
-      nsrc,nlm = dims;
+      lm_list = [ (lm.vellsets[i].value,lm.vellsets[i+1].value) for i in range(0,len(lm.vellsets),dims[1]) ];
       tensor = True;
     elif len(dims) == 1 and dims[0] in (2,3):
-      nsrc,nlm = 1,dims[0];
+      lm_list = [ (lm.vellsets[0].value,lm.vellsets[1].value) ];
       tensor = False;
     else:
       raise TypeError,"expecting a 2/3-vector or an Nx2/3 matrix for child 0 (lm)";
-    # pointing offsets (child 1) are optional
-    if len(children) > 1:
-      dlm = children[1];
-      if len(dlm.vellsets) != 2:
-        raise TypeError,"expecting a 2-vector for child 1 (dlm)";
+    nsrc = len(lm_list);
+    dl = dm = masklist = rotate = None;
+    # pointing offsets are optional
+    if dlm is not None and len(dlm.vellsets) == 2:
       dl,dm = dlm.vellsets[0].value,dlm.vellsets[1].value;
-    else:
-      dl = dm = None;
+    # az/el is optional. If specified, then horizon masking is enabled
+    if azel is not None and len(azel.vellsets) > 1:
+      if len(azel.vellsets) != nsrc*2:
+        raise TypeError,"expecting a Nx2 matrix for child 2 (azel)";
+      masklist = [ azel.vellsets[i].value<0 for i in range(1,nsrc*2,2) ];
+    # PA is optional. If specified, then this is the rotation angle for interpolation
+    if pa is not None:
+      if len(pa.vellsets) != 1:
+        raise TypeError,"expecting a single value for child 3 (pa)";
+      rotate = pa.vellsets[0].value;
     # setup grid dict that will be passed to VoltageBeam.interpolate
     grid = dict();
     for axis in 'time','freq':
@@ -292,12 +340,97 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
       if values is not None:
         grid[axis] = values;
     # accumulate per-source EJones tensor
-    vellsets = self.interpolate_batch(lm,nlm,nsrc,dl,dm,grid,vbs);
+    vellsets = self.interpolate_batch(lm_list,dl,dm,grid,vbs,rotate=rotate,masklist=masklist);
     # create result object
     cells = request.cells if vbs[0][0].hasFrequencyAxis() else getattr(lm,'cells',None);
     result = meq.result(vellsets[0],cells=cells);
     result.vellsets[1:] = vellsets[1:];
     result.dims = (nsrc,2,2) if tensor else (2,2);
+    return result;
+
+
+class EMSSPolarBeamRaDecInterpolatorNode (EMSSPolarBeamInterpolatorNode):
+
+  @staticmethod
+  def lm_to_radec (l,m,ra0,dec0):
+    """Returns ra,dec corresponding to l,m w.r.t. direction ra0,dec0""";
+    # see formula at http://en.wikipedia.org/wiki/Orthographic_projection_(cartography)
+    rho = numpy.sqrt(l**2+m**2);
+    null = (rho==0);
+    if sum(null) == rho.size:
+      return ra0,dec0;
+    cc = numpy.arcsin(rho);
+    ra = ra0 + numpy.arctan2( l*numpy.sin(cc),rho*numpy.cos(dec0)*numpy.cos(cc)-m*numpy.sin(dec0)*numpy.sin(cc) );
+    dec = numpy.arcsin( numpy.cos(cc)*numpy.sin(dec0) + m*numpy.sin(cc)*numpy.cos(dec0)/rho );
+    ra[null]  = ra0[null];
+    dec[null] = dec0[null];
+    return ra,dec;
+  
+  def get_result (self,request,radec,radec0,dlm=None,azel=None,pa=None):
+    # get list of VoltageBeams
+    vbs = self.init_voltage_beams();
+    # now, figure out the radec and time/freq grid
+    # radec may be a 2/3-vector or an Nx2/3 tensor
+    dims = getattr(radec,'dims',[len(radec.vellsets)]);
+    if len(dims) == 2 and dims[1] == 2:
+      radec_list = [ (radec.vellsets[i].value,radec.vellsets[i+1].value) for i in range(0,len(radec.vellsets),dims[1]) ];
+      tensor = True;
+    elif len(dims) == 1 and dims[0] == 2:
+      radec_list = [ (radec.vellsets[0].value,radec.vellsets[1].value) ];
+      tensor = False;
+    else:
+      raise TypeError,"expecting a 2-vector or an Nx2 matrix for child 0 (radec)";
+    nsrc = len(radec_list);
+    # radec0 is a 2-vector
+    if len(radec0.vellsets) != 2:
+      raise TypeError,"expecting a 2-vector for child 1 (radec0)";
+    ra0,dec0 = radec0.vellsets[0].value,radec0.vellsets[1].value;
+    # get offsets and rotations
+    masklist = rotate = None;
+    # pointing offsets are optional -- apply them in here
+    if dlm is not None and len(dlm.vellsets) == 2:
+      dl,dm = dlm.vellsets[0].value,dlm.vellsets[1].value;
+      ra0,dl,dec0,dm = unite_multiple_shapes(ra0,dl,dec0,dm);
+      ra0,dec0 = self.lm_to_radec(dl,dm,ra0,dec0); 
+    # az/el is optional. If specified, then horizon masking is enabled
+    if azel is not None and len(azel.vellsets) > 1:
+      if len(azel.vellsets) != nsrc*2:
+        raise TypeError,"expecting a Nx2 matrix for child 3 (azel)";
+      masklist = [ azel.vellsets[i].value<0 for i in range(1,nsrc*2,2) ];
+    # PA is optional. If specified, then this is the rotation angle for interpolation
+    if pa is not None:
+      if len(pa.vellsets) != 1:
+        raise TypeError,"expecting a single value for child 4 (pa)";
+      rotate = pa.vellsets[0].value;
+    thetaphi_list = [];
+    # precompute these -- may be functions of time if time-variable pointing is in effect
+    sind0,cosd0 = numpy.sin(dec0),numpy.cos(dec0);
+    # now go over all coordinates
+    for ra,dec in radec_list:
+      # This is based on the formula in Tigger/Coordinates.py, except we flip the sign of phi (by swapping ra0 and ra around),
+      # since rotation is meant to go N through W here
+      dra = numpy.subtract(*unite_shapes(ra,ra0));
+      cosra,sinra = numpy.cos(dra),numpy.sin(dra);
+      sind0x,sind,cosd0x,cosd,cosra,sinra = unite_multiple_shapes(sind0,numpy.sin(dec),cosd0,numpy.cos(dec),cosra,sinra);
+      theta = numpy.arccos(sind0x*sind + cosd0x*cosd*cosra);
+      phi = numpy.arctan2(-cosd*sinra,-cosd*sind0x*cosra+sind*cosd0x);
+      thetaphi_list.append((theta,phi));
+    dprint(2,"theta/phi",thetaphi_list);
+    # setup grid dict that will be passed to VoltageBeam.interpolate
+    grid = dict();
+    for axis in 'time','freq':
+      values = _cells_grid(radec,axis);
+      if values is None:
+        values = _cells_grid(request,axis);
+      if values is not None:
+        grid[axis] = values;
+    # accumulate per-source EJones tensor
+    vellsets = self.interpolate_batch(thetaphi_list,None,None,grid,vbs,thetaphi=True,rotate=rotate,masklist=masklist);
+    # create result object
+    cells = request.cells if vbs[0][0].hasFrequencyAxis() else getattr(lm,'cells',None);
+    result = meq.result(vellsets[0],cells=cells);
+    result.vellsets[1:] = vellsets[1:];
+    result.dims = (len(radec_list),2,2) if tensor else (2,2);
     return result;
 
 
@@ -312,7 +445,7 @@ def make_beam_filename (filename_pattern,xy,label,freq):
     hv=hv,HV=hv.upper(),
     label=label,freq=freq);
 
-def make_beam_node (beam,pattern,*children):
+def make_beam_node (beam,pattern,lm,radec0=None,dlm=None,azel=None,pa=None):
   """Makes beam interpolator node for the given filename pattern.""";
   filenames = [];
   labels = re.split('[,\s]',pattern_labels) if pattern_labels else [""];
@@ -328,18 +461,20 @@ def make_beam_node (beam,pattern,*children):
         per_xy.append(filename);
       per_label.append(per_xy);
     filenames.append(per_label);
+  # form up list of children
+  children = [ lm ] if radec0 is None else [ lm,radec0 ];
+  children += [ dlm or 0,azel or 0];
+  if pa is not None:
+    children += [ pa ];
   # now make interpolator node
   import InterpolatedBeams
-  if children[-1] is None:
-    children = children[:-1];
-  beam << Meq.PyNode(class_name="EMSSPolarBeamInterpolatorNode",module_name=__file__,
+  beam << Meq.PyNode(class_name="EMSSPolarBeamInterpolatorNode" if radec0 is None else "EMSSPolarBeamRaDecInterpolatorNode",
+                     module_name=__file__,
                      filename=filenames,
                      missing_is_null=False,spline_order=spline_order,verbose=verbose_level or 0,
                      l_beam_offset=l_beam_offset*DEG,m_beam_offset=m_beam_offset*DEG,
                      beam_symmetry=beam_symmetry,
                      children=children);
-
-
 
 
 def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=[],label='E',**kw):
@@ -350,27 +485,27 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
   insp = Jones.scope.inspector(label);
   inspectors += [ insp ];
 
+  radec0 = Context.observation.phase_centre.radec() if interpol_coord is COORD_THETAPHI else None;
+
   # loop over sources
   for src in sources:
-    # If sky rotation and/or pointing offsets are in effect, we have a per-station beam.
+    xy = src.direction.radec() if interpol_coord is COORD_THETAPHI else src.direction.lm();
+    # If sky rotation and/or horizon masking and/or pointing offsets are in effect, we have a per-station beam.
     # Otherwise the beam is the same for all stations.
-    if sky_rotation or pointing_offsets:
+    if sky_rotation or pointing_offsets or horizon_masking:
       for p in stations:
-        lm = src.direction.lm();
-        # apply rotation to put sources into the antenna frame
-        if sky_rotation:
-          xyz = Context.array.xyz(p);
-          pa_rot = Context.observation.phase_centre.pa_rot(xyz);
-          lm = ns.lmrot(src,p) <<  Meq.MatrixMultiply(pa_rot,src.direction.lm());
+        azel = src.direction.azel(Context.array.xyz(p)) if horizon_masking else None;
+        pa = Context.observation.phase_centre.pa(Context.array.xyz(p)) if sky_rotation else None;
         # apply offset in the node (so pointing offsets are interpreted in the azel frame, if rotating)
-        make_beam_node(Jones(src,p),filename_pattern,lm,pointing_offsets and pointing_offsets(p));
+        make_beam_node(Jones(src,p),filename_pattern,xy,radec0=radec0,
+                       dlm=pointing_offsets and pointing_offsets(p),azel=azel,pa=pa);
     else:
-      make_beam_node(Jones(src),filename_pattern,src.direction.lm());
+      make_beam_node(Jones(src),filename_pattern,xy,radec0=radec0);
       for p in stations:
         Jones(src,p) << Meq.Identity(Jones(src));
 
   # define an inspector
-  if sky_rotation or pointing_offsets:
+  if sky_rotation or pointing_offsets or horizon_masking:
     # Jones inspector is per-source, per-station
     insp << StdTrees.define_inspector(Jones,sources,stations,label=label);
   else:
@@ -384,49 +519,56 @@ def compute_jones_tensor (Jones,sources,stations,lmn=None,pointing_offsets=None,
   stations = stations or Context.array.stations;
   ns = Jones.Subscope();
 
-  # if sky rotation is in effect, ignore the lmn tensor
-  if sky_rotation or randomize_rotation:
-    lmn = None;
-
-  # see if sources have a "beam_lm" or "_lm_ncp" attribute
-  lmsrc = [ src.get_attr("beam_lm",None) or src.get_attr("_lm_ncp",None) for src in sources ];
-
-  # if all source have the attribute, create lmn tensor node (and override the lmn argument)
-  if all([lm is not None for lm in lmsrc]):
-    lmn = ns.lmT << Meq.Constant(lmsrc);
-
-  if not lmn:
-    lmn = ns.lmT << Meq.Composer(dims=[0],*[ src.direction.lm() for src in sources ]);
+  radec0 = Context.observation.phase_centre.radec() if interpol_coord is COORD_THETAPHI else None;
+  
+  # if using lm-interpolation, make lmn tensor
+  if radec0 is None:
+    # see if sources have a "beam_lm" or "_lm_ncp" attribute
+    lmsrc = [ src.get_attr("beam_lm",None) or src.get_attr("_lm_ncp",None) for src in sources ];
+    # if all source have the attribute, create lmn tensor node (and override the lmn argument)
+    if all([lm is not None for lm in lmsrc]):
+      lmn = ns.lmT << Meq.Constant(lmsrc);
+    # failing that (and if lmn was not supplied), make tensor here 
+    if not lmn:
+      lmn = ns.lmT << Meq.Composer(dims=[0],*[ src.direction.lm() for src in sources ]);
+    xy = lmn;
+  # else make a radec tensor. First try to make it constant, failing that, use a composer
+  else:
+    radec = [ src.direction.radec_static() for src in sources ];
+    if all(radec):
+      xy = ns.radecT << Meq.Constant(radec);
+    else:
+      xy = ns.radecT << Meq.Composer(dims=[0],*[ src.direction.radec() for src in sources ]);
+      
+  # if horizon masking is in effect, make an azel tensor
+  if horizon_masking:
+    azel = ns.azelT << Meq.Composer(dims=[0],*[ src.direction.azel() for src in sources ]);
+  else:
+    azel = None;
 
   # create station tensor
   # If sky rotation and/or pointing offsets are in effect, we have a per-station beam.
   # Otherwise the beam is the same for all stations.
-  if sky_rotation or pointing_offsets or randomize_rotation:
+  if sky_rotation or pointing_offsets or randomize_rotation or horizon_masking:
     for p in stations:
-      angle = None
+      angle = None;
       if randomize_rotation:
         angle = ns.rot0(p) << random.uniform(-math.pi,math.pi);
-      # apply rotation to put sources into the antenna frame
-      # lmn is an Nx2 tensor. Multiply that by the _inverse_ (i.e. transpose) of the rotation matrix on the _right_
-      # to get the equivalent rotation.
       if sky_rotation:
-        xyz = Context.array.xyz(p);
-        pa = Context.observation.phase_centre.pa(xyz);
+        pa = Context.observation.phase_centre.pa(Context.array.xyz(p));
         angle = (ns.rot1(p) << angle + pa) if angle is not None else pa;
-      # if a rotation angle is set, make the matrix
-      if angle is not None:
-        rcos = ns.rot_cos(p) << Meq.Cos(angle);
-        rsin = ns.rot_sin(p) << Meq.Sin(angle);
-        ns.Rot(p) << Meq.Matrix22(rcos,rsin,-rsin,rcos);  # apply '-' because we want the inverse of the PA
-        lm = ns.lmTrot(p) <<  Meq.MatrixMultiply(lmn,ns.Rot(p));
-      else:
-        lm = lmn;
       # apply offset in the node (so pointing offsets are interpreted in the azel frame, if rotating)
-      if pointing_offsets:
-        make_beam_node(Jones(p),filename_pattern,lm,pointing_offsets(p));
-      else:
-        make_beam_node(Jones(p),filename_pattern,lm);
-    return Jones;
+      make_beam_node(Jones(p),filename_pattern,xy,radec0=radec0,dlm=pointing_offsets and pointing_offsets(p),azel=azel,pa=angle);
+    ns.inspector1 << Meq.Composer(dims=[len(stations)*len(sources),2,2],*[Jones(p) for p in stations]);
   else:
-    make_beam_node(Jones,filename_pattern,lmn);
-    return lambda p,J=Jones:J;
+    make_beam_node(Jones,filename_pattern,xy,radec0=radec0);
+    ns.inspector1 << Meq.Composer(Jones,dims=[len(sources),2,2]);
+    Jones = lambda p,J=Jones:J;
+    
+  # add inspector
+  ns.inspector << Meq.Mean(ns.inspector1,reduction_axes=["freq"],
+      plot_label=["%s:%s"%(src.name,p) for p in stations for src in sources]);
+  inspectors.append(ns.inspector);
+  
+  return Jones;
+    

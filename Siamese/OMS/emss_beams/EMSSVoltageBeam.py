@@ -4,6 +4,7 @@ import re
 
 from scipy import interpolate
 
+import InterpolatedVoltageBeam
 from InterpolatedVoltageBeam import *
 from InterpolatedVoltageBeam import _verbosity,dprint,dprintf
 
@@ -159,7 +160,6 @@ def loadPatternSet (filenames,y=False,rotate_xy=True,proj_theta=False):
   dprint(2,"frequencies are",freqs);
   return beamcube,phi0,theta0,numpy.array(freqs);
 
-
 class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
   """This class implements a complex voltage beam that is read from an EMSS pattern file.
   This uses map_coordinates to interpolate values in polar coordinates (i.e. l/m inputs
@@ -170,6 +170,7 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
     self._theta_step = theta_step;
     self._phi_step = phi_step;
     self._rotate = rotate*DEG;
+    self._freq_warning = False;
     _verbosity.set_verbose(verbose);
     if verbose:
       _verbosity.enable_timestamps(True);
@@ -186,29 +187,68 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
       beamcube /= normalization_factor;
     self.setFreqGrid(freqs);
     if len(freqs) > 1:
-      freqmap = interpolate.interp1d(freqs,range(len(freqs)),'linear');
+      self._freqmap = interpolate.interp1d(freqs,range(len(freqs)),'linear',bounds_error=False,fill_value=numpy.nan);
     else:
-      freqmap = None;
+      self._freqmap = None;
     self._phi0 = phi0;
     self._theta0 = theta0;
     # note that coordinates out of the given phi/theta range will be converted to NANs
     self._phimap = interpolate.interp1d(phi0,range(len(phi0)),'linear',bounds_error=False,fill_value=numpy.nan);
     self._thetamap = interpolate.interp1d(theta0,range(len(theta0)),'linear',bounds_error=False,fill_value=numpy.nan);
-    self.setBeamCube(beamcube,lmmap=self.lmToPolar,freqmap=freqmap);
-    
-  def lmToPolar (self,l,m):  
+    self.setBeamCube(beamcube);
+  
+  def hasFrequencyAxis (self):
+    return len(self.freqGrid()) > 1;
+  
+  def freqToBeam (self,freq):
+    if self._freqmap is None:
+      raise RuntimeError,"attempting to interpolate in frequency, but frequency axis is not set. This is a bug!";
+    # interpolate from grid back to linear 0...n-1 range
+    freqcoord = self._freqmap(freq);
+    # out-of-bounds values filled by NANs -- get a mask of these, issue warning, and reset to 0 and N-1
+    oob = numpy.isnan(freqcoord);
+    if oob.any():
+      freqgrid = self.freqGrid();
+      if not self._freq_warning:
+        dprint(0,"WARNING: requested frequencies (%s) are outside the supplied beam frequency range (%f to %f MHz)"%
+          (",".join(["%f"%x*1e-6 for x in freq[oob]]),freqgrid[0]*1e-6,freqgrid[-1]*1e-6));
+        dprint(0,"Falling back to nearest-neighbour extrapolation, this is not very accurate");
+        self._freq_warning = True;
+      freqcoord[freq<=freqgrid[0]] = 0;
+      freqcoord[freq>=freqgrid[-1]] = len(freqgrid)-1;
+    return freqcoord;
+
+  @staticmethod
+  def _normalizePhi (phi):
+    # make sure phi is in 0-360 range
+    phi = numpy.fmod(phi,2*math.pi);
+    phi[phi<0] += 2*math.pi;
+    return phi;
+
+  def lmToBeam (self,l,m,rotate=None):  
     # m is direction sine, m1 is cosine
 #    dprint(4,"lmToPolar",l/DEG,m/DEG);
     dprint(3,"lmToPolar [0]",l.ravel()[0]/DEG,m.ravel()[0]/DEG);
     l1 = numpy.sqrt(1-l**2);
     m1 = numpy.sqrt(1-m**2);
-    phi = -numpy.arctan2(l,m)+self._rotate;  # flip phi, so it goes clockwise from N=0 to W=90
-    # make sure phi is in 0-360 range
-    neg = phi<0;
-    phi[neg] += 2*math.pi;
-    theta = numpy.arccos(l1*m1);
+    phi = -numpy.arctan2(l,m) + self._rotate;  # flip phi, so it goes clockwise from N=0 to W=90
+    if rotate is not None:
+      phi += rotate;
+    phi = self._normalizePhi(phi);
     dprint(3,"phi,theta [0]",phi.ravel()[0]/DEG,theta.ravel()[0]/DEG);
 #    dprint(4,"phi,theta are",phi/DEG,theta/DEG);
+    return self._phimap(phi),self._thetamap(theta);
+    
+  def thetaPhiToBeam (self,theta,phi,rotate=None):
+    # apply rotations to phi
+    if self._rotate:
+      phi = phi + self._rotate;
+    if rotate is not None:
+      phi = phi + rotate;
+    # make sure phi is in 0-360 range
+    phi = self._normalizePhi(phi);
+    dprint(3,"phi,theta [0]",phi.ravel()[0]/DEG,theta.ravel()[0]/DEG);
+    # interpolate
     return self._phimap(phi),self._thetamap(theta);
     
 class EMSSVoltageBeamGridder (object):

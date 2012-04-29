@@ -189,6 +189,10 @@ def compute_jones_tensor (Jones,sources,stations,lmn=None,pointing_offsets=None,
         make_beam_node(Jones(p),filename_pattern,lm,pointing_offsets(p));
       else:
         make_beam_node(Jones(p),filename_pattern,lm);
+    
+    # add inspector
+    
+        
     return Jones;
   else:
     make_beam_node(Jones,filename_pattern,lmn);
