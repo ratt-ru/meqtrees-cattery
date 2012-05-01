@@ -288,7 +288,7 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
       me = unite_multiple_shapes(maskcube,*E);
       maskcube = me[0];
       E = me[1:];
-      dprint(0,"maskcube sum",maskcube.sum());
+      dprint(2,"maskcube sum",maskcube.sum());
       for ej in E:
         ej[maskcube] = 0;
     # now tease the E's apart plane by plane
@@ -296,7 +296,7 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
     vellsets = [];
     for isrc in range(nsrc):
       for ej in E:
-        dprint(0,"source %d has %d null gains"%(isrc,(ej[isrc,...]==0).sum()));
+        dprint(2,"source %d has %d null gains"%(isrc,(ej[isrc,...]==0).sum()));
         ejplane = ej[isrc,...];
         value = meq.complex_vells(ejplane.shape,ejplane);
         vellsets.append(meq.vellset(value));
