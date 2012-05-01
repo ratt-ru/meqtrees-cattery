@@ -205,7 +205,7 @@ class GainDiag (object):
     # compare to self.gain (i.e. G(i-2))
 #    print "step 1 G:0",gain2['0',0][verbose_element],gain2['0',1][verbose_element];
     # compute ||G_new-G_old|| and ||G_new|| for each time/freq slot
-    square = lambda x:x*numpy.conj(x);
+    square = lambda x:(x*numpy.conj(x)).real;
     deltanorm_sq = sum([square(gain1[pp] - self.gain[pp]) for pp in self.gain.iterkeys()]);
     gainnorm_sq = sum([square(gain1[pp]) for pp in self.gain.iterkeys()]);
     self.gainnorm = numpy.sqrt(gainnorm_sq).max();
