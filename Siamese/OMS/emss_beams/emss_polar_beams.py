@@ -255,8 +255,8 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
       mcube[isrc,...] = m;
       if mask is not None:
         maskcube[isrc,...] = mask;
-        if mask.any():
-          dprint(0,"source %d has %d slots masked"%(isrc,mask.sum()));
+#        if mask.any():
+#          dprint(2,"source %d has %d slots masked"%(isrc,mask.sum()));
     # if 'rotate' is specified, it needs to be promoted to the same cube shape, and ravelled
     if rotate is not None:
       lcube,mcube,maskcube,rotate = unite_multiple_shapes(lcube,mcube,maskcube,rotate.reshape([1]+list(rotate.shape)));

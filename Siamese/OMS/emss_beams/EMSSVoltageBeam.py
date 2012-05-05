@@ -235,6 +235,7 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
     if rotate is not None:
       phi += rotate;
     phi = self._normalizePhi(phi);
+    theta = numpy.arccos(l1*m1);
     dprint(3,"phi,theta [0]",phi.ravel()[0]/DEG,theta.ravel()[0]/DEG);
 #    dprint(4,"phi,theta are",phi/DEG,theta/DEG);
     return self._phimap(phi),self._thetamap(theta);
