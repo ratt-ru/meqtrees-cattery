@@ -338,6 +338,8 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
       if values is None:
         values = _cells_grid(request,axis);
       if values is not None:
+        if numpy.isscalar(values) or values.ndim == 0:
+          values = [float(values)];
         grid[axis] = values;
     # accumulate per-source EJones tensor
     vellsets = self.interpolate_batch(lm_list,dl,dm,grid,vbs,rotate=rotate,masklist=masklist);
@@ -423,6 +425,8 @@ class EMSSPolarBeamRaDecInterpolatorNode (EMSSPolarBeamInterpolatorNode):
       if values is None:
         values = _cells_grid(request,axis);
       if values is not None:
+        if numpy.isscalar(values) or values.ndim == 0:
+          values = [float(values)];
         grid[axis] = values;
     # accumulate per-source EJones tensor
     vellsets = self.interpolate_batch(thetaphi_list,None,None,grid,vbs,thetaphi=True,rotate=rotate,masklist=masklist);

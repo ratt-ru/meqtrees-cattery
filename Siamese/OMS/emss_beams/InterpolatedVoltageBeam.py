@@ -319,6 +319,8 @@ class InterpolatedVoltageBeam (object):
     coords,output_shape,mask = self.transformCoordinates(l,m,thetaphi=thetaphi,
                                     rotate=rotate,time=time,freq=None,freqaxis=freqaxis,mask=mask);
     freqcoord = self.freqToBeam(freq) if self.hasFrequencyAxis() else [0]; 
+    if numpy.isscalar(freqcoord) or freqcoord.ndim == 0:
+      freqcoord = [float(freqcoord)];
     self._freqplanes = {};
     # now, ensure output shape has the right frequency axis
     output_shape = list(output_shape);
