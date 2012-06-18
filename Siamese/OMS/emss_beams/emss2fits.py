@@ -30,7 +30,7 @@ separate the per-component groups with '+'.""");
                     help="component labels, to be substituted for @label in the filename");
   parser.add_option("--rotate",metavar="DEG",type="float",default=0,
                     help="rotate the pattern by the specified number of degrees.");
-  parser.add_option("--neg_rot_xy",action="store_false", dest="rotate_xy", default=True,
+  parser.add_option("--no-rotate-xy",action="store_false", dest="rotate_xy", default=True,
                     help="do not rotate data from theta/phi to Stokes coordinate system; default is to do the rotation");
   parser.add_option("--ampl",action="store_true",
                     help="generate the amplitude pattern.");

@@ -147,6 +147,8 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
     mystate('verbose',0);
     mystate('missing_is_null',False);
     mystate('beam_symmetry',None);
+    mystate('normalization_factor',1);
+    mystate('rotate_xy',True);
     # other init
     mequtils.add_axis('l');
     mequtils.add_axis('m');
@@ -184,10 +186,10 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
           vb = _voltage_beams.get(vbkey)
           if vb is None:
             dprint(1,"Loading beams for %s%s from"%(xy,xy1),files_per_xy);
-            vb = _voltage_beams[vbkey] = EMSSVoltageBeam.EMSSVoltageBeamPS(files_per_xy,y=yarg,
-                        spline_order=self.spline_order,hier_interpol=self.hier_interpol,rotate=rotate,
-                        rotate_xy=rotate_xy,proj_theta=False,normalization_factor=normalization_factor,
-                        verbose=self.verbose);
+            vb = _voltage_beams[vbkey] = EMSSVoltageBeam.EMSSVoltageBeamPS(files_per_xy,y=yarg,rotate=rotate,
+                        spline_order=self.spline_order,hier_interpol=self.hier_interpol,
+                        rotate_xy=self.rotate_xy,normalization_factor=self.normalization_factor,
+                        proj_theta=False,verbose=self.verbose);
           vbmat.append(vb);
       self._vbs.append(vbmat);
     return self._vbs;
@@ -344,7 +346,7 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
     # accumulate per-source EJones tensor
     vellsets = self.interpolate_batch(lm_list,dl,dm,grid,vbs,rotate=rotate,masklist=masklist);
     # create result object
-    cells = request.cells if vbs[0][0].hasFrequencyAxis() else getattr(lm,'cells',None);
+    cells = request.cells if vbs[0][0].hasFrequencyAxis() else getattr(lm,'cells',request.cells);
     result = meq.result(vellsets[0],cells=cells);
     result.vellsets[1:] = vellsets[1:];
     result.dims = (nsrc,2,2) if tensor else (2,2);
@@ -431,7 +433,7 @@ class EMSSPolarBeamRaDecInterpolatorNode (EMSSPolarBeamInterpolatorNode):
     # accumulate per-source EJones tensor
     vellsets = self.interpolate_batch(thetaphi_list,None,None,grid,vbs,thetaphi=True,rotate=rotate,masklist=masklist);
     # create result object
-    cells = request.cells if vbs[0][0].hasFrequencyAxis() else getattr(lm,'cells',None);
+    cells = request.cells;
     result = meq.result(vellsets[0],cells=cells);
     result.vellsets[1:] = vellsets[1:];
     result.dims = (len(radec_list),2,2) if tensor else (2,2);
@@ -478,6 +480,7 @@ def make_beam_node (beam,pattern,lm,radec0=None,dlm=None,azel=None,pa=None):
                      missing_is_null=False,spline_order=spline_order,verbose=verbose_level or 0,
                      l_beam_offset=l_beam_offset*DEG,m_beam_offset=m_beam_offset*DEG,
                      beam_symmetry=beam_symmetry,
+                     normalization_factor=normalization_factor,rotate_xy=rotate_xy,
                      children=children);
 
 
