@@ -318,7 +318,7 @@ class InterpolatedVoltageBeam (object):
     # frequencies explicitly below. The resulting output_shape has 1 for the frequency axis.
     coords,output_shape,mask = self.transformCoordinates(l,m,thetaphi=thetaphi,
                                     rotate=rotate,time=time,freq=None,freqaxis=freqaxis,mask=mask);
-    freqcoord = self.freqToBeam(freq) if self.hasFrequencyAxis() else [0]; 
+    freqcoord = self.freqToBeam(freq) if self.hasFrequencyAxis() else 0; 
     if numpy.isscalar(freqcoord) or freqcoord.ndim == 0:
       freqcoord = [float(freqcoord)];
     self._freqplanes = {};
