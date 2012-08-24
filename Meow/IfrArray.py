@@ -71,6 +71,7 @@ class IfrArray (object):
   def __init__(self,ns,station_list,station_index=None,uvw_table=None,
                observatory=None,
                ms_uvw=None,mirror_uvw=None,include_uvw_deriv=False,
+               prefer_baseline_uvw=None,
                resamplers=False,positions=None):
     """Creates an IfrArray object, representing an interferometer array.
     'station_list' is a list of station IDs, not necessarily numeric.
@@ -82,6 +83,9 @@ class IfrArray (object):
     'uvw_table' is a path to a MEP table containing station UVWs.
     'ms_uvw' if True, causes UVWs to be read from the MS. If False, causes UVWs to
       be computed with a Meq.UVW node. If None, uses the global uvw_source TDLOption.
+    'prefer_baseline_uvw': if True, and ms_uvw is set, 
+      creates spigots for reading UWVs of all baselines, rather than just the necessary 
+      ones for antenna-based UVWs.
     'mirror_uvw' only applicable if UVWs are being computed. If True, uses the VLA
       UVW sign definition, if False, uses the WSRT one.
     'resamplers': if True (and ms_uvw=True), Resampler nodes will be put on the UVWs.
@@ -111,6 +115,7 @@ class IfrArray (object):
     # other init
     self._uvw_table = uvw_table;
     self._ms_uvw = ms_uvw;
+    self._prefer_baseline_uvw = prefer_baseline_uvw;
     self._mirror_uvw = mirror_uvw;
     self._include_uvw_deriv = include_uvw_deriv;
     self._resamplers = resamplers;
@@ -263,6 +268,12 @@ class IfrArray (object):
     if not uvw(self.stations()[0]).initialized():
       if self._ms_uvw:
         # read UVWs from MS
+        # if baseline UVWs preferred, create spigots for all of them
+        if self._prefer_baseline_uvw:
+          uvw_ifr = self.ns.uvw_ifr.qadd(radec0);
+          for (ip,p),(iq,q) in self.ifr_index():
+            uvw_ifr(p,q) << Meq.Spigot(station_1_index=ip,station_2_index=iq,
+                            input_col='UVW',include_deriv=self._include_uvw_deriv);
         # find the reference station
         if uvw_refant is UVW_REFANT_DEFAULT:
           ip0,p0 = self.station_index()[0];
@@ -280,10 +291,18 @@ class IfrArray (object):
         uvw(p0)._multiproc = True; # hint to parallelizer to clone this node on all processors
         for iq,q in self.station_index():
           if iq < ip0:
-            muvw = uvw('minus',q) << Meq.Spigot(station_1_index=iq,station_2_index=ip0,input_col='UVW',include_deriv=self._include_uvw_deriv);
+            if self._prefer_baseline_uvw:
+              muvw = uvw_ifr(q,p0);
+            else:
+              muvw = uvw('minus',q) << Meq.Spigot(station_1_index=iq,station_2_index=ip0,
+                                        input_col='UVW',include_deriv=self._include_uvw_deriv);
             spigdef = -muvw;
           elif iq > ip0:
-            spigdef = Meq.Spigot(station_1_index=ip0,station_2_index=iq,input_col='UVW',include_deriv=self._include_uvw_deriv);
+            if self._prefer_baseline_uvw:
+              spigdef = Meq.Identity(uvw_ifr(p0,q));
+            else:
+              spigdef = Meq.Spigot(station_1_index=ip0,station_2_index=iq,
+                                      input_col='UVW',include_deriv=self._include_uvw_deriv);
           else:
             continue;
           if self._resamplers:
@@ -321,8 +340,11 @@ class IfrArray (object):
     uvw_ifr = self.ns.uvw_ifr.qadd(radec0);
     if not uvw_ifr(*(self.ifrs()[0])).initialized():
       uvw = self.uvw(dir0);
-      for sta1,sta2 in self.ifrs():
-        uvw_ifr(sta1,sta2) << uvw(sta2) - uvw(sta1);
+      # if preferring baseline UVWs, then self.uvw() will have initialized uvw_ifr for us.
+      # otherwise make our own via subtraction
+      if not self._prefer_baseline_uvw:
+        for sta1,sta2 in self.ifrs():
+          uvw_ifr(sta1,sta2) << uvw(sta2) - uvw(sta1);
     return uvw_ifr(*quals);
 
   def uv (self,dir0,*quals):

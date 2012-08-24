@@ -260,7 +260,7 @@ def _define_forest(ns,parent=None,**kw):
   purrpipe = Purr.Pipe.Pipe(mssel.msname);
 
   # setup contexts from MS
-  mssel.setup_observation_context(ns);
+  mssel.setup_observation_context(ns,prefer_baseline_uvw=True);
   array = Meow.Context.array;
 
   # make spigot nodes for data

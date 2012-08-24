@@ -742,13 +742,13 @@ class MSSelector (object):
   def is_linear_pol (self):
     return self.ms_corr_names[0] in LINEAR_CORRS;
 
-  def setup_observation_context (self,ns,antennas=range(3)):
+  def setup_observation_context (self,ns,antennas=range(3),prefer_baseline_uvw=False):
     """Sets up the contents of Meow.Context based on the content of this MS.
     Returns a tuple of array,observation (Meow.Context.array,Meow.Context.observation)
     'ns' is a NodeScope object.
     'antennas' is a default antenna set, to be used if the antenna selector is not available.
     """;
-    array = Meow.IfrArray(ns,self.get_ifr_subset() or antennas);
+    array = Meow.IfrArray(ns,self.get_ifr_subset() or antennas,prefer_baseline_uvw=prefer_baseline_uvw);
     # get phase centre from MS, setup observation
     observation = Meow.Observation(ns,phase_centre=self.get_phase_dir(),
 	    linear=self.is_linear_pol(),circular=self.is_circular_pol());
