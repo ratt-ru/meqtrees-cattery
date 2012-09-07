@@ -125,6 +125,27 @@ cal_g ()
   tar zcvf $DESTDIR/G_${OUTFILE}_step$step.tgz $MSNAME/G_diag.fmep
 }
 
+cal_g_ampl ()
+{
+  step0=$step
+  cal_generic Ga ${cal_g_ampl_section:-cal_g_ap} cal_G_ampl G_ampl.fmep $*
+  if [ "$ENABLE_PARM_PLOTS" == "1" ]; then
+    $PLOTPARMS $MSNAME/G_ampl.fmep "*:*:*" $plot_Gampl_options -o $DESTDIR/${OUTFILE}_${step0}_Ga.png
+  fi
+  tar zcvf $DESTDIR/Ga_${OUTFILE}_step$step0.tgz $MSNAME/G_ampl.fmep
+}
+
+cal_g_phase ()
+{
+  step0=$step
+  cal_generic Gp ${cal_g_phase_section:-cal_g_ap} cal_G_phase G_phase.fmep $*
+  if [ "$ENABLE_PARM_PLOTS" == "1" ]; then
+    $PLOTPARMS $MSNAME/G_phase.fmep "*:*:*" $plot_Gphase_options -o $DESTDIR/${OUTFILE}_${step0}_Gp.png
+  fi
+  tar zcvf $DESTDIR/Gp_${OUTFILE}_step$step0.tgz $MSNAME/G_phase.fmep
+}
+
+
 cal_ig ()
 {
   cal_generic IG ${cal_ig_section:-cal_ig} cal_IG IG.fmep $*
@@ -145,7 +166,7 @@ cal_de_ampl ()
 {
   cal_generic dEa ${cal_de_ampl_section:-cal_de_ap} cal_dE_ampl dE_ampl.fmep $*
   if [ "$ENABLE_PARM_PLOTS" == "1" ]; then
-    $PLOTPARMS $MSNAME/dE_ampl.fmep "*:*:*:*/ampl"  $plot_dEampl_options -o $DESTDIR/${OUTFILE}_${step}_dEa.png
+    $PLOTPARMS $MSNAME/dE_ampl.fmep "*:*:*:*:a"  $plot_dEampl_options -o $DESTDIR/${OUTFILE}_${step}_dEa.png
   fi
   tar zcvf $DESTDIR/dEa_${OUTFILE}_step$step.tgz $MSNAME/dE_ampl.fmep
 }
@@ -154,7 +175,7 @@ cal_de_phase ()
 {
   cal_generic dEp ${cal_de_phase_section:-cal_de_ap} cal_dE_phase dE_phase.fmep $*
   if [ "$ENABLE_PARM_PLOTS" == "1" ]; then
-    $PLOTPARMS $MSNAME/dE_phase.fmep "*:*:*:*/phase" $plot_dEphase_options -o $DESTDIR/${OUTFILE}_${step}_dEp.png
+    $PLOTPARMS $MSNAME/dE_phase.fmep "*:*:*:*:p" $plot_dEphase_options -o $DESTDIR/${OUTFILE}_${step}_dEp.png
   fi
   tar zcvf $DESTDIR/dEp_${OUTFILE}_step$step.tgz $MSNAME/dE_phase.fmep
 }
@@ -239,9 +260,9 @@ make_clean()
     local sz=""
   fi
   $RUNIMAGER ms=$MSNAME oper=csclean \
-    name_restored=$DESTDIR/${ms%.ms}_restored \
-    name_residual=$DESTDIR/${ms%.ms}_residual \
-    name_model=$DESTDIR/${ms%.ms}_model \
+    name_restored=$DESTDIR/${ms%.ms}_restored$IMAGE_SUFFIX \
+    name_residual=$DESTDIR/${ms%.ms}_residual$IMAGE_SUFFIX \
+    name_model=$DESTDIR/${ms%.ms}_model$IMAGE_SUFFIX \
     $sz $*
 }
 
@@ -286,7 +307,7 @@ make_full_ssms ()
 extract_ss_ccm ()
 {
   local srcname="$1"
-  local oper="${2-image+clark}"
+  local oper="$2"
   local ms=${FULLMS%.MS}_src$1.MS
   shift 2
   if [ "$srcname" == "" ]; then
@@ -298,22 +319,29 @@ extract_ss_ccm ()
     echo "Perhaps run make_full_ssms first?"
     exit 1;
   fi
-  # extract source coords
-  python >.coords.$srcname <<-end
+  # extract source tags
+  python >.attrs.$srcname <<-end
 import Tigger
 src=[src for src in Tigger.load("$LSM",verbose=0).sources if src.name.startswith("$srcname")]
 src=sorted(src,lambda a,b:cmp(b.Iapp,a.Iapp))
 src=src[0]
 print "j2000,%dh%dm%fs,%s%dd%dm%fs"%tuple(list(src.pos.ra_hms())+list(src.pos.dec_sdms()))
+print getattr(src,'deconvolve','image+clark');
+print getattr(src,'size','$SOURCE_CC_SIZE');
 end
   # go through intermediate file and take its tail, because the front may have bullshit messages
-  local coords=`tail -1 .coords.$srcname`
-  rm .coords.$srcname
+  local coords="`tail -3 .attrs.$srcname|head -1`"
   if [ "${coords#j2000}" == "$coords"  ]; then
     echo "Failed to extract coordinate of source $srcname from LSM file $LSM"
     exit 1
   fi
-  echo ":::Extracting clean component model for source $srcname at $coords"
+  # extract "deconvolve" tag
+  if [ "$oper" == "" -o "$oper" == "default" ]; then
+    local oper="`tail -2 .attrs.$srcname|head -1`"
+  fi
+  # extract "size" tag
+  local size="`tail -1 .attrs.$srcname`"
+  echo ":::Extracting clean component model for source $srcname at $coords using $oper, size $size"
   # make filename template
   assign_templates SSCCM_Template
   if [ ! -d `dirname $SSCCM` ]; then
@@ -322,7 +350,7 @@ end
   # make images
   local op
   for op in ${oper//+/ }; do
-    $RUNIMAGER ms=$ms phasecenter=$coords size=$SOURCE_CC_SIZE \
+    $RUNIMAGER ms=$ms phasecenter=$coords size=$size \
       name_dirty=${SSCCM}-dirty \
       name_restored=${SSCCM}-restored \
       name_residual=${SSCCM}-residual \
@@ -377,7 +405,13 @@ end
     local _dE=`cat .dE.$srcname|tail -1`
     rm .dE.$srcname
     echo "Extracting SSCCM for source '$srcname' $_dE"
-    make_full_ssms $srcname
+    local _msname="${FULLMS%.MS}_src$srcname.MS"
+    if [ "$REUSE_POSTAGE_STAMP_MS" == "1" -a -d $_msname ]; then
+      echo "REUSE_POSTAGE_STAMP_MS=1, reusing existing full MS $_msname"
+    else
+      echo "REUSE_POSTAGE_STAMP_MS=0 or $_msname does not exist, remaking"
+      make_full_ssms $srcname
+    fi
     extract_ss_ccm $srcname $*  #NB: this also sets up $SSCCM to the proper path
     # insert source -- notw how dE tag gets propagated
     echo $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}brick

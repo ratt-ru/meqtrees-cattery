@@ -214,6 +214,11 @@ class IfrSet (object):
     '>':  (lambda a,b: a>b+IfrSet._epsilon),
     '>=': (lambda a,b: a>b-IfrSet._epsilon),
     '=': (lambda a,b: abs(a-b)<IfrSet._epsilon),
+    '.lt.':  (lambda a,b: a<b-IfrSet._epsilon),
+    '.le.': (lambda a,b: a<b+IfrSet._epsilon),
+    '.gt.':  (lambda a,b: a>b+IfrSet._epsilon),
+    '.ge.': (lambda a,b: a>b-IfrSet._epsilon),
+    '.eq.': (lambda a,b: abs(a-b)<IfrSet._epsilon),
   };
 
   def subset (self,specstr,strict=False):
@@ -240,6 +245,7 @@ class IfrSet (object):
     if not specstr:
       return set(self._ifr_index);
     result = set();
+#    print specstr;
     for ispec,spec in enumerate(re.split("[\s,]+",specstr.strip())):
       # default action is to add to set, but a "-" prefix negates this
       add_or_remove = result.update;
@@ -257,8 +263,10 @@ class IfrSet (object):
         add_or_remove(named_set);
         continue;
       # now check for baseline length specification
-      match = re.match("^(<|<=|>|>=|=)([^=]+)$",spec);
+      match = re.match("^(<|<=|>|>=|=|\\.lt\\.|\\.le\\.|\\.ge\\.|\\.gt\\.|\\.eq\\.)([^=]+)$",spec,re.IGNORECASE);
+#      print spec,match;
       if match:
+        print match.groups();
         if self._baselines:
           try:
             length = float(match.group(2));
@@ -267,7 +275,7 @@ class IfrSet (object):
               raise ValueError,"invalid ifr specification '%s'"%spec;
             print "Ignoring invalid ifr specification '%s'"%spec;
             continue;
-          pred = self._comparison_predicates[match.group(1)];
+          pred = self._comparison_predicates[match.group(1).lower()];
           add_or_remove([(px,qx) for px,qx in self._ifr_index if pred(self._baselines[px[0],qx[0]],length)]);
         elif strict:
           raise ValueError,"can't use ifr specification %s: baseline information not available"%spec;
