@@ -605,16 +605,17 @@ class StefCalNode (pynode.PyNode):
       if not num_diffgains or nmajor >= self.max_major:
         break;
       else:
-        # we have solved for G=inverse of G-Jones essentially, thus minimzing
-        # G*D*G^H <- M0+corrupt(M1)+corrupt(M2)+...
-        # model is the full model, M0+corrupt(M1)+corrupt(M2)+....
         # subtract this from corrected data: D1 = G*D*G^H - M0 - corrupt(M1) - corrupt(M2) - ... to obtain residuals
+        # (G may need to be inverted depending on mode)
         if self.gains_on_data:
           data1 = dict([ (pq,gain.residual(data,model,pq)) for pq in solvable_ifrs ]);
         else:
           data1 = dict([ (pq,gain.residual_inverse(data,model,pq,
               regularize=self.regularization_factor if self.regularize_intermediate else 0))
               for pq in solvable_ifrs ]);
+          ## check for NANs in the data
+          self.check_finiteness(data1,"corrected data");
+              
         if self.weigh_diffgains:
           resnoise,resweight = self.compute_noise(data1,flagmask);
           if _verbosity.verbose > 3:
@@ -645,6 +646,7 @@ class StefCalNode (pynode.PyNode):
              ( domain_id == self.dump_domain or self.dump_domain == -1 ):
             dump_data_model(dgmodel[idg],data1,solvable_ifrs,"dump_E%d-%d.txt"%(idg,nmajor));
           # iterate this diffgain solution
+          self.check_finiteness(data1,"data1 after DG%d added in"%idg);
           self.solve_gains("dE:%d"%idg,dg,(dgmodel[idg],data1),(data1,dgmodel[idg],False),
                           resnoise,resweight,flagmask,
                           flags=None,
@@ -818,9 +820,10 @@ class StefCalNode (pynode.PyNode):
         noise[pq] = (vv[0]+vv[3])/2;
         weight[pq] = (1/noise[pq])**2;
     # normalize weights
-    meanweight = sum(weight.itervalues())/len(weight);
-    for pq,w in weight.iteritems():
-      weight[pq] = w/meanweight;
+    if weight:
+      meanweight = sum(weight.itervalues())/len(weight);
+      for pq,w in weight.iteritems():
+        weight[pq] = w/meanweight;
     return noise,weight;
 
   def compute_chisq (self,gain,data,model,gains_on_data,noise=None,flagmask={}):
@@ -841,8 +844,11 @@ class StefCalNode (pynode.PyNode):
 #      fmask = reduce(operator.or_,[(d==0)&(m==0) for (d,m) in zip(data[pq],model[pq])]);
       fmask = flagmask.get(pq);
       n = self._datasize if fmask is None else (self._expanded_size - fmask.sum());
-      for r in res:
-        if not is_null(r):
+      for ir,r in enumerate(res):
+        fin = numpy.isfinite(r);
+        if not fin.all():
+          dprintf(4,"%s element %d: %d slots are INF/NAN, omitting from chisq sum\n",pq,ir,fin.size-fin.sum());
+        elif not is_null(r):
           chisq0 += (r*numpy.conj(r)*w).real.sum();
           chisq1 += (r*numpy.conj(r)).real.sum();
           nterms += n;
@@ -892,6 +898,17 @@ class StefCalNode (pynode.PyNode):
       scale = scaling.get(q);
       result[q,p] = matrix_multiply(scale,dh) if scale is not None else dh;
     return result;
+    
+  def check_finiteness (self,data,label,complete=False):
+    # check for NANs in the data
+    for pq,dd in data.iteritems():
+      for i,d in enumerate(dd):
+        if type(d) is numpy.ndarray:
+          fin = numpy.isfinite(d);
+          if not fin.all():
+            dprintf(0,"%s %s element %d: %d slots are INF/NAN\n",label,pq,i,d.size-fin.sum());
+            if not complete:
+              break;
 
 
   def solve_gains (self,label,gain,iter_args,chisq_args,noise,weight,flagmask,flags=None,
