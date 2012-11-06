@@ -340,9 +340,9 @@ class IfrArray (object):
     uvw_ifr = self.ns.uvw_ifr.qadd(radec0);
     if not uvw_ifr(*(self.ifrs()[0])).initialized():
       uvw = self.uvw(dir0);
-      # if preferring baseline UVWs, then self.uvw() will have initialized uvw_ifr for us.
-      # otherwise make our own via subtraction
-      if not self._prefer_baseline_uvw:
+      # If preferring baseline UVWs, then self.uvw() will now have initialized uvw_ifr for us.
+      # So check once more, and make our own via subtraction if needed
+      if not uvw_ifr(*(self.ifrs()[0])).initialized():
         for sta1,sta2 in self.ifrs():
           uvw_ifr(sta1,sta2) << uvw(sta2) - uvw(sta1);
     return uvw_ifr(*quals);

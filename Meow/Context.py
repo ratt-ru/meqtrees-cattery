@@ -32,6 +32,11 @@ mssel = None;
 correlations = ["XX","XY","YX","YY" ];
 active_correlations = ["XX","XY","YX","YY" ];
 
+max_abs_w = 0;
+# if this is set to true (i.e. by an imported module), then MSUtils will attempt to
+# discover the maximum W coordinate and fill it
+discover_max_abs_w = False;
+
 unit_coherency = 1;
 # 0.5 corresponds to the ME papers 1-4, and the "old" (up to release 1.1.1) 
 # MeqTrees convention

@@ -755,6 +755,18 @@ class MSSelector (object):
     Meow.Context.set(array,observation);
     # get active correlations from MS
     Meow.Context.active_correlations = self.get_correlations();
+    # get max W, if needed
+    if Meow.Context.discover_max_abs_w:
+      # add baseline selection string
+      if TABLE:
+        ms = TABLE(self.msname,lockoptions='autonoread');
+        subset = self.get_ifr_subset();
+        if len(subset.ifrs()) < len(self.ms_ifrset.ifrs()):
+#          print "Applying TaQL subset",subset.taql_string();
+          ms = ms.query(subset.taql_string());
+        Meow.Context.max_abs_w = max(abs(ms.getcol("UVW")[:,2]));
+#        print "Max w is ",Meow.Context.max_abs_w;
+        ms.close();
     return array,observation;
 
   def make_subset_selector (self,namespace,**kw):
@@ -1336,11 +1348,14 @@ class ImagingSelector (object):
     taql = selector.get_taql_string();
     taqls = [taql] if taql else [];
     # add baseline selection string
+    if not self.mssel.ms_ifrset:
+      raise RuntimeError,"Can't select baselines since we don't appear to have read the MS!";
+    img_ifrset  = self.mssel.get_ifr_subset();
     if self.imaging_ifrs.strip().upper() not in ["","*","ALL"]:
-      if not self.mssel.ms_ifrset:
-        raise RuntimeError,"Can't select baselines since we don't appear to have read the MS!";
-      taql = self.mssel.ms_ifrset.subset(self.imaging_ifrs,strict=False).taql_string();
-      taqls.append("(%s)"%taql);
+      img_ifrset = img_ifr_set.subset(self.imaging_ifrs,strict=False);
+    # is this a real subset?
+    if len(self.mssel.ms_ifrset.ifrs()) > len(img_ifrset.ifrs()):
+      taqls.append("(%s)"%img_ifrset.taql_string());
     if taqls:
       args.append("select=(%s)"%"&&".join(taqls));
     # figure out an output FITS filename

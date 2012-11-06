@@ -28,7 +28,8 @@ import sys
 
 _meow_path = __path__[0];
 
-
+# various Meow options that can be enabled/disabled by imported modules
+DiscoverMaximumW = False;
 
 # do nothing if we're imported on the kernel-side, as reloading
 # the octopython stuff confuses the hell out of the kernel
