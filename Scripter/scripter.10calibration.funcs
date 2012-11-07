@@ -1,3 +1,5 @@
+
+
 #!/bin/bash
 # scripter.xxx.funcs functions
 # This is reloaded at every new MS in a scripter run
@@ -326,22 +328,25 @@ src=[src for src in Tigger.load("$LSM",verbose=0).sources if src.name.startswith
 src=sorted(src,lambda a,b:cmp(b.Iapp,a.Iapp))
 src=src[0]
 print "j2000,%dh%dm%fs,%s%dd%dm%fs"%tuple(list(src.pos.ra_hms())+list(src.pos.dec_sdms()))
-print getattr(src,'deconvolve','image+clark');
-print getattr(src,'size','$SOURCE_CC_SIZE');
+print getattr(src,'deconvolve','${SOURCE_CC_OPER:?image+csclean}');
+print getattr(src,'size','${SOURCE_CC_SIZE:?256/10}');
+print getattr(src,'niter','${SOURCE_CC_NITER:?1000}');
 end
   # go through intermediate file and take its tail, because the front may have bullshit messages
-  local coords="`tail -3 .attrs.$srcname|head -1`"
+  local coords="`tail -4 .attrs.$srcname|head -1`"
   if [ "${coords#j2000}" == "$coords"  ]; then
     echo "Failed to extract coordinate of source $srcname from LSM file $LSM"
     exit 1
   fi
   # extract "deconvolve" tag
   if [ "$oper" == "" -o "$oper" == "default" ]; then
-    local oper="`tail -2 .attrs.$srcname|head -1`"
+    local oper="`tail -3 .attrs.$srcname|head -1`"
   fi
   # extract "size" tag
-  local size="`tail -1 .attrs.$srcname`"
-  echo ":::Extracting clean component model for source $srcname at $coords using $oper, size $size"
+  local size="`tail -2 .attrs.$srcname|head -1`"
+  # extract "niter" tag
+  local niter="`tail -1 .attrs.$srcname`"
+  echo ":::Extracting clean component model for source $srcname at $coords using $oper, size $size, niter=$niter"
   # make filename template
   assign_templates SSCCM_Template
   if [ ! -d `dirname $SSCCM` ]; then
@@ -350,18 +355,42 @@ end
   # make images
   local op
   for op in ${oper//+/ }; do
-    $RUNIMAGER ms=$ms phasecenter=$coords size=$size \
+    local model="${SSCCM}-cc-$op"
+    local residual="${SSCCM}-residual-$op"
+    time $RUNIMAGER ms=$ms phasecenter=$coords size=$size niter=$niter \
       name_dirty=${SSCCM}-dirty \
-      name_restored=${SSCCM}-restored \
-      name_residual=${SSCCM}-residual \
-      name_model=${SSCCM}-cc \
+      name_restored=${SSCCM}-restored-$op \
+      name_residual=$residual \
+      name_model=$model \
       prefervelocity=False \
       oper=$op flux_scale=1 $*
+    if [ "$op" != "image" ]; then
+      python <<-end
+src='${SSCCM}'
+import pyfits
+cc = pyfits.open('$model.fits')[0].data;
+di = pyfits.open('%s-dirty.fits'%src)[0].data;
+ri = pyfits.open('$residual.fits')[0].data;
+rmax = float(abs(ri).max());
+rstd = float(ri.std());
+q = float(abs(cc).max()/abs(di).max());
+print 'Postage stamp summary %s (%s): q=%6.2f rmax=%g rstd=%g%s'%(src,op,q,rmax,rstd,"   ***WARNING*** runaway clean?" if q>2 else ""); 
+end
+      # print full stats
+      echo -n "Postage stamp residual stats ($op): " 
+      ${FITSTOOL} -s $residual.fits
+      echo -n "Postage stamp model stats ($op): " 
+      ${FITSTOOL} -s $model.fits
+      # due to an lwimager bug, the center frequency is not assigned correctly -- fix it here
+      local _freq=`python -c "import pyrap.tables;print pyrap.tables.table('$ms/SPECTRAL_WINDOW').getcol('REF_FREQUENCY')[${SPWID_IMG#*=}]"|tail -1`
+      echo "Center frequency is $_freq"
+      echo $FITSTOOL -E RESTFREQ=$_freq -E ALTRVAL=$_freq $model.fits -f
+      $FITSTOOL -E RESTFREQ=$_freq -E ALTRVAL=$_freq $model.fits -f
+    fi
   done
-  # due to an lwimager bug, the center frequency is not assigned correctly -- fix it here
-  local _freq=`python -c "import pyrap.tables;print pyrap.tables.table('$ms/SPECTRAL_WINDOW').getcol('REF_FREQUENCY')[${SPWID_IMG#*=}]"|tail -1`
-  echo "Center frequency is $_freq"
-  echo $FITSTOOL -E RESTFREQ=$_freq -E ALTRVAL=$_freq ${SSCCM}-cc.fits -f
+  # link last model as the one we'll use for the LSM
+  (cd `dirname $model.fits`; ln -s `basename $model.fits` `basename ${SSCCM}-cc.fits`);
+  # get diagnostic stats
   # remove MS
   if [ "$KEEP_POSTAGE_STAMP_MS" == "" -o "$KEEP_POSTAGE_STAMP_MS" == "0" ]; then
     rm -fr $ms
@@ -372,11 +401,6 @@ get_ssccm_list ()
 {
   if [ "$1" == "" -o "$1" == "-" ]; then
     local _out=`python -c "import Tigger;mod=Tigger.load('$LSM');print ','.join(sorted(set([(getattr(src,'cluster',None) or src.name) for src in mod.sources if getattr(src,'postage_stamp',False)])))"|tail -1`
-#    if [ "$SSCCM_LIST" != "" ]; then
-#      _out=$SSCCM_LIST
-#    else
-#      _out=${SSCCM_PER_SPW[$ddid]}
-#    fi
   else
     local _out=$1
   fi
@@ -388,7 +412,8 @@ make_and_extract_ss_ccm ()
 {
   local SOURCES="`get_ssccm_list $1`"
   local LSM1="${2:-$LSM}"
-  if [ "$LSM1" != "$LSM" ]; then
+  # make copy of LSM -- unless we're not updating the LSM
+  if [ "$LSM1" != "$LSM" -a "$UPDATE_POSTAGE_STAMP_LSM" != "0" ]; then
     cp $LSM $LSM1
     LSM="$LSM1"
   fi
@@ -413,9 +438,10 @@ end
       make_full_ssms $srcname
     fi
     extract_ss_ccm $srcname $*  #NB: this also sets up $SSCCM to the proper path
-    # insert source -- notw how dE tag gets propagated
-    echo $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}brick
-    $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}brick
+    # insert source -- note how dE tag gets propagated
+    if [ "$UPDATE_POSTAGE_STAMP_LSM" != "0" ]; then
+      echo $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}brick
+      $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}brick
+    fi
   done
 }
-
