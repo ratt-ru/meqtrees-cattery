@@ -303,14 +303,14 @@ make_full_ssms ()
     exit 1
   fi
   per_ms step=1 make_ssms[$1]
-  merge_ms ${FULLMS%.MS}_src$1.MS
+  merge_ms ${POSTAGE_STAMP_DIR:+$POSTAGE_STAMP_DIR/}${FULLMS%.MS}_src$1.MS
 }
 
 extract_ss_ccm ()
 {
   local srcname="$1"
   local oper="$2"
-  local ms=${FULLMS%.MS}_src$1.MS
+  local ms=${POSTAGE_STAMP_DIR:+$POSTAGE_STAMP_DIR/}${FULLMS%.MS}_src$1.MS
   shift 2
   if [ "$srcname" == "" ]; then
     echo "extract_ss_ccm: must be invoked with a source name (and optional clean operation)";
@@ -430,7 +430,7 @@ end
     local _dE=`cat .dE.$srcname|tail -1`
     rm .dE.$srcname
     echo "Extracting SSCCM for source '$srcname' $_dE"
-    local _msname="${FULLMS%.MS}_src$srcname.MS"
+    local _msname="${POSTAGE_STAMP_DIR:+$POSTAGE_STAMP_DIR/}${FULLMS%.MS}_src$srcname.MS"
     if [ "$REUSE_POSTAGE_STAMP_MS" == "1" -a -d $_msname ]; then
       echo "REUSE_POSTAGE_STAMP_MS=1, reusing existing full MS $_msname"
     else
