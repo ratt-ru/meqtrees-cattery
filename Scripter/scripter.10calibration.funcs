@@ -400,7 +400,7 @@ end
 get_ssccm_list ()
 {
   if [ "$1" == "" -o "$1" == "-" ]; then
-    local _out=`python -c "import Tigger;mod=Tigger.load('$LSM');print ','.join([x[1] for x in sorted([(src.brightness(),src.name) for src in mod.sources if getattr(src,'postage_stamp',False)],reverse=True)])"`
+    local _out=`python -c "import Tigger;mod=Tigger.load('$LSM');print ','.join([x[1] for x in sorted([(src.brightness(),src.name) for src in mod.sources if getattr(src,'postage_stamp',False)],reverse=True)])"|tail -1`
   else
     local _out=$1
   fi
