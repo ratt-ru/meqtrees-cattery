@@ -440,8 +440,8 @@ end
     extract_ss_ccm $srcname $*  #NB: this also sets up $SSCCM to the proper path
     # insert source -- note how dE tag gets propagated
     if [ "$UPDATE_POSTAGE_STAMP_LSM" != "0" ]; then
-      echo $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}brick
-      $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname-cc:${SSCCM}-cc.fits:${_dE}brick
+      echo $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname:${SSCCM}-cc.fits:${_dE}brick
+      $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname:${SSCCM}-cc.fits:${_dE}brick
     fi
   done
 }

@@ -1352,7 +1352,7 @@ class ImagingSelector (object):
       raise RuntimeError,"Can't select baselines since we don't appear to have read the MS!";
     img_ifrset  = self.mssel.get_ifr_subset();
     if self.imaging_ifrs.strip().upper() not in ["","*","ALL"]:
-      img_ifrset = img_ifr_set.subset(self.imaging_ifrs,strict=False);
+      img_ifrset = img_ifrset.subset(self.imaging_ifrs,strict=False);
     # is this a real subset?
     if len(self.mssel.ms_ifrset.ifrs()) > len(img_ifrset.ifrs()):
       taqls.append("(%s)"%img_ifrset.taql_string());
