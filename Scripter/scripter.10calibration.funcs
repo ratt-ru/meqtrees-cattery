@@ -352,6 +352,9 @@ end
   if [ ! -d `dirname $SSCCM` ]; then
     mkdir `dirname $SSCCM`
   fi
+  # determine maskk region (use inner quadrant)
+  local px0=$[${size%/*}/4]
+  local px1=$[$px0*3]
   # make images
   local op
   for op in ${oper//+/ }; do
@@ -363,6 +366,7 @@ end
       name_residual=$residual \
       name_model=$model \
       prefervelocity=False \
+      maskblc=$px0,$px0 masktrc=$px1,$px1 \
       oper=$op flux_scale=1 $*
     if [ "$op" != "image" ]; then
       python <<-end
