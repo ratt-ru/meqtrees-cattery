@@ -366,7 +366,7 @@ end
       name_residual=$residual \
       name_model=$model \
       prefervelocity=False \
-      maskblc=$px0,$px0 masktrc=$px1,$px1 \
+      padding=2 \
       oper=$op flux_scale=1 $*
     if [ "$op" != "image" ]; then
       python <<-end
@@ -378,7 +378,7 @@ ri = pyfits.open('$residual.fits')[0].data;
 rmax = float(abs(ri).max());
 rstd = float(ri.std());
 q = float(abs(cc).max()/abs(di).max());
-print 'Postage stamp summary %s (%s): q=%6.2f rmax=%g rstd=%g%s'%(src,op,q,rmax,rstd,"   ***WARNING*** runaway clean?" if q>2 else ""); 
+print 'Postage stamp summary %s (${op}): q=%6.2f rmax=%g rstd=%g%s'%(src,q,rmax,rstd,"   ***WARNING*** runaway clean?" if q>2 else ""); 
 end
       # print full stats
       echo -n "Postage stamp residual stats ($op): " 
@@ -393,7 +393,8 @@ end
     fi
   done
   # link last model as the one we'll use for the LSM
-  (cd `dirname $model.fits`; ln -s `basename $model.fits` `basename ${SSCCM}-cc.fits`);
+  local ccname="`basename ${SSCCM}-cc.fits`"
+  (cd `dirname $model.fits`; rm -f $ccname; ln -s `basename $model.fits` $ccname);
   # get diagnostic stats
   # remove MS
   if [ "$KEEP_POSTAGE_STAMP_MS" == "" -o "$KEEP_POSTAGE_STAMP_MS" == "0" ]; then
