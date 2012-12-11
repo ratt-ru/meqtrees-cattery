@@ -321,53 +321,65 @@ extract_ss_ccm ()
     echo "Perhaps run make_full_ssms first?"
     exit 1;
   fi
+  # set default attributes
+  local imgconf=.img.$srcname.conf
+  cat >$imgconf <<-end
+    img_size="${POSTAGE_SIZE:-256/10}"
+    img_niter="${POSTAGE_NITER:-1000}"
+    img_threshold="${POSTAGE_THRESHOLD:-1mJy}"
+    img_padding="${POSTAGE_PADDING:-2}"
+end
   # extract source tags
-  python >.attrs.$srcname <<-end
+  python >$imgconf.1 <<-end
 import Tigger
 src=[src for src in Tigger.load("$LSM",verbose=0).sources if src.name.startswith("$srcname")]
 src=sorted(src,lambda a,b:cmp(b.Iapp,a.Iapp))
 src=src[0]
-print "j2000,%dh%dm%fs,%s%dd%dm%fs"%tuple(list(src.pos.ra_hms())+list(src.pos.dec_sdms()))
-print getattr(src,'deconvolve','${SOURCE_CC_OPER:?image+csclean}');
-print getattr(src,'size','${SOURCE_CC_SIZE:?256/10}');
-print getattr(src,'niter','${SOURCE_CC_NITER:?1000}');
+print "img_phasecenter='j2000,%dh%dm%fs,%s%dd%dm%fs'"%tuple(list(src.pos.ra_hms())+list(src.pos.dec_sdms()))
+print "img_oper='%s'"%getattr(src,"postage_oper",'${POSTAGE_OPER:-image+csclean}')
+for attr,val in src.getExtraAttributes():
+  if attr.startswith("postage_") and attr != "postage_stamp":
+    print "img_%s=%s"%(attr[len("postage_"):],val)
 end
+  # cut the crap, extract just the variable assignewnts
+  grep "^img_" $imgconf.1 | grep -v "img_oper" | grep -v "img_maskinner" >>$imgconf
   # go through intermediate file and take its tail, because the front may have bullshit messages
-  local coords="`tail -4 .attrs.$srcname|head -1`"
-  if [ "${coords#j2000}" == "$coords"  ]; then
+  if ! grep "img_phasecenter=" $imgconf; then
     echo "Failed to extract coordinate of source $srcname from LSM file $LSM"
     exit 1
   fi
-  # extract "deconvolve" tag
+  # deconvolution operation can be overridden from command line, else use the oper attribute
   if [ "$oper" == "" -o "$oper" == "default" ]; then
-    local oper="`tail -3 .attrs.$srcname|head -1`"
+    oper="`grep img_oper= $imgconf.1 | cut -f 2 -d =`"
   fi
-  # extract "size" tag
-  local size="`tail -2 .attrs.$srcname|head -1`"
-  # extract "niter" tag
-  local niter="`tail -1 .attrs.$srcname`"
-  echo ":::Extracting clean component model for source $srcname at $coords using $oper, size $size, niter=$niter"
+  echo ":::Extracting clean component model for source $srcname using $oper and this config:"
+  cat $imgconf
   # make filename template
   assign_templates SSCCM_Template
   if [ ! -d `dirname $SSCCM` ]; then
     mkdir `dirname $SSCCM`
   fi
-  # determine maskk region (use inner quadrant)
-  local px0=$[${size%/*}/4]
-  local px1=$[$px0*3]
+  local args=""
+  if grep img_maskinner $imgconf.1; then
+    local size=`grep img_size= $imgconf | tail -1 | cut -f 2 -d =`
+    echo $size
+    # determine mask region (use inner quadrant)
+    local px0=$[${size%/*}/4]
+    local px1=$[$px0*3]
+    args="$args mask=mask-$srcname maskblc=$px0,$px0 masktrc=$px1,$px1 maskvalue=1"
+  fi
   # make images
   local op
   for op in ${oper//+/ }; do
     local model="${SSCCM}-cc-$op"
     local residual="${SSCCM}-residual-$op"
-    time $RUNIMAGER ms=$ms phasecenter=$coords size=$size niter=$niter \
+    time $RUNIMAGER +$imgconf ms=$ms \
       name_dirty=${SSCCM}-dirty \
       name_restored=${SSCCM}-restored-$op \
       name_residual=$residual \
       name_model=$model \
       prefervelocity=False \
-      padding=2 \
-      oper=$op flux_scale=1 $*
+      oper=$op flux_scale=1 $args $*
     if [ "$op" != "image" ]; then
       python <<-end
 src='${SSCCM}'
@@ -424,6 +436,7 @@ make_and_extract_ss_ccm ()
   fi
   shift 2
   local srcname
+  local pad="${POSTAGE_PADDING:-2}"
   for srcname in $SOURCES; do
     # set $_dE to "dE:" if source has a dE tag -- this will get passed on to its brick, below
     python >.dE.$srcname <<-end
@@ -445,8 +458,8 @@ end
     extract_ss_ccm $srcname $*  #NB: this also sets up $SSCCM to the proper path
     # insert source -- note how dE tag gets propagated
     if [ "$UPDATE_POSTAGE_STAMP_LSM" != "0" ]; then
-      echo $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname:${SSCCM}-cc.fits:${_dE}brick
-      $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname:${SSCCM}-cc.fits:${_dE}brick
+      echo $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname:${SSCCM}-cc.fits:$pad${_dE}brick
+      $TIGGER_CONVERT $LSM $LSM -f --remove-source "$srcname*" --add-brick $srcname:${SSCCM}-cc.fits:$pad${_dE}brick
     fi
   done
 }
