@@ -202,7 +202,8 @@ genvis_generic ()
 {
   local label=$1
   local section=$2
-  shift 2
+  local doimage=$3
+  shift 3
   time meqtree-pipeliner.py $MT -c $CONFIG \
     \[$section\] \
     $MS_TDL $CHAN_TDL $LSM_TDL $* \
@@ -210,20 +211,26 @@ genvis_generic ()
     $TDLOPTS \
     $SCRIPTNAME \
     =generate_visibilities
-  NAMEDIRTY=$DESTDIR/${OUTFILE}_${step}_${label}
-  imager name_dirty=$NAMEDIRTY
+  if [ "$doimage" != "0" ]; then
+    local NAMEDIRTY=$DESTDIR/${OUTFILE}_${step}_${label}
+    imager name_dirty=$NAMEDIRTY
+  fi
   step=$[$step+1];
   true
 }
 
 make_corr_data ()
 {
-  genvis_generic corr_data ${make_corr_data_section:-make_corr_data} $*
+  local doimage=$1
+  shift 1
+  genvis_generic corr_data $doimage ${make_corr_data_section:-make_corr_data} $*
 }
 
 make_residuals ()
 {
-  genvis_generic residual ${make_residuals_section:-make_residuals} $*
+  local doimage=$1
+  shift 1
+  genvis_generic residual $doimage ${make_residuals_section:-make_residuals} $*
 }
 
 ## update_flags: readjusts flags on an MS post-calibration
@@ -293,7 +300,7 @@ make_ssms ()
     echo "make_ssms: must be invoked with a source name";
     exit 1
   fi
-  make_residuals "tiggerlsm.null_subset=$1*" "do_correct_sky=$1*"
+  make_residuals 0 "tiggerlsm.null_subset=$1*" "do_correct_sky=$1*"
 }
 
 make_full_ssms ()
@@ -322,7 +329,7 @@ extract_ss_ccm ()
     exit 1;
   fi
   # set default attributes
-  local imgconf=$ms/.imgconf
+  local imgconf=$ms/.img.conf
   cat >$imgconf <<-end
     img_size="${POSTAGE_SIZE:-256/10}"
     img_niter="${POSTAGE_NITER:-1000}"
