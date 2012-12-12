@@ -322,7 +322,7 @@ extract_ss_ccm ()
     exit 1;
   fi
   # set default attributes
-  local imgconf=.img.$srcname.conf
+  local imgconf=$ms/.imgconf
   cat >$imgconf <<-end
     img_size="${POSTAGE_SIZE:-256/10}"
     img_niter="${POSTAGE_NITER:-1000}"
@@ -336,7 +336,7 @@ src=[src for src in Tigger.load("$LSM",verbose=0).sources if src.name.startswith
 src=sorted(src,lambda a,b:cmp(b.Iapp,a.Iapp))
 src=src[0]
 print "img_phasecenter='j2000,%dh%dm%fs,%s%dd%dm%fs'"%tuple(list(src.pos.ra_hms())+list(src.pos.dec_sdms()))
-print "img_oper='%s'"%getattr(src,"postage_oper",'${POSTAGE_OPER:-image+csclean}')
+print "img_oper=%s"%getattr(src,"postage_oper",'${POSTAGE_OPER:-image+csclean}')
 for attr,val in src.getExtraAttributes():
   if attr.startswith("postage_") and attr != "postage_stamp":
     print "img_%s=%s"%(attr[len("postage_"):],val)
@@ -383,10 +383,12 @@ end
     if [ "$op" != "image" ]; then
       python <<-end
 src='${SSCCM}'
+# helper function to take center quadrant
+qq=lambda x:x[0,0,x.shape[2]/4:-x.shape[2]/4,x.shape[3]/4:-x.shape[3]/4]
 import pyfits
-cc = pyfits.open('$model.fits')[0].data;
-di = pyfits.open('%s-dirty.fits'%src)[0].data;
-ri = pyfits.open('$residual.fits')[0].data;
+cc = qq(pyfits.open('$model.fits')[0].data); 
+di = qq(pyfits.open('%s-dirty.fits'%src)[0].data);
+ri = qq(pyfits.open('$residual.fits')[0].data);
 rmax = float(abs(ri).max());
 rstd = float(ri.std());
 q = float(abs(cc).max()/abs(di).max());
