@@ -221,16 +221,16 @@ genvis_generic ()
 
 make_corr_data ()
 {
-  local doimage=$1
+  local doimage=${1:-1}
   shift 1
-  genvis_generic corr_data $doimage ${make_corr_data_section:-make_corr_data} $*
+  genvis_generic corr_data ${make_corr_data_section:-make_corr_data} $doimage $*
 }
 
 make_residuals ()
 {
-  local doimage=$1
+  local doimage=${1:-1}
   shift 1
-  genvis_generic residual $doimage ${make_residuals_section:-make_residuals} $*
+  genvis_generic residual ${make_residuals_section:-make_residuals} $doimage $*
 }
 
 ## update_flags: readjusts flags on an MS post-calibration
