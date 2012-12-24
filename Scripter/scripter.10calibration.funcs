@@ -257,7 +257,7 @@ make_image()
   else
     local sz=""
   fi
-  $RUNIMAGER ms=$MSNAME name_dirty=$DESTDIR/${ms%.ms}_dirty $sz $*
+  $RUNIMAGER ms=$MSNAME name_dirty=$DESTDIR/${ms%.ms}_dirty$IMAGE_SUFFIX $sz $*
 }
 
 make_clean()
