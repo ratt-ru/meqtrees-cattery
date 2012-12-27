@@ -249,6 +249,11 @@ merge_ms()
   update_flags ${1-$FULLMS}
 }
 
+copy_ms()
+{
+  cp -a $1 $2
+}
+
 make_image()
 {
   local ms=`basename $MSNAME .MS`
