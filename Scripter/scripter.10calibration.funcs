@@ -61,6 +61,16 @@ init_flags ()
   /bin/true
 }
 
+export_flags ()
+{
+  $FLAGMS --export $MSNAME.flags $MSNAME
+}
+
+import_flags ()
+{
+  $FLAGMS --import $MSNAME.flags $MSNAME
+}
+
 ##
 reset_mep()
 {
