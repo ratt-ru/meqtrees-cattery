@@ -34,6 +34,10 @@ def unite_shapes (a,b):
   - each axis must be the same shape,
   - or if one array has shape-1, and the other shape-N, then the shape-1 is expanded.
   """
+  if numpy.isscalar(a):
+    a = numpy.array([a]);
+  if numpy.isscalar(b):
+    b = numpy.array([b]);
   if a.shape == b.shape:
     return a,b;
   # promote shapes to same number of dinensions, by padding missing dimensions with 1's
