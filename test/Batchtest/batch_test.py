@@ -4,6 +4,8 @@
 import os
 import os.path
 import sys
+import subprocess
+
 ## ugly hack to get around UGLY FSCKING ARROGNAT (misspelling fully intentional) pyfits-2.3 bug
 import Kittens.utils
 pyfits = Kittens.utils.import_pyfits();
@@ -13,10 +15,15 @@ dir0 = os.getcwd();
 def path (filename):
   return os.path.join(dir0,filename);
 
+global owlcat;  
+  
 def run (*commands):
   cmd = " ".join(commands);
+  # replace 'owlcat' with actual owlcat scipt
+  if cmd.startswith("owlcat"):
+    cmd = owlcat+cmd[6:];
   print "========== $",cmd;
-  code = os.system(cmd);
+  code = subprocess.call(cmd,shell=True);
   if code:
     raise RuntimeError,"failed with exit code %x"%code;
   
@@ -58,6 +65,21 @@ if __name__ == '__main__':
     print "You may choose to run the tests in a different directory by giving it as an argument to this script."
     sys.exit(1);
 
+  ## check if we have owlcat or owlcat.sh
+  owlcat = "";
+  for dirname in os.environ['PATH'].split(':'):
+    for binary in "owlcat","owlcat.sh":
+      tmp = os.path.join(dirname,binary);
+      if os.path.exists(tmp):
+        owlcat = tmp;
+        break;
+    if owlcat:
+      break;
+  if not owlcat:
+    print "Can't locate owlcat or owlcat.sh";
+    sys.exit(1);
+    
+    
   ## make simulated MS
   print "========== Removing files";
   run("rm -fr WSRT.MS* WSRT*img WSRT*fits");
@@ -65,6 +87,7 @@ if __name__ == '__main__':
   run("makems %s"%path("WSRT_makems.cfg"));
   run("mv WSRT.MS_p0 WSRT.MS");
   run("ls WSRT.MS");
+  run("owlcat downweigh-redundant-baselines WSRT.MS");
   run("lwimager ms=WSRT.MS data=CORRECTED_DATA mode=channel weight=natural npix=10");
   # make test LSMs
   run("""tigger-convert test-lsm.txt --rename --format "ra_d dec_d i q u v" --center 0.1deg,60.5deg -f""");
