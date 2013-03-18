@@ -192,8 +192,6 @@ class StefCalNode (pynode.PyNode):
     mystate('gains_on_data',True);
     # solve for ifr gains as we go along
     mystate('solve_ifr_gains',True);
-    # IFR gains are per-frequency, or one value across entire band
-    mystate('per_chan_ifr_gains',False);
     # apply previous ifr gain solution, if available
     mystate('apply_ifr_gains',True);
     # name of ifr gain tables
@@ -716,20 +714,10 @@ class StefCalNode (pynode.PyNode):
           if numpy.isscalar(d):
             d = numpy.array(d);
           dh = numpy.conj(d);
-          if self.per_chan_ifr_gains:
-            mdh = (m*dh).sum(0);
-            ddh = (d*dh).sum(0);
-          else:
-            mdh = (m*dh).sum();
-            ddh = (d*dh).sum();
-          sri = self.ig_sum_reim[pq][num] = self.ig_sum_reim[pq][num] + mdh;
-          ssq = self.ig_sum_sq[pq][num]   = self.ig_sum_sq[pq][num] + ddh;
-          if numpy.isscalar(ssq):
-            if ssq != 0:
-              self.ifr_gain_update[pq][num] = sri/ssq;
-          else:
-            if (ssq!=0).any():
-              self.ifr_gain_update[pq][num] = sri/ssq;
+          sri = self.ig_sum_reim[pq][num] = self.ig_sum_reim[pq][num] + (m*dh).sum();
+          ssq = self.ig_sum_sq[pq][num]   = self.ig_sum_sq[pq][num] + (d*dh).sum();
+          if ssq != 0:
+            self.ifr_gain_update[pq][num] = sri/ssq;
 #          if num == 0 and pq[0] == '0':
 #           print m[0,0],d[0,0],dh[0,0]
 #            print pq,(m*dh).sum(),(d*dh).sum(),sri/ssq;

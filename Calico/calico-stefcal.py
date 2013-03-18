@@ -180,6 +180,11 @@ TDLCompileMenu("Convergence settings (dE)",
 );
 TDLCompileOption("stefcal_nmajor","Number of major loops",[1,2,3,5],more=int,default=2);
 TDLCompileOption("stefcal_rescale","Rescale data to model before solving",True);
+TDLCompileMenu("Solve for ifr-based gains",
+  TDLCompileOption("stefcal_per_chan_ifr_gains","...on a per-channel basis",False),
+  toggle='stefcal_solve_ifr_gains'
+);
+TDLCompileOption("stefcal_apply_ifr_gains","Apply ifr-based gains from previous run",False);
 EQTYPE_MODEL = "model";
 EQTYPE_DATA  = "data";
 TDLCompileOption("stefcal_eqtype","Equation type",{EQTYPE_MODEL:"GMG*->D",EQTYPE_DATA:"GDG*->M"});
@@ -285,8 +290,9 @@ def _define_forest(ns,parent=None,**kw):
                            regularization_factor=1e-6,#
                            rescale=stefcal_rescale,
                            init_from_previous=False,
-                           apply_ifr_gains=False,
-                           solve_ifr_gains=False,
+                           apply_ifr_gains=stefcal_apply_ifr_gains,
+                           per_chan_ifr_gains=stefcal_per_chan_ifr_gains,
+                           solve_ifr_gains=stefcal_solve_ifr_gains,
 #                          gains_on_data=True,
 #                           gain_bounds=[.01,1000],
                            gains_on_data=(stefcal_eqtype == EQTYPE_DATA),
