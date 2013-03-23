@@ -194,6 +194,8 @@ class StefCalNode (pynode.PyNode):
     mystate('solve_ifr_gains',True);
     # IFR gains are per-frequency, or one value across entire band
     mystate('per_chan_ifr_gains',False);
+    # IFR gains are for diagonal elements only if True, for full 2x2 if False
+    mystate('diag_ifr_gains',False);
     # apply previous ifr gain solution, if available
     mystate('apply_ifr_gains',True);
     # name of ifr gain tables
@@ -240,13 +242,19 @@ class StefCalNode (pynode.PyNode):
       if self.solve_ifr_gains:
         self.ig_sum_reim = dict([ (pq,[0j]*4) for pq in self._ifrs ]);
         self.ig_sum_sq   = dict([ (pq,[0.]*4) for pq in self._ifrs ]);
-        self.ifr_gain_update = dict([ (pq,[0.]*4) for pq in self._ifrs ]);
+        self.ifr_gain_update = dict([ (pq,[1.]*4) for pq in self._ifrs ]);
       # read previous IFR gains from table, if asked to apply them
       self.ifr_gain = {};
       if self.apply_ifr_gains and os.path.exists(self.ifr_gain_table):
         try:
           self.ifr_gain = cPickle.load(file(self.ifr_gain_table));
           dprint(1,"loaded %d ifr gains from %s"%(len(self.ifr_gain),self.ifr_gain_table));
+          # reset off-diagonals to 1
+          if self.diag_ifr_gains:
+            dprint(1,"resetting off-diagonal elements to 1");
+            for gg in self.ifr_gain.itervalues():
+              gg[1] = gg[2] = 1;
+            print self.ifr_gain[self.ifr_gain.keys()[0]];
         except:
           traceback.print_exc();
           dprint(1,"error loading gains from",self.ifr_gain_table);
@@ -300,6 +308,7 @@ class StefCalNode (pynode.PyNode):
       for pq in self._ifrs:
         # get IFR gain for this p,q
         ifrgain = self.ifr_gain.get(pq,[1,1,1,1]);
+#        print pq,"IFR gain is",ifrgain;
         # now loop over the 4 matrix elements
         for num,(i,j) in enumerate(IJ2x2):
           # increment vells count upfront (this is why we start at -1)
@@ -710,6 +719,9 @@ class StefCalNode (pynode.PyNode):
         else:
           mm = gain.apply(model,pq,cache=True);
         for num,(d,m) in enumerate(zip(dd,mm)):
+          # skip off-diagonal elements when in diagonal mode
+          if self.diag_ifr_gains and num in (1,2):
+            continue;
           # work out update to ifr gains
           if numpy.isscalar(m):
             m = numpy.array(m);
