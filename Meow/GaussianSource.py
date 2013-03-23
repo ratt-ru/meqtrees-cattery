@@ -57,8 +57,8 @@ class GaussianSource(PointSource):
         except:
           raise TypeError,"when using deprecated interface to Meow.Gaussian, extents must be scalar"
         ratio = smin/smaj;
-        fwhm_lproj = math.cos(pa)*smaj;
-        fwhm_mproj = math.sin(pa)*smaj;
+        fwhm_lproj = math.sin(pa)*smaj;
+        fwhm_mproj = math.cos(pa)*smaj;
       else:
         try:
           smaj = float(size);

@@ -117,14 +117,25 @@ def compute_jones (Jones,stations=None,**kw):
       ns.fa0 << angle;
       ns.pa << Meq.ParAngle(radec=radec,xyz=xyz(p));
       ns.fa << ns.fa0 + ns.pa;
-      cos = ns.cos_fa << Meq.Cos(ns.fa);
-      sin = ns.sin_fa << Meq.Sin(ns.fa);
+      if not Context.observation.circular():
+        cos = ns.cos_fa << Meq.Cos(ns.fa);
+        sin = ns.sin_fa << Meq.Sin(ns.fa);
+      else:
+        pexp = ns.exp_pfa << Meq.Polar(1,ns.fa);
+        nexp = ns.exp_nfa << Meq.Polar(1,-ns.fa);
     # no p.a., work out sines and cosines directly (as constants)
     else:
-      cos = math.cos(angle);
-      sin = math.sin(angle);
-
+      if not Context.observation.circular():
+        cos = math.cos(angle);
+        sin = math.sin(angle);
+      else:
+        pexp = math.exp(1j*angle);
+        nexp = math.exp(-1j*angle);
+        
     # now make the rotation matrix. 'cos' and 'sin' may be nodes or constants at this point, it doesn't matter.
-    Jj << Meq.Matrix22(cos,-sin,sin,cos);
+    if not Context.observation.circular():
+      Jj << Meq.Matrix22(cos,-sin,sin,cos);
+    else:
+      Jj << Meq.Matrix22(pexp,0,0,nexp);
 
   return Jones;
