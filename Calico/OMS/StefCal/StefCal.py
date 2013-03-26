@@ -742,6 +742,7 @@ class StefCalNode (pynode.PyNode):
           else:
             if (ssq!=0).any():
               self.ifr_gain_update[pq][num] = sri/ssq;
+              self.ifr_gain_update[pq][num][ssq==0] = 1; 
 #          if num == 0 and pq[0] == '0':
 #           print m[0,0],d[0,0],dh[0,0]
 #            print pq,(m*dh).sum(),(d*dh).sum(),sri/ssq;

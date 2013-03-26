@@ -754,6 +754,7 @@ class MSSelector (object):
 	    linear=self.is_linear_pol(),circular=self.is_circular_pol());
     Meow.Context.set(array,observation);
     # get active correlations from MS
+    Meow.Context.correlations = ["XX","XY","YX","YY"] if self.is_linear_pol() else ["RR","RL","LR","RR"];
     Meow.Context.active_correlations = self.get_correlations();
     # get max W, if needed
     if Meow.Context.discover_max_abs_w:
@@ -873,7 +874,11 @@ class MSSelector (object):
       self._corrstrings = [ " ".join(names) for names in self._corrnames ];
       self.polarization_option.set_option_list(self._corrstrings);
       # hide option if only one correlation type
-      self.polarization_option.show(len(self._corrstrings)>1);
+      if len(self._corrstrings) > 1:
+        self.polarization_option.show(True);
+      else:
+        self.polarization_option.show(False);
+        self._select_polarization(self._corrstrings[0]);
       # get flagsets and notify flag selectors
       self.flagsets = get_flagsets(ms);
       self.flagsets.load(ms);
