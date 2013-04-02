@@ -754,7 +754,7 @@ class MSSelector (object):
 	    linear=self.is_linear_pol(),circular=self.is_circular_pol());
     Meow.Context.set(array,observation);
     # get active correlations from MS
-    Meow.Context.correlations = ["XX","XY","YX","YY"] if self.is_linear_pol() else ["RR","RL","LR","RR"];
+    Meow.Context.correlations = ["XX","XY","YX","YY"] if self.is_linear_pol() else ["RR","RL","LR","LL"];
     Meow.Context.active_correlations = self.get_correlations();
     # get max W, if needed
     if Meow.Context.discover_max_abs_w:

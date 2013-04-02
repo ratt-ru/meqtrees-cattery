@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 from Timba import pynode
 from Timba.Meq import meq
@@ -73,6 +72,7 @@ class StefCalVisualizer (pynode.PyNode):
 
   def update_state (self,mystate):
     mystate('freq_average',False);
+    mystate('flag_unity',True);
     mystate('label','G');
     mystate('index',[]);
     self.set_symdeps("Domain");
@@ -85,16 +85,37 @@ class StefCalVisualizer (pynode.PyNode):
     nsets = len(gainsets);
     keys = sorted(gainsets[0].keys());
     self.set_state('plot_label',keys);
+    # define processing function
+    if self.freq_average:
+      if self.flag_unity:
+        def gain_to_vellset (ix,x):
+          x = numpy.ma.masked_array(x,x==(1 if ix in (0,3) else 0));
+          if x.ndim > 1:
+            x = x.mean(1);
+          return meq.vellset(array_to_vells(x),flags=mask_to_flags(x.mask)) if x.mask.any() else meq.vellset(array_to_vells(x));
+      else:
+        def gain_to_vellset (ix,x):
+          return meq.vellset(array_to_vells(x.mean(1)) if x.ndim>1 else x);
+    else:
+      if self.flag_unity:
+        def gain_to_vellset (ix,x):
+          x = numpy.ma.masked_array(x,x==(1 if ix in (0,3) else 0));
+          return meq.vellset(array_to_vells(x),flags=mask_to_flags(x.mask)) if x.mask.any() else meq.vellset(array_to_vells(x));
+      else:
+        def gain_to_vellset (ix,x):
+          return meq.vellset(array_to_vells(x));
+    
     for pp in keys:
       for gains in (gainsets if self.index == [] else [gainsets[self.index]]):
-        if self.freq_average:
-          vellsets += [ meq.vellset(array_to_vells(x.mean(1)) if x.ndim>1 else x) for x in gains[pp] ];
-        else:
-          vellsets += [ meq.vellset(x) for x in gains[pp] ];
+        xx,xy,yx,yy = gains[pp];
+        # xy /= xx
+        # yx /= yy
+        vellsets += [ gain_to_vellset(ix,x) for ix,x in enumerate((xx,xy,yx,yy)) ];
+
     res = meq.result(cells=request.cells);
     res.vellsets = vellsets;
     if self.index == []:
-      res.dims = [ len(keys),nsets,2,2 ];
+      res.dims = [ len(keys),nsets,2,2 ] if nsets>1 else [ len(keys),2,2 ];
     else:
       res.dims = [ len(keys),2,2 ];
     return res;

@@ -84,6 +84,15 @@ def array_to_vells (x,vellshape=None,expanded_slice=None):
     a[...] = x;
   return a;
 
+def mask_to_flags (x,vellshape=None,expanded_slice=None):
+  if expanded_slice is not None:
+    a = meq.flags(vellshape);
+    a[...] = x[expanded_slice];
+  else:
+    a = meq.flags(x.shape);
+    a[...] = x;
+  return a;
+
 def matrix_sqrt (A):
   """Returns the matrix square root of A""";
   a,b,c,d = A;

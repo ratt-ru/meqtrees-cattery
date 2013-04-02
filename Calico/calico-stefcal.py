@@ -30,7 +30,7 @@ from Timba.Meq import meq
 import math
 
 import Meow
-from Meow import ParmGroup,Bookmarks,StdTrees
+from Meow import ParmGroup,Bookmarks,StdTrees,Context
 
 # This defines some ifr subsets that are commonly used for WSRT data,
 # to be offered as defaults in the GUI wherever ifrs are selected.
@@ -195,6 +195,7 @@ dgsel = TensorMeqMaker.SourceSubsetSelector("Apply differential gains to sources
 TDLCompileOptions(*dgsel.options);
 TDLCompileOption("visualize_G","Include visualizers for G solutions",False);
 TDLCompileOption("visualize_dE","Include visualizers for dE solutions",False);
+TDLCompileOption("visualize_flag_unity","Flag zero/unity solutions in visualizer",True);
 TDLCompileOption("stefcal_verbose","Verbosity level",[0,1,2,3],more=int);
 
 import Purr.Pipe
@@ -308,13 +309,16 @@ def _define_forest(ns,parent=None,**kw):
                            children=[ns.DT]+models);
 
   if visualize_G:
-    ns.stefcal_vis_G << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,label="G");
-    ns.stefcal_vis_G_avg << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,label="G",freq_average=True);
+    ns.stefcal_vis_G << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
+      label="G",flag_unity=visualize_flag_unity,vells_label=Context.correlations);
+    ns.stefcal_vis_G_avg << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
+      label="G",freq_average=True,flag_unity=visualize_flag_unity,vells_label=Context.correlations);
   if visualize_dE:
     for i in range(num_diffgains):
-      ns.stefcal_vis_dE(i) << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,label="dE:%d"%i);
+      ns.stefcal_vis_dE(i) << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
+        label="dE:%d"%i,flag_unity=visualize_flag_unity,vells_label=Context.correlations);
       ns.stefcal_vis_dE_avg(i) << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
-                                    label="dE:%d"%i,freq_average=True);
+                                    label="dE:%d"%i,freq_average=True,flag_unity=visualize_flag_unity,vells_label=Context.correlations);
 
   nv = 0;
   for p,q in array.ifrs():

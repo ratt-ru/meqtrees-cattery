@@ -270,7 +270,7 @@ class IfrArray (object):
         # read UVWs from MS
         # if baseline UVWs preferred, create spigots for all of them
         if self._prefer_baseline_uvw:
-          uvw_ifr = self.ns.uvw_ifr.qadd(radec0);
+          uvw_ifr = self.ns.uvw_ifr.qadd(radec0) if dir0 is not None else self.ns.uvw_ifr;
           for (ip,p),(iq,q) in self.ifr_index():
             uvw_ifr(p,q) << Meq.Spigot(station_1_index=ip,station_2_index=iq,
                             input_col='UVW',include_deriv=self._include_uvw_deriv);
