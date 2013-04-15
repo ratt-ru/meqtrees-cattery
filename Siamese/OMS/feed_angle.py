@@ -17,6 +17,7 @@ from Timba.TDL import *
 from Meow import Context,MSUtils
 
 import math
+import cmath
 import traceback
 import os.path
 
@@ -129,13 +130,13 @@ def compute_jones (Jones,stations=None,**kw):
         cos = math.cos(angle);
         sin = math.sin(angle);
       else:
-        pexp = math.exp(1j*angle);
-        nexp = math.exp(-1j*angle);
+        pexp = cmath.exp(1j*angle);
+        nexp = cmath.exp(-1j*angle);
         
     # now make the rotation matrix. 'cos' and 'sin' may be nodes or constants at this point, it doesn't matter.
     if not Context.observation.circular():
       Jj << Meq.Matrix22(cos,-sin,sin,cos);
     else:
-      Jj << Meq.Matrix22(pexp,0,0,nexp);
+      Jj << Meq.Matrix22(nexp,0,0,pexp);
 
   return Jones;

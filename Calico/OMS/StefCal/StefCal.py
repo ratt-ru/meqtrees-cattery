@@ -73,6 +73,7 @@ class StefCalVisualizer (pynode.PyNode):
   def update_state (self,mystate):
     mystate('freq_average',False);
     mystate('flag_unity',True);
+    mystate('norm_offdiag',False);
     mystate('label','G');
     mystate('index',[]);
     self.set_symdeps("Domain");
@@ -108,8 +109,8 @@ class StefCalVisualizer (pynode.PyNode):
     for pp in keys:
       for gains in (gainsets if self.index == [] else [gainsets[self.index]]):
         xx,xy,yx,yy = gains[pp];
-        # xy /= xx
-        # yx /= yy
+        if self.norm_offdiag:
+          xy,yx = xy/xx,yx/yy
         vellsets += [ gain_to_vellset(ix,x) for ix,x in enumerate((xx,xy,yx,yy)) ];
 
     res = meq.result(cells=request.cells);

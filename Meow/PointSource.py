@@ -139,7 +139,8 @@ class PointSource(SkyComponent):
   def coherency_elements (self,observation):
     """helper method: returns the four components of the coherency matrix""";
     i,q,u,v = [ self.stokes(st) for st in STOKES ];
-    diagonal = (len(Context.active_correlations) == 2);
+    # diagonal = (len(Context.active_correlations) == 2);
+    diagonal = False;  # the above was bothersome -- even if we only use 2 corrs, we still want to do all intermediate computations in 2x2
     if observation.circular():
       if self._constant_flux:
         return (i+v,0,0,i-v) if diagonal else (i+v,complex(q,u),complex(q,-u),i-v);

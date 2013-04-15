@@ -193,9 +193,12 @@ TDLCompileOption("stefcal_eqtype","Equation type",{EQTYPE_MODEL:"GMG*->D",EQTYPE
 dgsel = TensorMeqMaker.SourceSubsetSelector("Apply differential gains to sources",
           tdloption_namespace='de_subset',annotate=False);
 TDLCompileOptions(*dgsel.options);
-TDLCompileOption("visualize_G","Include visualizers for G solutions",False);
-TDLCompileOption("visualize_dE","Include visualizers for dE solutions",False);
-TDLCompileOption("visualize_flag_unity","Flag zero/unity solutions in visualizer",True);
+TDLCompileMenu("Include visualizers...",
+  TDLCompileOption("visualize_G","For G solutions",False),
+  TDLCompileOption("visualize_dE","For dE solutions",False),
+  TDLCompileOption("visualize_flag_unity","Flag zero/unity solutions in visualizers",True),
+  TDLCompileOption("visualize_norm_offdiag","Divide off-diagonal terms by diagonals",True),
+  toggle="stefcal_visualize");
 TDLCompileOption("stefcal_verbose","Verbosity level",[0,1,2,3],more=int);
 
 import Purr.Pipe
@@ -270,6 +273,10 @@ def _define_forest(ns,parent=None,**kw):
     diffgain_smoothing = [];
 
   import Calico.OMS.StefCal.StefCal
+  global visualize_G,visualize_dE;
+  visualize_G = stefcal_visualize and visualize_G;
+  visualize_dE = stefcal_visualize and visualize_dE;
+  
   ns.stefcal << Meq.PyNode(class_name="StefCalNode",module_name=Calico.OMS.StefCal.StefCal.__file__,
                            ifrs=[ "%s:%s"%(p,q) for p,q in array.ifrs() ],
                            baselines=[ array.baseline(ip,iq) for (ip,p),(iq,q) in array.ifr_index() ],
@@ -310,15 +317,19 @@ def _define_forest(ns,parent=None,**kw):
 
   if visualize_G:
     ns.stefcal_vis_G << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
-      label="G",flag_unity=visualize_flag_unity,vells_label=Context.correlations);
+      label="G",flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
+      vells_label=Context.correlations);
     ns.stefcal_vis_G_avg << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
-      label="G",freq_average=True,flag_unity=visualize_flag_unity,vells_label=Context.correlations);
+      label="G",freq_average=True,flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
+      vells_label=Context.correlations);
   if visualize_dE:
     for i in range(num_diffgains):
       ns.stefcal_vis_dE(i) << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
-        label="dE:%d"%i,flag_unity=visualize_flag_unity,vells_label=Context.correlations);
+        label="dE:%d"%i,flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
+        vells_label=Context.correlations);
       ns.stefcal_vis_dE_avg(i) << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
-                                    label="dE:%d"%i,freq_average=True,flag_unity=visualize_flag_unity,vells_label=Context.correlations);
+                                    label="dE:%d"%i,freq_average=True,flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
+                                    vells_label=Context.correlations);
 
   nv = 0;
   for p,q in array.ifrs():
