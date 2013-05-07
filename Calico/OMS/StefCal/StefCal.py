@@ -203,6 +203,17 @@ class StefCalNode (pynode.PyNode):
     mystate('regularization_factor',0);
     # regularize intermediate corrections (when solving for dEs)?
     mystate('regularize_intermediate',False);
+    # solve for gains (if False, then simply load & apply)
+    mystate('solve_gains',True);
+    # save solutions
+    mystate('save_gains',True);
+    # ignore loaded solutions 
+    mystate('reset_gains',True);
+    # name of gain tables to which solutions are saved (or from which they are loaded)
+    mystate('gain_table','gains.cp');
+    mystate('diff_gain_table','diffgains.cp');
+    mystate('ifr_gain_table','ifrgains.cp');
+    # filenames for solutions
     # return residuals (else data)
     mystate('residuals',True);
     # return corrected residuals/data (else uncorrected)
@@ -212,16 +223,20 @@ class StefCalNode (pynode.PyNode):
     # If True, equation is GDG^H=M. Else use D=GMG^H.
     mystate('gain_bounds',[]);
     mystate('gains_on_data',True);
-    # solve for ifr gains as we go along
+    # apply IFR gains (if False, then none of the other IFR gain-related options apply)
+    mystate('apply_ifr_gains',False);
+    # solve for IFR gains (if False, then simply load & apply)
     mystate('solve_ifr_gains',True);
+    # save solutions
+    mystate('save_ifr_gains',True);
+    # ignore loaded solutions 
+    mystate('reset_ifr_gains',True);
+    if not self.apply_ifr_gains:
+      self.solve_ifr_gains = self.save_ifr_gains = self.reset_ifr_gains = False;
     # IFR gains are per-frequency, or one value across entire band
     mystate('per_chan_ifr_gains',False);
     # IFR gains are for diagonal elements only if True, for full 2x2 if False
     mystate('diag_ifr_gains',False);
-    # apply previous ifr gain solution, if available
-    mystate('apply_ifr_gains',True);
-    # name of ifr gain tables
-    mystate('ifr_gain_table','ifrgains.cp');
     # visualize G gains by saving them in the global_gains dict. If >1, then all intermediate iterations will also be saved.
     mystate('visualize_gains',0);
     # visualize dE gains by saving them in the gloabl_gains dict
@@ -257,8 +272,27 @@ class StefCalNode (pynode.PyNode):
     # if new dataset ID, do setup for start of new dataset
     if dataset_id != self._dataset_id:
       self._dataset_id = dataset_id;
-      self._init_value_gain = self.init_value;
-      self._init_value_dg = {};
+      self._init_value_gain = self._init_value_dg = None;
+      # try to load gain solutions if available
+      if not self.reset_gains:
+        if os.path.exists(self.gain_table):
+          try:
+            self._init_value_gain  = cPickle.load(file(self.gain_table));
+            dprint(1,"loaded %d gains from %s"%(len(self._init_value_gain),self.gain_table));
+          except:
+            traceback.print_exc();
+            dprint(0,"error loading gains from",self.gain_table);
+        if os.path.exists(self.diff_gain_table):
+          try:
+            self._init_value_dg  = cPickle.load(file(self.diff_gain_table));
+            dprint(1,"loaded %d diffgains from %s"%(len(self._init_value_dg),self.diff_gain_table));
+          except:
+            traceback.print_exc();
+            dprint(0,"error loading diffgains from",self.diff_gain_table);
+      if self._init_value_gain is None:   
+        self._init_value_gain = self.init_value;
+      if self._init_value_dg is None:
+        self._init_value_dg = {};
       dprint(1,"new dataset id",dataset_id);
       # if asked to solve for IFR gains, set up dicts for collecting stats
       if self.solve_ifr_gains:
@@ -267,7 +301,7 @@ class StefCalNode (pynode.PyNode):
         self.ifr_gain_update = dict([ (pq,[1.]*4) for pq in self._ifrs ]);
       # read previous IFR gains from table, if asked to apply them
       self.ifr_gain = {};
-      if self.apply_ifr_gains and os.path.exists(self.ifr_gain_table):
+      if self.apply_ifr_gains and not self.reset_ifr_gains and os.path.exists(self.ifr_gain_table):
         try:
           self.ifr_gain = cPickle.load(file(self.ifr_gain_table));
           dprint(1,"loaded %d ifr gains from %s"%(len(self.ifr_gain),self.ifr_gain_table));
@@ -276,10 +310,9 @@ class StefCalNode (pynode.PyNode):
             dprint(1,"resetting off-diagonal elements to 1");
             for gg in self.ifr_gain.itervalues():
               gg[1] = gg[2] = 1;
-            print self.ifr_gain[self.ifr_gain.keys()[0]];
         except:
           traceback.print_exc();
-          dprint(1,"error loading gains from",self.ifr_gain_table);
+          dprint(0,"error loading ifr gains from",self.ifr_gain_table);
 
     # child 0 is data
     # child 1 is direction-independent model
@@ -314,13 +347,16 @@ class StefCalNode (pynode.PyNode):
     vis_per_antenna = None;
 
     datares = children[0]
+    data_dims = getattr(datares,'dims',None);
+    if data_dims is None:
+      raise TypeError,"No data dimensions. Have you specified a valid input column?";
     modelres = children[1];
-    if any( [ ch.dims != datares.dims for ch in children[1:] ] ):
-      raise TypeError,"tensor dimensions of data and model(s) must match";
+    if any( [ getattr(ch,'dims',None) != data_dims for ch in children[1:] ] ):
+      raise TypeError,"Dimensions of data and model(s) do not match. Have you specified a sky model?";
     # expecting Nx2x2 matrices
     if len(datares.dims) == 3:
       if datares.dims[1] != 2 or datares.dims[2] != 2:
-        raise TypeError,"data and model must be of rank Nx2x2";
+        raise TypeError,"Data and model must be of rank Nx2x2";
       nifrs = datares.dims[0];
       # setup antenna names
       if nifrs != len(self.ifrs):
@@ -497,10 +533,6 @@ class StefCalNode (pynode.PyNode):
     else:
       weight = noise = None;
 
-    GainClass = self._impl_class;
-    dprintf(0,"solving with %s, using %d of %d inteferometers (%d have valid data), with %d solvable antennas\n",
-      GainClass.__name__,len(self._solvable_ifrs),len(self.ifrs),len(solvable_ifrs),len(solvable_antennas));
-
     # flags will contain a flag array per each baseline (but not per correlation), of shape expanded_datashape.
     # These are additional flags raised in the processing below. Note that data and model will be set to 0 at each flagged point.
     flags = {};
@@ -527,8 +559,56 @@ class StefCalNode (pynode.PyNode):
             if not is_null(d):
               d[invalid_slots] = 0;
 
+## -------------------- init gains
+    GainClass = self._impl_class;
+    dprintf(0,"stefcal solve=%d %s, using %d of %d inteferometers (%d have valid data), with %d solvable antennas\n",
+      self.solve_gains,
+      GainClass.__name__,len(self._solvable_ifrs),len(self.ifrs),len(solvable_ifrs),len(solvable_antennas));
 
-## -------------------- rescale model/data
+    if self.gain_smoothing:
+      dprint(0,"a Gaussian smoothing kernel of size",self.gain_smoothing,"will be applied");
+    if self.gain_bounds:
+      dprint(0,"gains will be flagged on amplitudes outside of",self.gain_bounds);
+    dprint(1,"initial gain value is",self._init_value_gain.values()[0][0].flat[0] if isinstance(self._init_value_gain,dict) else
+      self._init_value_gain);
+    # init gain parms object
+    gain = GainClass(datashape,expanded_datashape,gain_subtiling,solvable_ifrs,
+              self.epsilon,self.convergence_quota,smoothing=self.gain_smoothing,
+              bounds=self.gain_bounds,
+              init_value=self._init_value_gain,
+              verbose=self.verbose);
+
+    if self.print_variance:
+      print_variance(variance);
+
+## -------------------- init diffgains
+    if num_diffgains:
+      dprintf(0,"also solving for %d differential gains\n",num_diffgains);
+      if self.diffgain_smoothing:
+        dprint(0,"a Gaussian smoothing kernel of size",self.diffgain_smoothing,"will be applied");
+      for i in range(num_diffgains):
+        initval = self._init_value_dg.get(i,self.init_value);
+        dprint(1,"initial gain value #%d is"%i,initval.values()[0][0].flat[0] if isinstance(initval,dict) else initval);
+      diffgains = [
+        GainClass(datashape,expanded_datashape,dg_subtiling,solvable_ifrs,
+          self.diffgain_epsilon,self.diffgain_convergence_quota,
+          smoothing=self.diffgain_smoothing,
+          init_value=self._init_value_dg.get(i,self.init_value),
+          verbose=self.verbose)
+        for i in range(num_diffgains) ];
+    else:
+      diffgains = [];
+
+    # if diffgains were initialized, recompute the initial model
+    if num_diffgains and isinstance(self._init_value_dg.values()[0],dict):
+      dprint(1,"recomputing model to take prior diffgains into account");
+      for pq,mod0 in model0.iteritems():
+        mm = model[pq] = matrix_copy(model0[pq]);
+        for idg,dg in enumerate(diffgains):
+          for i,c in enumerate(dg.apply(dgmodel[idg],pq,cache=True)):
+            mm[i] += c;
+
+## -------------------- rescale data to model if asked to
     if self.rescale:
       scale = {};
       finite = {};
@@ -562,41 +642,6 @@ class StefCalNode (pynode.PyNode):
         if s is not None:
           matrix_scale1(dd,s);
 
-## -------------------- other init
-    if self.gain_smoothing:
-      dprint(0,"a Gaussian smoothing kernel of size",self.gain_smoothing,"will be applied");
-    if self.gain_bounds:
-      dprint(0,"gains will be flagged on amplitudes outside of",self.gain_bounds);
-    dprint(1,"initial gain value is",self._init_value_gain.values()[0].flat[0] if isinstance(self._init_value_gain,dict) else
-      self._init_value_gain);
-    # init gain parms object
-    gain = GainClass(datashape,expanded_datashape,gain_subtiling,solvable_ifrs,
-              self.epsilon,self.convergence_quota,smoothing=self.gain_smoothing,
-              bounds=self.gain_bounds,
-              init_value=self._init_value_gain,
-              verbose=self.verbose);
-
-    if self.print_variance:
-      print_variance(variance);
-
-## -------------------- init diffgains
-    if num_diffgains:
-      dprintf(0,"also solving for %d differential gains\n",num_diffgains);
-      if self.diffgain_smoothing:
-        dprint(0,"a Gaussian smoothing kernel of size",self.diffgain_smoothing,"will be applied");
-      for i in range(num_diffgains):
-        initval = self._init_value_dg.get(i,self.init_value);
-        dprint(1,"initial gain value #%d is"%i,initval.items()[0] if isinstance(initval,dict) else initval);
-      diffgains = [
-        GainClass(datashape,expanded_datashape,dg_subtiling,solvable_ifrs,
-          self.diffgain_epsilon,self.diffgain_convergence_quota,
-          smoothing=self.diffgain_smoothing,
-          init_value=self._init_value_dg.get(i,self.init_value),
-          verbose=self.verbose)
-        for i in range(num_diffgains) ];
-    else:
-      diffgains = [];
-
     #model_unscaled,data_unscaled = model,data;
     ## send to phase center
     #corr = {};
@@ -613,116 +658,136 @@ class StefCalNode (pynode.PyNode):
 #    data = self.apply_scaling(dps,data);
 
 ## -------------------- start of major loop
-    gain_iterate = (data,model) if self.gains_on_data else (model,data);
-    # start major loop -- alternates over gains and diffgains
-    for nmajor in range(self.max_major+1):
-      if (domain_id == self.dump_domain or self.dump_domain == -1):
-        dump_data_model(data,model,solvable_ifrs,"dump_G%d.txt"%nmajor);
-      ## -------------------- first, iterate normal gains to convergence
-      # setup convergence criteria
-      if nmajor == 0:
-        maxiter,delta = self.max_iter,self.delta;
-      elif nmajor < self.max_major:
-        maxiter,delta = self.max_iter_1,self.delta_1;
-      else:
-        maxiter,delta = self.max_iter_2,self.delta_2;
-      # run solution loop
-      self.solve_gains("G",gain,gain_iterate,(data,model,self.gains_on_data),
-                      noise,weight,flagmask,flags,
-                      maxiter,self.max_diverge,delta,
-                      averaging=(self.average_1 if nmajor else self.average),
-                      omega=(self.omega_1 if nmajor else self.omega),
-                      feed_forward=(self.feed_forward_1 if nmajor else self.feed_forward));
-      ## -------------------- now iterate over diffgains
-      # break out if no diffgains to iterate over, or if we're on the last major cycle
-      if not num_diffgains or nmajor >= self.max_major:
-        break;
-      else:
-        # subtract this from corrected data: D1 = G*D*G^H - M0 - corrupt(M1) - corrupt(M2) - ... to obtain residuals
-        # (G may need to be inverted depending on mode)
-        if self.gains_on_data:
-          data1 = dict([ (pq,gain.residual(data,model,pq)) for pq in solvable_ifrs ]);
+    if self.solve_gains:
+      gain_iterate = (data,model) if self.gains_on_data else (model,data);
+      # start major loop -- alternates over gains and diffgains
+      for nmajor in range(self.max_major+1):
+        if (domain_id == self.dump_domain or self.dump_domain == -1):
+          dump_data_model(data,model,solvable_ifrs,"dump_G%d.txt"%nmajor);
+        ## -------------------- first, iterate normal gains to convergence
+        # setup convergence criteria
+        if nmajor == 0:
+          maxiter,delta = self.max_iter,self.delta;
+        elif nmajor < self.max_major:
+          maxiter,delta = self.max_iter_1,self.delta_1;
         else:
-          data1 = dict([ (pq,gain.residual_inverse(data,model,pq,
-              regularize=self.regularization_factor if self.regularize_intermediate else 0))
-              for pq in solvable_ifrs ]);
-          ## check for NANs in the data
-          self.check_finiteness(data1,"corrected data");
+          maxiter,delta = self.max_iter_2,self.delta_2;
+        # run solution loop
+        self.run_gain_solution("G",gain,gain_iterate,(data,model,self.gains_on_data),
+                        noise,weight,flagmask,flags,
+                        maxiter,self.max_diverge,delta,
+                        averaging=(self.average_1 if nmajor else self.average),
+                        omega=(self.omega_1 if nmajor else self.omega),
+                        feed_forward=(self.feed_forward_1 if nmajor else self.feed_forward));
+        ## -------------------- now iterate over diffgains
+        # break out if no diffgains to iterate over, or if we're on the last major cycle
+        if not num_diffgains or nmajor >= self.max_major:
+          break;
+        else:
+          # subtract this from corrected data: D1 = G*D*G^H - M0 - corrupt(M1) - corrupt(M2) - ... to obtain residuals
+          # (G may need to be inverted depending on mode)
+          if self.gains_on_data:
+            data1 = dict([ (pq,gain.residual(data,model,pq)) for pq in solvable_ifrs ]);
+          else:
+            data1 = dict([ (pq,gain.residual_inverse(data,model,pq,
+                regularize=self.regularization_factor if self.regularize_intermediate else 0))
+                for pq in solvable_ifrs ]);
+            ## check for NANs in the data
+            self.check_finiteness(data1,"corrected data");
+                
+          if self.weigh_diffgains:
+            resnoise,resweight = self.compute_noise(data1,flagmask);
+            if _verbosity.verbose > 3:
+              for pq,bl in self.ifr_by_baseline:
+                rms = resnoise.get(pq);
+                if rms is not None:
+                  dprint(4,"%20s %.2fm"%("-".join(pq),bl),"residual std %.2g weight %.2f"%
+                        (rms,resweight.get(pq,0)));
+          else:
+            resweight = resnoise = None;
+  #        for pq in list(self._solvable_ifrs)[:1]:
+  #          print [ (pq,[ d1 if is_null(d1) else abs(d1).max() for d1 in data1[pq] ]) for pq in self._solvable_ifrs ];
+          # reset current model to a _copy_ of model0 -- each DG term will be added to it (in place) at the end of
+          # each DG loop iteration
+          for pq in solvable_ifrs:
+            model[pq] = matrix_copy(model0[pq]);
+          # now loop over all diffgains and iterate each set once
+          for idg,dg in enumerate(diffgains):
+            # add current estimate of corrupt(Mi) back into data1, and subtract from current model
+            for pq in solvable_ifrs:
+              corr = dg.apply(dgmodel[idg],pq,cache=True);
+              dd = data1[pq];
+              for n,c in enumerate(corr):
+                dd[n] += c;
+  #          print data1['0','A'][0][0,0],model0['0','A'][0][0,0],model['0','A'][0][0,0],dgmodel[idg]['0','A'][0][0,0];
+  #          print "d1",data1['0','A'][0],"m1",dgmodel[idg]['0','A'][0];
+            if ( idg == self.dump_diffgain or self.dump_diffgain == -1 ) and \
+              ( domain_id == self.dump_domain or self.dump_domain == -1 ):
+              dump_data_model(dgmodel[idg],data1,solvable_ifrs,"dump_E%d-%d.txt"%(idg,nmajor));
+            # iterate this diffgain solution
+            self.check_finiteness(data1,"data1 after DG%d added in"%idg);
+            self.run_gain_solution("dE:%d"%idg,dg,(dgmodel[idg],data1),(data1,dgmodel[idg],False),
+                            resnoise,resweight,flagmask,
+                            flags=None,
+                            maxiter=self.diffgain_max_iter,max_diverge=self.diffgain_max_diverge,
+                            delta=self.diffgain_delta,averaging=self.average_de,omega=self.omega_de,
+                            feed_forward=self.feed_forward_de);
+            # add to model, and subtract back from data1 if needed
+            for pq in solvable_ifrs:
+              corr = dg.apply(dgmodel[idg],pq,cache=True);
+              d1 = data1[pq];
+              mm = model[pq];
+              # serious bug here -- things weren't added back to the model properly. Or were they?
+              for i,c in enumerate(corr):
+                if is_null(mm[i]):
+                  mm[i] = c;
+                else:
+                  mm[i] += c;
+                if idg<num_diffgains-1:
+                  d1[i] -= c;
+          # just in case, reset flagged model values back to 0
+          for pq,fm in flagmask.iteritems():
+            if pq in model:
+              for m in model[pq]:
+                if not is_null(m):
+                  if m[fm].max() != 0:
+                    print "Ooops,",pq,"ended up with a non-zero flagged model or data!";
+                  m[fm] = 0;
+
+      # if we were solving for diffgains, then model is not completely up-to-date, since the non-solvable baselines
+      # have been ignored. Fill them in here. Also, reset residuals
+      if num_diffgains:
+        for pq in set(valid_ifrs)-set(solvable_ifrs):
+          mm = model[pq] = model0[pq];
+          for idg,dg in enumerate(diffgains):
+            for i,c in enumerate(dg.apply(dgmodel[idg],pq,cache=True)):
+              mm[i] += c;
+      # save solutions
+      if self.save_gains:
+        try:
+          cPickle.dump(gain.gain,file(self.gain_table,'w'));
+          dprint(1,"saved %d gains to %s"%(len(gain.gain),self.gain_table));
+        except:
+          traceback.print_exc();
+          dprint(0,"error saving gains to",self.gain_table);
+        if num_diffgains:
+          savedgs = {};
+          for i,dg in enumerate(diffgains):
+            savedgs[i] = dg.gain;
+          try:
+            cPickle.dump(savedgs,file(self.diff_gain_table,'w'));
+            dprint(1,"saved %d diffgains to %s"%(len(savedgs),self.diff_gain_table));
+          except:
+            traceback.print_exc();
+            dprint(0,"error saving diffgains to",self.diff_gain_table);
+    # endif self.solve_gains
               
-        if self.weigh_diffgains:
-          resnoise,resweight = self.compute_noise(data1,flagmask);
-          if _verbosity.verbose > 3:
-            for pq,bl in self.ifr_by_baseline:
-              rms = resnoise.get(pq);
-              if rms is not None:
-                dprint(4,"%20s %.2fm"%("-".join(pq),bl),"residual std %.2g weight %.2f"%
-                      (rms,resweight.get(pq,0)));
-        else:
-          resweight = resnoise = None;
-#        for pq in list(self._solvable_ifrs)[:1]:
-#          print [ (pq,[ d1 if is_null(d1) else abs(d1).max() for d1 in data1[pq] ]) for pq in self._solvable_ifrs ];
-        # reset current model to a _copy_ of model0 -- each DG term will be added to it (in place) at the end of
-        # each DG loop iteration
-        for pq in solvable_ifrs:
-          model[pq] = matrix_copy(model0[pq]);
-        # now loop over all diffgains and iterate each set once
-        for idg,dg in enumerate(diffgains):
-          # add current estimate of corrupt(Mi) back into data1, and subtract from current model
-          for pq in solvable_ifrs:
-            corr = dg.apply(dgmodel[idg],pq,cache=True);
-            dd = data1[pq];
-            for n,c in enumerate(corr):
-              dd[n] += c;
-#          print data1['0','A'][0][0,0],model0['0','A'][0][0,0],model['0','A'][0][0,0],dgmodel[idg]['0','A'][0][0,0];
-#          print "d1",data1['0','A'][0],"m1",dgmodel[idg]['0','A'][0];
-          if ( idg == self.dump_diffgain or self.dump_diffgain == -1 ) and \
-             ( domain_id == self.dump_domain or self.dump_domain == -1 ):
-            dump_data_model(dgmodel[idg],data1,solvable_ifrs,"dump_E%d-%d.txt"%(idg,nmajor));
-          # iterate this diffgain solution
-          self.check_finiteness(data1,"data1 after DG%d added in"%idg);
-          self.solve_gains("dE:%d"%idg,dg,(dgmodel[idg],data1),(data1,dgmodel[idg],False),
-                          resnoise,resweight,flagmask,
-                          flags=None,
-                          maxiter=self.diffgain_max_iter,max_diverge=self.diffgain_max_diverge,
-                          delta=self.diffgain_delta,averaging=self.average_de,omega=self.omega_de,
-                          feed_forward=self.feed_forward_de);
-          # add to model, and subtract back from data1 if needed
-          for pq in solvable_ifrs:
-            corr = dg.apply(dgmodel[idg],pq,cache=True);
-            d1 = data1[pq];
-            mm = model[pq];
-            # serious bug here -- things weren't added back to the model properly. Or were they?
-            for i,c in enumerate(corr):
-              if is_null(mm[i]):
-                mm[i] = c;
-              else:
-                mm[i] += c;
-              if idg<num_diffgains-1:
-                d1[i] -= c;
-        # just in case, reset flagged model values back to 0
-        for pq,fm in flagmask.iteritems():
-          if pq in model:
-            for m in model[pq]:
-              if not is_null(m):
-                if m[fm].max() != 0:
-                  print "Ooops,",pq,"ended up with a non-zero flagged model or data!";
-                m[fm] = 0;
-
-    # if we were solving for diffgains, then model is not completely up-to-date, since the non-solvable baselines
-    # have been ignored. Fill them in here. Also, reset residuals
-    if num_diffgains:
-      for pq in set(valid_ifrs)-set(solvable_ifrs):
-        mm = model[pq] = model0[pq];
-        for idg,dg in enumerate(diffgains):
-          for i,c in enumerate(dg.apply(dgmodel[idg],pq,cache=True)):
-            mm[i] += c;
-
     # visualize gains
-    if self.visualize_gains == 1:
-      global_gains['G'] = [ gain.get_2x2_gains(datashape,expanded_dataslice) ];
     if self.visualize_diffgains and num_diffgains:
       for i,dg in enumerate(diffgains):
         global_gains['dE:%d'%i] = [ dg.get_2x2_gains(datashape,expanded_dataslice) ];
+    if self.visualize_gains:
+      global_gains['G'] = [ gain.get_2x2_gains(datashape,expanded_dataslice) ];
 
     # remember init value for next tile
     if self.init_from_previous:
@@ -830,12 +895,13 @@ class StefCalNode (pynode.PyNode):
             self.ifr_gain[(p,q),i,j])
             for (p,q),i,j in pqij_data[0:3]]));
       # save
-      try:
-        cPickle.dump(self.ifr_gain,file(self.ifr_gain_table,'w'));
-        dprint(1,"saved %d ifr gains to %s"%(len(self.ifr_gain_update),self.ifr_gain_table));
-      except:
-        traceback.print_exc();
-        dprint(0,"error saving ifr gains to",self.ifr_gain_table);
+      if self.save_ifr_gains:
+        try:
+          cPickle.dump(self.ifr_gain,file(self.ifr_gain_table,'w'));
+          dprint(1,"saved %d ifr gains to %s"%(len(self.ifr_gain),self.ifr_gain_table));
+        except:
+          traceback.print_exc();
+          dprint(0,"error saving ifr gains to",self.ifr_gain_table);
 
     dt = time.time()-timestamp0;
     m,s = divmod(dt,60);
@@ -958,7 +1024,7 @@ class StefCalNode (pynode.PyNode):
               break;
 
 
-  def solve_gains (self,label,gain,iter_args,chisq_args,noise,weight,flagmask,flags=None,
+  def run_gain_solution (self,label,gain,iter_args,chisq_args,noise,weight,flagmask,flags=None,
                   maxiter=10,max_diverge=2,delta=1e-6,averaging=2,omega=.5,feed_forward=False):
     """Runs a single gain solution loop to completion"""
     gain_dchi = [];

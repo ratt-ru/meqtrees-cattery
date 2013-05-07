@@ -34,7 +34,7 @@ ifr_spec_syntax = """<P>Specify interferometers as a list of tokens, separated b
 
   <P>"*" or "all" or "ALL": selects all ifrs.</P>
 
-  <P>"&lt;=N", "&lt;N", "&gt;=N", "&gt;N": selects by baseline length.</P>
+  <P>"&lt;=N" or ".le.N", "&lt;N" or ".lt.N", "&gt;=N" or ".ge.N", "&gt;N" or ".gt.N": selects by baseline length.</P>
 
   <P>"P-Q" or "P:Q" or "PQ": selects interferometer P-Q. (The third form is useful when
   station names are a single character, as for WSRT.) Q may be "*", in which case all

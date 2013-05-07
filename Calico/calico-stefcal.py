@@ -28,6 +28,8 @@
 from Timba.TDL import *
 from Timba.Meq import meq
 import math
+import os
+import os.path
 
 import Meow
 from Meow import ParmGroup,Bookmarks,StdTrees,Context
@@ -44,7 +46,7 @@ mssel = Meow.Context.mssel = Meow.MSUtils.MSSelector(has_input=True,tile_sizes=[
                   hanning=True,invert_phases=True);
 # MS compile-time options
 TDLCompileOptions(*mssel.compile_options());
-TDLCompileOption("run_purr","Start Purr on this MS",True);
+TDLCompileOption("run_purr","Start Purr on this MS",False);
 # MS run-time options
 TDLRuntimeMenu("Data selection & flag handling",*mssel.runtime_options());
 
@@ -141,8 +143,22 @@ output_option = TDLCompileOption('do_output',"Output visibilities",
 diffgain_tag = 'dE';
 diffgain_group = 'cluster';
 
+MODE_SOLVE_SAVE = "solve-save";
+MODE_SOLVE_NOSAVE = "solve-nosave"
+MODE_SOLVE_APPLY = "apply"
+
 TDLCompileOption("stefcal_implementation","Stefcal implementation",
   ["GainDiag","Gain2x2","Gain2x2-r8768.Gain2x2" ] );
+TDLCompileOption("stefcal_gain_mode","Solution mode",
+  {MODE_SOLVE_SAVE:"solve and save",MODE_SOLVE_NOSAVE:"solve, do not save",MODE_SOLVE_APPLY:"load and apply"}); 
+TDLCompileOption("stefcal_gain_reset","Ignore previously saved G/dE solutions",False);
+TDLCompileMenu("Filenames for solution tables",
+  TDLOption("stefcal_gain_table","Gains",["gains.cp"],more=str),
+  TDLOption("stefcal_diff_gain_table","Diferential gains",["diffgains.cp"],more=str),
+);
+dgsel = TensorMeqMaker.SourceSubsetSelector("Enable source-based differential gains (dEs)",
+          tdloption_namespace='de_subset',annotate=False);
+TDLCompileOptions(*dgsel.options);
 TDLCompileMenu("Convergence settings (G)",
   TDLOption("stefcal_weigh_g","Apply noise-based weights",True),
   TDLOption("stefcal_niter_g","Max iterations, first major loop",[20,50,100],more=int,default=50),
@@ -180,24 +196,26 @@ TDLCompileMenu("Convergence settings (dE)",
 );
 TDLCompileOption("stefcal_nmajor","Number of major loops",[1,2,3,5],more=int,default=2);
 TDLCompileOption("stefcal_rescale","Rescale data to model before solving",True);
-DIAGONLY,ALLFOUR = "parallel-pol IFRs only","paralell and cross-pol";
-TDLCompileMenu("Solve for IFR-based gains",
-  TDLCompileOption("stefcal_per_chan_ifr_gains","...on a per-channel basis",False),
-  toggle='stefcal_solve_ifr_gains'
+DIAGONLY,ALLFOUR = "diag","full";
+TDLCompileMenu("Enable IFR-based gains",
+  TDLOption("stefcal_ifr_gain_mode","Solution mode",
+    {MODE_SOLVE_SAVE:"solve and save",MODE_SOLVE_NOSAVE:"solve, do not save",MODE_SOLVE_APPLY:"load and apply"}),
+  TDLOption("stefcal_ifr_gain_reset","Ignore previously saved solutions",False),
+  TDLOption("stefcal_diagonal_ifr_gains","Polarizations",
+            {DIAGONLY:"parallel-hand only",ALLFOUR:"full 2x2"}),
+  TDLOption("stefcal_per_chan_ifr_gains","Solve on a per-channel basis",False),
+  TDLOption("stefcal_ifr_gain_table","Filename for solutions",["ifrgains.cp"],more=str),
+  toggle="stefcal_ifr_gains",
 );
-TDLCompileOption("stefcal_apply_ifr_gains","Apply IFR-based gains from previous run",False);
-TDLCompileOption("stefcal_diagonal_ifr_gains","Use IFR-based gains for",[DIAGONLY,ALLFOUR]),
+
 EQTYPE_MODEL = "model";
 EQTYPE_DATA  = "data";
 TDLCompileOption("stefcal_eqtype","Equation type",{EQTYPE_MODEL:"GMG*->D",EQTYPE_DATA:"GDG*->M"});
-dgsel = TensorMeqMaker.SourceSubsetSelector("Apply differential gains to sources",
-          tdloption_namespace='de_subset',annotate=False);
-TDLCompileOptions(*dgsel.options);
 TDLCompileMenu("Include visualizers...",
   TDLCompileOption("visualize_G","For G solutions",False),
   TDLCompileOption("visualize_dE","For dE solutions",False),
   TDLCompileOption("visualize_flag_unity","Flag zero/unity solutions in visualizers",True),
-  TDLCompileOption("visualize_norm_offdiag","Divide off-diagonal terms by diagonals",True),
+  TDLCompileOption("visualize_norm_offdiag","Normalize off-diagonal terms by diagonals",True),
   toggle="stefcal_visualize");
 TDLCompileOption("stefcal_verbose","Verbosity level",[0,1,2,3],more=int);
 
@@ -300,9 +318,19 @@ def _define_forest(ns,parent=None,**kw):
                            regularization_factor=1e-6,#
                            rescale=stefcal_rescale,
                            init_from_previous=False,
-                           apply_ifr_gains=stefcal_apply_ifr_gains,
+                           # gain solution options
+                           solve_gains=(stefcal_gain_mode != MODE_SOLVE_APPLY),
+                           save_gains=(stefcal_gain_mode == MODE_SOLVE_SAVE),
+                           reset_gains=stefcal_gain_reset,
+                           gain_table=stefcal_gain_table,
+                           diff_gain_table=stefcal_diff_gain_table,
+                           # IFR gain solution options
+                           apply_ifr_gains=stefcal_ifr_gains,
+                           solve_ifr_gains=(stefcal_ifr_gain_mode != MODE_SOLVE_APPLY),
+                           reset_ifr_gains=stefcal_ifr_gain_reset,
+                           save_ifr_gains=(stefcal_ifr_gain_mode == MODE_SOLVE_SAVE),
+                           ifr_gain_table=stefcal_ifr_gain_table,
                            per_chan_ifr_gains=stefcal_per_chan_ifr_gains,
-                           solve_ifr_gains=stefcal_solve_ifr_gains,
                            diag_ifr_gains=(stefcal_diagonal_ifr_gains == DIAGONLY),
 #                          gains_on_data=True,
 #                           gain_bounds=[.01,1000],
@@ -360,7 +388,30 @@ def _define_forest(ns,parent=None,**kw):
 
   # and close meqmaker -- this exports annotations, etc
   meqmaker.close();
+  
+  # if solutions exist, add options to clear them out
+  from Calico.OMS.StefCal import StefCal
+  for table,varname,desc in [ 
+        (stefcal_gain_table,'remove_stefcal_gains',"gain solutions"),
+        (stefcal_diff_gain_table,'remove_stefcal_diff_gains',"differential gain solutions"),
+        (stefcal_ifr_gain_table,'remove_stefcal_ifr_gains',"IFR-based gain solutions") ]:
+    TDLRuntimeOption(varname,"Remove existing %s (%s)"%(desc,os.path.basename(table)),False);
+  TDLRuntimeJob(_run_stefcal,"Run StefCal");
 
-def _tdl_job_1_StefCal (mqs,parent,wait=False):
+def _run_stefcal (mqs,parent,wait=False):
+  for table,varname,desc in [ 
+        (stefcal_gain_table,'remove_stefcal_gains',"gain solutions"),
+        (stefcal_diff_gain_table,'remove_stefcal_diff_gains',"differential gain solutions"),
+        (stefcal_ifr_gain_table,'remove_stefcal_ifr_gains',"IFR-based gain solutions") ]:
+    if globals().get(varname,False):
+      if os.path.exists(table):
+        print "Removing %s as requested"%table;
+        try:
+          os.unlink(table);
+        except:
+          traceback.print_exc();
+          print "Error removing %s"%table;
+      else:
+        print "%s does not exist, so not trying to remove";
   mqs.clearcache('VisDataMux');
   mqs.execute('VisDataMux',mssel.create_io_request(),wait=wait);

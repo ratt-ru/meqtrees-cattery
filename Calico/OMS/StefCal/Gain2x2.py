@@ -74,13 +74,14 @@ class Gain2x2 (object):
     self._zero  = numpy.zeros(self.gainshape,dtype=complex);
     self._unity = numpy.ones(self.gainshape,dtype=complex);
     self._nullflag =  numpy.zeros(self.gainshape,dtype=bool);
-    self.gain = dict([(p,(self._unity,self._zero,self._zero,self._unity)) for p in self._antennas]);
     self.gainflags = {};
     # init_value=1: init each parm with the _unity array
     # if init_value is a dict, use it to initialize each array with a different value
     # presumably this happens when going to the next tile -- we use the previous tile's solution
     # as a starting point
     if isinstance(init_value,dict):
+      # init values will write into arrays, so make a copy
+      self.gain = dict([(p,(self._unity.copy(),self._zero.copy(),self._zero.copy(),self._unity.copy())) for p in self._antennas]);
       for p,values in init_value.iteritems():
         gmat = self.gain.get(p);
         if gmat is not None:
@@ -88,8 +89,11 @@ class Gain2x2 (object):
             if value.ndim == 1:
               g[numpy.newaxis,...] = value;
             else:
-              g[...] = value;
+              # just being defensive if shapes are different 
+              slc = tuple([ slice(0,min(a,b)) for a,b in zip(g.shape,value.shape) ]);
+              g[slc] = value[slc];
     # else assume scalar init value, and use it to initialize default array
+    # subsequent steps create new arrays, so sufficient to use the same initial value object for all antennas
     else:
       default = numpy.empty(self.gainshape,dtype=complex);
       default[...] = init_value;

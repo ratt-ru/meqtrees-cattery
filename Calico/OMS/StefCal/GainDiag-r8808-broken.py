@@ -14,9 +14,9 @@ dprint = _verbosity.dprint;
 dprintf = _verbosity.dprintf;
 
 
-verbose_baselines = ()#set([('0','C'),('C','0')]);
+verbose_baselines = (); #set([('1','24'),('24','1')]);
 verbose_baselines_corr = ()#set([('0','C'),('C','0')]);
-verbose_element = 5,0;
+verbose_element = 0,10;
 
 verbose_stations = set([p[0] for p in verbose_baselines]+[p[1] for p in verbose_baselines]);
 verbose_stations_corr = set([p[0] for p in verbose_baselines_corr]+[p[1] for p in verbose_baselines_corr]);
@@ -83,14 +83,13 @@ class GainDiag (object):
       self._parms.update([(p,i) for p in ifr for i in range(2)]);
     self._unity = numpy.ones(self.gainshape,dtype=complex);
     # init_value=1: init each parm with the _unity array
-    # subsequent steps create new arrays, so sufficient to use the same initial value object for all antennas
     if init_value == 1:
       self.gain = dict([ (pp,self._unity) for pp in parms ]);
     # if init_value is a dict, use it to initialize each array with a different value
     # presumably this happens when going to the next tile -- we use the previous tile's solution
     # as a starting point
     elif isinstance(init_value,dict):
-      self.gain = dict([ (pp,self._unity.copy()) for pp in parms ]);
+      self.gain = dict([ (pp,self._unity) for pp in parms ]);
       for p,value in init_value.iteritems():
         g = self.gain.get(p);
         if g is not None:
@@ -173,13 +172,21 @@ class GainDiag (object):
           pq,direct,conjugate = pq_direct_conjugate(p,q,rhs);
           if pq in self._solve_ifrs:
             m,d = conjugate(lhs[pq][i*2+j]),direct(rhs[pq][i*2+j]);
-            mh = self.tile_data(m)*self.tile_gain(g0[q,j]);
+            # get weight
+            if weight is not None:
+              ww = weight.get((p,q)) or weight.get((q,p),0);
+            else:
+              ww = 1;
+            if m is None or d is None or not ww:
+              continue;
+            mh = self.tile_data(m)*self.tile_gain(g0[q,j])*ww;
             dmh = self.tile_data(d)*mh;
             mh2 = abs(mh)**2;
   #          if p == '0' and i==1:
   #            print "S0 %s%s:%s%s"%(p,q,i,j),"VHV",mh2[verbose_element];
             if (p,q) in verbose_baselines and i==j:
-              print "S%d %s%s:%s%s"%(step,p,q,i,j),"D",d[verbose_element],"MH",m[verbose_element], \
+              print d.size,m.max(),d.max();
+              print "S%d %s-%s:%s%s"%(step,p,q,i,j),"D",d[verbose_element],"MH",m[verbose_element], \
                   "Gq",g0[q,j][verbose_element],"V",mh[verbose_element],"DV",dmh[verbose_element],"VHV",mh2[verbose_element];
             sum_reim += self.reduce_subtiles(dmh);
             sum_sq += self.reduce_subtiles(mh2);
