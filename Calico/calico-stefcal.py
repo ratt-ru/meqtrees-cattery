@@ -245,7 +245,6 @@ def _define_forest(ns,parent=None,**kw):
   # predict tree using the MeqMaker
   all_sources = meqmaker.get_source_list(ns);
   dg_sources = dgsel.subset_enabled and dgsel.filter(all_sources);
-
   if dg_sources:
     # first group all sources without a diffgain on them
     groups = [ [ src for src in all_sources if not src in dg_sources ] ];

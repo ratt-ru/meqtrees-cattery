@@ -599,7 +599,7 @@ class StefCalNode (pynode.PyNode):
       diffgains = [];
 
     # if diffgains were initialized, recompute the initial model
-    if num_diffgains and isinstance(self._init_value_dg.values()[0],dict):
+    if num_diffgains and self._init_value_dg and isinstance(self._init_value_dg.values()[0],dict):
       dprint(1,"recomputing model to take prior diffgains into account");
       for pq,mod0 in model0.iteritems():
         mm = model[pq] = matrix_copy(model0[pq]);
