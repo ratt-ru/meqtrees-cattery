@@ -56,9 +56,9 @@ if not retcode:
           pass;
       os.system("image2fits in=\\\\%s out=%s"%(filename,fitsname));
 
-  # remove img files, with the exception of the CLEAN model
+  # remove img files
   if remove_img:
-    for filetype in ('image','residual','restored'):
+    for filetype in ('image','residual','restored','model'):
       filename = files.get(filetype);
       if filename:
         os.system("rm -fr %s"%filename);

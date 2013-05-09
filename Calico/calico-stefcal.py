@@ -294,7 +294,6 @@ def _define_forest(ns,parent=None,**kw):
   global visualize_G,visualize_dE;
   visualize_G = stefcal_visualize and visualize_G;
   visualize_dE = stefcal_visualize and visualize_dE;
-  
   ns.stefcal << Meq.PyNode(class_name="StefCalNode",module_name=Calico.OMS.StefCal.StefCal.__file__,
                            ifrs=[ "%s:%s"%(p,q) for p,q in array.ifrs() ],
                            baselines=[ array.baseline(ip,iq) for (ip,p),(iq,q) in array.ifr_index() ],
@@ -389,21 +388,22 @@ def _define_forest(ns,parent=None,**kw):
   # and close meqmaker -- this exports annotations, etc
   meqmaker.close();
   
-  # if solutions exist, add options to clear them out
+  # add options to clear all solutions 
   from Calico.OMS.StefCal import StefCal
+  TDLRuntimeOption("stefcal_reset_all","Remove all existing solutions",False);
   for table,varname,desc in [ 
-        (stefcal_gain_table,'remove_stefcal_gains',"gain solutions"),
-        (stefcal_diff_gain_table,'remove_stefcal_diff_gains',"differential gain solutions"),
-        (stefcal_ifr_gain_table,'remove_stefcal_ifr_gains',"IFR-based gain solutions") ]:
+        (stefcal_gain_table,'stefcal_reset_gains',"gain solutions"),
+        (stefcal_diff_gain_table,'stefcal_reset_diff_gains',"differential gain solutions"),
+        (stefcal_ifr_gain_table,'stefcal_reset_ifr_gains',"IFR-based gain solutions") ]:
     TDLRuntimeOption(varname,"Remove existing %s (%s)"%(desc,os.path.basename(table)),False);
-  TDLRuntimeJob(_run_stefcal,"Run StefCal");
+  TDLRuntimeJob(_run_stefcal,"Run StefCal",job_id="stefcal");
 
 def _run_stefcal (mqs,parent,wait=False):
   for table,varname,desc in [ 
-        (stefcal_gain_table,'remove_stefcal_gains',"gain solutions"),
-        (stefcal_diff_gain_table,'remove_stefcal_diff_gains',"differential gain solutions"),
-        (stefcal_ifr_gain_table,'remove_stefcal_ifr_gains',"IFR-based gain solutions") ]:
-    if globals().get(varname,False):
+        (stefcal_gain_table,'stefcal_reset_gains',"gain solutions"),
+        (stefcal_diff_gain_table,'stefcal_reset_diff_gains',"differential gain solutions"),
+        (stefcal_ifr_gain_table,'stefcal_reset_ifr_gains',"IFR-based gain solutions") ]:
+    if stefcal_reset_all or globals().get(varname,False):
       if os.path.exists(table):
         print "Removing %s as requested"%table;
         try:
@@ -412,6 +412,6 @@ def _run_stefcal (mqs,parent,wait=False):
           traceback.print_exc();
           print "Error removing %s"%table;
       else:
-        print "%s does not exist, so not trying to remove";
+        print "%s does not exist, so not trying to remove"%table;
   mqs.clearcache('VisDataMux');
   mqs.execute('VisDataMux',mssel.create_io_request(),wait=wait);

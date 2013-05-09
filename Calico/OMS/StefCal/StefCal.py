@@ -268,7 +268,6 @@ class StefCalNode (pynode.PyNode):
     dataset_id,domain_id = meq.split_request_id(request.request_id);
     # get domain ID from request
     time0,time1,timestep,numtime,freq0,freq1,freqstep,numfreq = request.cells.domain.domain_id;
-
     # if new dataset ID, do setup for start of new dataset
     if dataset_id != self._dataset_id:
       self._dataset_id = dataset_id;

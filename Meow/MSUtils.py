@@ -1308,13 +1308,9 @@ class ImagingSelector (object):
     chans = selector.get_channels();
     totchan = selector.get_total_channels() or self.imaging_totchan;
     if chans:
-      nchan = chans[1]-chans[0]+1;
       chanstart = chans[0]+offset;
-      if len(chans) > 2:
-        chanstep = chans[2];
-        nchan /= chanstep;
-      else:
-        chanstep = 1;
+      chanstep = chans[2] if len(chans)>2 else 1;
+      nchan = (chans[1]-chans[0])//chanstep + 1;
       args += [ 'chanmode=channel',
                 'nchan='+str(nchan),
                 'chanstart='+str(chanstart),
