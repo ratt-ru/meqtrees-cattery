@@ -391,30 +391,38 @@ class StefCalNode (pynode.PyNode):
               datashape = tuple(d.shape);
               self._datasize = reduce(operator.mul,datashape);
               # figure out subtiling
-              # if not specified, use whole tile as solution interval
-              if self.gain_subtiling:
-                # replace nulls in subtiling with solution interval
-                lcm_subtiling = gain_subtiling = [ min(gs,ds) or ds for gs,ds in zip(self.gain_subtiling,datashape) ];
-              else:
-                lcm_subtiling = gain_subtiling = datashape;
+              gain_subtiling = lcm_subtiling = self.gain_subtiling or [0]*len(datashape);
               if len(gain_subtiling) != len(datashape):
                 raise ValueError,"gain_subtiling vector must have the same length as the data shape";
-              if min(gain_subtiling) < 1:
+              if min(gain_subtiling) < 0:
                 raise ValueError,"invalid gain_subtiling %s"%self.gain_subtiling;
-              # if diffgains are also present, then work out the least-common-multiple subtiling
               if num_diffgains:
-                dg_subtiling = self.diffgain_subtiling or datashape;
-                dg_subtiling = [ min(gs,ds) or ds for gs,ds in zip(dg_subtiling,datashape) ];
+                dg_subtiling = self.diffgain_subtiling or [0]*len(datashape);
                 if len(dg_subtiling) != len(datashape):
                   raise ValueError,"diffgain_subtiling vector must have the same length as the data shape";
-                if min(dg_subtiling) < 1:
-                  raise ValueError,"invalid diffgain_subtiling %s"%dg_subtiling;
-                lcm_subtiling = [ LCM(a,b) for a,b in zip(gain_subtiling,dg_subtiling) ];
-              # data must be expanded to match the LCM subtiling
-              expanded_datashape = tuple([ (nd/np+(1 if nd%np else 0))*np for nd,np in zip(datashape,lcm_subtiling) ]);
+                if min(dg_subtiling) < 0:
+                  raise ValueError,"invalid diffgain_subtiling %s"%self.diffgain_subtiling;
+                # work out least-common-multiple subtile size for each axis on which a subtiling is defined.
+                lcm_subtiling = [ LCM(a,b) if a>0 and b>0 else max(a,b,0) for a,b in zip(gain_subtiling,dg_subtiling) ];
+              # now, data must be expanded (padded at the last tile) to match the LCM subtiling
+              ## work out the expanded datashape
+              #def padaxis (ndata,tilesize):
+                #if tilesize > ndata:
+                  #return tilesize;
+                #elif not tilesize:
+                  #return ndata;
+                #else:
+                  #return (ndata//tilesize+(1 if ndata%tilesize else 0))*tilesize
+              expanded_datashape = tuple([ (nd/np+(1 if nd%np else 0))*np if np else nd for nd,np in zip(datashape,lcm_subtiling) ]);
+              # now, for any zeroes left in the LCM subtiling, replace with full solution interval,
+              lcm_subtiling = [ ls or ds for ls,ds in zip(lcm_subtiling,expanded_datashape) ];
+              gain_subtiling = [ gs or ds for gs,ds in zip(gain_subtiling,expanded_datashape) ];
+              if num_diffgains:
+                dg_subtiling = [ gs or ds for gs,ds in zip(dg_subtiling,expanded_datashape) ];
               dprint(1,"gain parm LCM subtiling is",lcm_subtiling);
+              dprint(1,"expanded datashape is",expanded_datashape);
               # if tiling does not tile the data shape perfectly, we'll need to expand the input arrays
-              # Define pad_array() as a function for this: it will be identity if no expansion is needed
+              # Define pad_array() as a function for this: it will set to be identity if no expansion is needed
               if datashape != expanded_datashape:
                 expanded_dataslice = tuple([ slice(0,nd) for nd in datashape ]);
                 def pad_array (x):
@@ -633,9 +641,12 @@ class StefCalNode (pynode.PyNode):
           s[~f] = 0;
           scale[p] = s,f;
       # apply scales
-      dprint(1,"min/max scaling factors are",min([s[f].min() for s,f in scale.itervalues()]),
-                                             max([s.max() for s,f in scale.itervalues()]));
-      dprint(2,"per-antenna data scaling factors are "," ".join(["%s %.3g,"%(p,s.max()) for p,(s,f) in scale.iteritems() ]));
+      if scale:
+        dprint(1,"min/max scaling factors are",min([s[f].min() for s,f in scale.itervalues()]),
+                                              max([s.max() for s,f in scale.itervalues()]));
+        dprint(2,"per-antenna data scaling factors are "," ".join(["%s %.3g,"%(p,s.max()) for p,(s,f) in scale.iteritems() ]));
+      else:
+        dprint(1,"rescaling not done, as not of the antennas appear to have any valid data");
       for (p,q),dd in data.iteritems():
         s,f = scale.get(p,(None,None));
         if s is not None:
@@ -655,6 +666,9 @@ class StefCalNode (pynode.PyNode):
 #    dps = self.compute_depol_scaling(solvable_antennas,model);
 #    model = self.apply_scaling(dps,model);
 #    data = self.apply_scaling(dps,data);
+    ## check for NANs in the data
+    self.check_finiteness(data,"data");
+    self.check_finiteness(model,"model");
 
 ## -------------------- start of major loop
     if self.solve_gains:

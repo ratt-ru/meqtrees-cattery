@@ -75,6 +75,17 @@ def matrix_invert (A,reg=0):
   det = a*d-b*c;
   return d/det,-b/det,-c/det,a/det;
 
+def matrix_maskinf (A):
+  """Replaces infinities with unity matrix""";
+  mask = ~numpy.isfinite(A[0]);
+  for a in A[1:]:
+    mask |= ~numpy.isfinite(a);
+  A[0][mask] = 1;
+  A[1][mask] = 0;
+  A[2][mask] = 0;
+  A[3][mask] = 1;
+  return A
+  
 def array_to_vells (x,vellshape=None,expanded_slice=None):
   if expanded_slice is not None:
     a = meq.complex_vells(vellshape);

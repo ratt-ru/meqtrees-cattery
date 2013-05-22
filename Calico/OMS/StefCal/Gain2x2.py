@@ -253,8 +253,8 @@ class Gain2x2 (object):
               sdv.append( scipy.ndimage.filters.gaussian_filter(x.real,self.smoothing,mode='constant')
                           +1j*scipy.ndimage.filters.gaussian_filter(x.imag,self.smoothing,mode='constant') );
           sum_dv = sdv;
-        #
-        g1p = gain1[p] = matrix_multiply(sum_dv,matrix_invert(sum_vhv));
+        inv_vhv = matrix_invert(sum_vhv)
+        g1p = gain1[p] = matrix_multiply(sum_dv,inv_vhv);
         if p in verbose_stations:
 #            print "S%d"%step,p,"sum DV",[ g[verbose_element] for g in sum_dv ],"sum VHV",[ g[verbose_element] for g in sum_vhv ];
           print "S%d"%step,p,"G'"," ".join([ "%.5g@%.3g"%(abs(g[verbose_element]),cmath.phase(g[verbose_element])) for g in g1p ]);
@@ -350,7 +350,7 @@ class Gain2x2 (object):
     gi = self._ginv.get((p,reg));
     if gi is None:
       a,b,c,d = self._G(p);
-      gi = self._ginv[p,reg] = matrix_invert((a+reg,b,c,d+reg));
+      gi = self._ginv[p,reg] = matrix_maskinf(matrix_invert((a+reg,b,c,d+reg)));
       if p in verbose_stations_corr:
         print p,"G",[ g[verbose_element] for g in a,b,c,d ];
         print p,"Ginv",[ g[verbose_element] for g in gi ];
@@ -429,5 +429,15 @@ class Gain2x2 (object):
     for p,gmat in self.gain.iteritems():
       gainsdict[p] = [ self.expand_gain_to_datashape(x,datashape,expanded_dataslice) for x in gmat ];
     return gainsdict;
+
+  def check_finiteness (self,data,label,complete=False):
+    # check for NANs in the data
+    for i,d in enumerate(data):
+      if type(d) is numpy.ndarray:
+        fin = numpy.isfinite(d);
+        if not fin.all():
+          dprintf(0,"%s %s: %d slots are INF/NAN\n",label,i,d.size-fin.sum());
+          if not complete:
+            break;
 
 
