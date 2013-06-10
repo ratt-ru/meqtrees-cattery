@@ -965,6 +965,7 @@ class MSSelector (object):
     """Creates an output record with the selected options. Use write_flags=False to suppress flag output even if selecred""";
     rec = record();
     rec.write_bitflag = self.ms_write_flags and write_flags;
+    rec.write_legacy_flags = False;
     if self.ms_write_flags and write_flags:
       # output masks
       rec.tile_bitflag = self.get_output_bitflag();
