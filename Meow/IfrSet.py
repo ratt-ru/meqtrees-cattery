@@ -266,7 +266,6 @@ class IfrSet (object):
       match = re.match("^(<|<=|>|>=|=|\\.lt\\.|\\.le\\.|\\.ge\\.|\\.gt\\.|\\.eq\\.)([^=]+)$",spec,re.IGNORECASE);
 #      print spec,match;
       if match:
-        print match.groups();
         if self._baselines:
           try:
             length = float(match.group(2));

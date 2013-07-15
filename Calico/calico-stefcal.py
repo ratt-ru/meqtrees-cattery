@@ -59,11 +59,11 @@ meqmaker = TensorMeqMaker.TensorMeqMaker(solvable=True,
                             use_decomposition=False
 );
 
-# specify available sky models
-# these will show up in the menu automatically
-#from Calico.OMS import central_point_source
-#from Siamese.OMS import fitsimage_sky,gridded_sky
-#models = [central_point_source,fitsimage_sky,gridded_sky]
+## specify available sky models
+## these will show up in the menu automatically
+# from Calico.OMS import central_point_source
+# from Siamese.OMS import fitsimage_sky,gridded_sky
+# models = [central_point_source,fitsimage_sky,gridded_sky]
 
 models = [];
 try:
@@ -101,6 +101,7 @@ if Meow.MSUtils.TABLE:
   mssel.when_changed(lambda msname:calib_ifrs_opt.set_option_list(mssel.ms_ifr_subsets));
 
 CORRECTED_DATA = "CORR_DATA";
+CORRECTED_DATA_SUB = "CORR_DATA_SUB";
 RESIDUALS = "RES";
 CORRECTED_RESIDUALS = "CORR_RES";
 CORRUPTED_MODEL = "PREDICT";
@@ -108,10 +109,8 @@ CORRUPTED_MODEL_ADD = "DATA+PREDICT";
 
 output_option = TDLCompileOption('do_output',"Output visibilities",
                                  [  (CORRECTED_DATA,"corrected data"),
-                                    (RESIDUALS,"uncorrected residuals"),
-                                    (CORRECTED_RESIDUALS,"corrected residuals"),
-                                    (CORRUPTED_MODEL,"predict"),
-                                    (CORRUPTED_MODEL_ADD,"data+predict")],
+                                    (CORRECTED_DATA_SUB,"corrected data minus DDS"),
+                                    (CORRECTED_RESIDUALS,"corrected residuals") ],
   doc="""<P>This selects what sort of visibilities get written to the output column:</P>
   <ul>
 
@@ -127,12 +126,9 @@ output_option = TDLCompileOption('do_output',"Output visibilities",
   <li><B>Corrected residuals</B> are residuals corrected for the instrumental model. This is what you usually
   want to see during calibration.</li>
 
-  <li><B>Data+predict</B> is a special mode where the predict is <i>added</I> to the input data. This is used
-  for injecting synthetic sources into your data, or for accumulating a uv-model in several steps. (In
-  the latter case your input column needs to be set to the uv-model column.)</li>
   </ul>
 
-  </P>If calibration is enabled above, then a calibration step is executed prior to generating output data. This
+  </P>If calibration is enabled, then a calibration step is executed prior to generating output data. This
   will update the instrumental and/or sky models. If calibration is not enabled, then the current models
   may still be determined by the results of past calibration, since these are stored in persistent <i>MEP
   tables.</i></P>
@@ -143,61 +139,19 @@ output_option = TDLCompileOption('do_output',"Output visibilities",
 diffgain_tag = 'dE';
 diffgain_group = 'cluster';
 
-MODE_SOLVE_SAVE = "solve-save";
-MODE_SOLVE_NOSAVE = "solve-nosave"
-MODE_SOLVE_APPLY = "apply"
+from Calico.OMS.StefCal.GainOpts import GainOpts,MODE_SOLVE_SAVE,MODE_SOLVE_NOSAVE,MODE_SOLVE_APPLY
 
-TDLCompileOption("stefcal_implementation","Stefcal implementation",
-  ["GainDiag","Gain2x2","Gain2x2-r8768.Gain2x2" ] );
-TDLCompileOption("stefcal_gain_mode","Solution mode",
-  {MODE_SOLVE_SAVE:"solve and save",MODE_SOLVE_NOSAVE:"solve, do not save",MODE_SOLVE_APPLY:"load and apply"}); 
-TDLCompileOption("stefcal_gain_reset","Ignore previously saved G/dE solutions",False);
-TDLCompileMenu("Filenames for solution tables",
-  TDLOption("stefcal_gain_table","Gains",["gains.cp"],more=str),
-  TDLOption("stefcal_diff_gain_table","Diferential gains",["diffgains.cp"],more=str),
-);
-dgsel = TensorMeqMaker.SourceSubsetSelector("Enable source-based differential gains (dEs)",
+gopts = GainOpts("direction-independent gain","gain","G","stefcal");
+TDLCompileOptions(*gopts.tdl_options);
+bopts = GainOpts("direction-independent gain","gain1","B","stefcal");
+TDLCompileOptions(*bopts.tdl_options);
+dgsel = TensorMeqMaker.SourceSubsetSelector("Apply diffgains to selected sources",
           tdloption_namespace='de_subset',annotate=False);
-TDLCompileOptions(*dgsel.options);
-TDLCompileMenu("Convergence settings (G)",
-  TDLOption("stefcal_weigh_g","Apply noise-based weights",True),
-  TDLOption("stefcal_niter_g","Max iterations, first major loop",[20,50,100],more=int,default=50),
-  TDLOption("stefcal_niter1_g","Max iterations, middle loops",[20,50,100],more=int,default=20),
-  TDLOption("stefcal_niter2_g","Max iterations, last loop",[20,50,100],more=int,default=50),
-  TDLOption("stefcal_epsilon_g","Convergence epsilon",[1e-4,1e-5,1e-6],more=float,default=1e-6),
-  TDLOption("stefcal_quota_g","Convergence epsilon quota",[.95,.99,1],more=float),
-  TDLOption("stefcal_delta","Convergence delta, first major loop",[1e-5,1e-6,1e-7],more=float,default=1e-6),
-  TDLOption("stefcal_delta_1","Convergence delta, middle loops",[1e-5,1e-6,1e-7],more=float,default=1e-5),
-  TDLOption("stefcal_delta_2","Convergence delta, last loop",[1e-5,1e-6,1e-7],more=float,default=1e-5),
-  TDLOption("stefcal_omega","Averaging weight (omega), first major loop",[0.5,1.8],more=float),
-  TDLOption("stefcal_average","Averaging mode, first major loop",[0,1,2],default=2),
-  TDLOption("stefcal_ff","Enable feed-forward averaging, first major loop",False),
-  TDLOption("stefcal_omega_1","Averaging weight (omega), rest of major loop",[0.5,1.8],more=float),
-  TDLOption("stefcal_average_1","Averaging mode, rest of major loop",[0,1,2],default=2),
-  TDLOption("stefcal_ff_1","Enable feed-forward averaging, rest of major loop",False),
-  TDLOption("stefcal_g_timeint","Solution interval, time axis (0 for full axis)",[0,1],more=int,default=1),
-  TDLOption("stefcal_g_freqint","Solution interval, freq axis (0 for full axis)",[0,1],more=int,default=1),
-  TDLOption("stefcal_g_timesmooth","Smoothing kernel, time axis",[0],more=int),
-  TDLOption("stefcal_g_freqsmooth","Smoothing kernel, freq axis",[0],more=int),
-);
-TDLCompileMenu("Convergence settings (dE)",
-  TDLOption("stefcal_weigh_de","Apply noise-based weights",True),
-  TDLOption("stefcal_niter_de","Max iterations",[20,50,100],more=int),
-  TDLOption("stefcal_epsilon_de","Convergence epsilon",[1e-4,1e-5,1e-6],more=float),
-  TDLOption("stefcal_quota_de","Convergence epsilon quota",[.95,.99,1],more=float,default=.99),
-  TDLOption("stefcal_delta_de","Convergence delta",[1e-5,1e-6,1e-7],more=float,default=1e-6),
-  TDLOption("stefcal_omega_de","Averaging weight (omega)",[0.5,1.8],more=float),
-  TDLOption("stefcal_average_de","Averaging mode",[0,1,2],default=2),
-  TDLOption("stefcal_ff_de","Enable feed-forward averaging",False),
-  TDLOption("stefcal_de_timeint","Solution interval, time axis (0 for full axis)",[0,30,60,120],more=int,default=60),
-  TDLOption("stefcal_de_freqint","Solution interval, freq axis (0 for full axis)",[0,30,60,120],more=int,default=0),
-  TDLOption("stefcal_de_timesmooth","Smoothing kernel, time axis",[0],more=int),
-  TDLOption("stefcal_de_freqsmooth","Smoothing kernel, freq axis",[0],more=int),
-);
-TDLCompileOption("stefcal_nmajor","Number of major loops",[1,2,3,5],more=int,default=2);
-TDLCompileOption("stefcal_rescale","Rescale data to model before solving",True);
+deopts = GainOpts("differential gain","diffgain","dE","stefcal",pre_opts=dgsel.options);
+TDLCompileOptions(*deopts.tdl_options);
+
 DIAGONLY,ALLFOUR = "diag","full";
-TDLCompileMenu("Enable IFR-based gains",
+TDLCompileMenu("Use interferometer errors",
   TDLOption("stefcal_ifr_gain_mode","Solution mode",
     {MODE_SOLVE_SAVE:"solve and save",MODE_SOLVE_NOSAVE:"solve, do not save",MODE_SOLVE_APPLY:"load and apply"}),
   TDLOption("stefcal_ifr_gain_reset","Ignore previously saved solutions",False),
@@ -207,17 +161,25 @@ TDLCompileMenu("Enable IFR-based gains",
   TDLOption("stefcal_ifr_gain_table","Filename for solutions",["ifrgains.cp"],more=str),
   toggle="stefcal_ifr_gains",
 );
-
-EQTYPE_MODEL = "model";
-EQTYPE_DATA  = "data";
-TDLCompileOption("stefcal_eqtype","Equation type",{EQTYPE_MODEL:"GMG*->D",EQTYPE_DATA:"GDG*->M"});
-TDLCompileMenu("Include visualizers...",
-  TDLCompileOption("visualize_G","For G solutions",False),
-  TDLCompileOption("visualize_dE","For dE solutions",False),
+TDLCompileOption("stefcal_nmajor","Number of major loops",[1,2,3,5],more=int,default=2);
+TDLCompileOption("stefcal_rescale","Rescale data to model before solving",["no","scalar","per slot"]);
+TDLCompileOption("stefcal_noise_per_chan","Use per-channel noise estimates",True);
+stefcal_downsample = False;
+#TDLCompileMenu("Use on-the-fly downsampling",
+#  TDLCompileOption("stefcal_downsample_timeint","Downsampling interval, time axis (1 for full resolution)",[1],more=int,default=1),
+# TDLCompileOption("stefcal_downsample_freqint","Downsampling interval, freq axis (1 for full resolution)",[1],more=int,default=1),
+#  toggle="stefcal_downsample");
+TDLCompileOption("critical_flag_threshold","Critical flag threshold",[10,20,50,100],more=int,default=20,
+  doc=
+  """If percentage of flagged data exceeds this threshold, stop with an error message. Set to 100 to disable. This
+  is a sanity check meant to catch situations when incorrect StefCal settings cause all (or too much) data to be flagged.
+  """
+  );
+TDLCompileMenu("Enable visualizers",
   TDLCompileOption("visualize_flag_unity","Flag zero/unity solutions in visualizers",True),
   TDLCompileOption("visualize_norm_offdiag","Normalize off-diagonal terms by diagonals",True),
   toggle="stefcal_visualize");
-TDLCompileOption("stefcal_verbose","Verbosity level",[0,1,2,3],more=int);
+TDLCompileOption("stefcal_verbose","Stefcal verbosity level",[0,1,2,3],more=int);
 
 import Purr.Pipe
 
@@ -244,19 +206,20 @@ def _define_forest(ns,parent=None,**kw):
 
   # predict tree using the MeqMaker
   all_sources = meqmaker.get_source_list(ns);
-  dg_sources = dgsel.subset_enabled and dgsel.filter(all_sources);
+  dg_sources = deopts.enabled and dgsel.filter(all_sources);
   if dg_sources:
     # first group all sources without a diffgain on them
     groups = [ [ src for src in all_sources if not src in dg_sources ] ];
     # group diffgain-enabled sources by grouping tag
     clusters = set([src.get_attr(diffgain_group,None) for src in dg_sources]);
-    dg_groups = [ [ src for src in dg_sources if src.get_attr(diffgain_group) == name ] for name in clusters if name ];
+    dg_groups = [ (name,[ src for src in dg_sources if src.get_attr(diffgain_group) == name ]) for name in clusters if name ];
     # add sources without a grouping tag individually, as single-source groups
-    dg_groups += [ [ src ] for src in dg_sources if not src.get_attr(diffgain_group,None) ];
+    dg_groups += [ (src.name,[src]) for src in dg_sources if not src.get_attr(diffgain_group,None) ];
     # now sort by brightness
-    flux_dgg = [ (sum([src.get_attr('Iapp',0) or src.get_attr('I') for src in dgg]),dgg) for dgg in dg_groups ];
+    flux_dgg = [ (sum([src.get_attr('Iapp',0) or src.get_attr('I') for src in dgg[1]]),dgg) for dgg in dg_groups ];
     flux_dgg.sort(lambda a,b:cmp(b[0],a[0]));
-    groups += [ dgg for flux,dgg in flux_dgg ];
+    diffgain_labels = [ dgg[0] for flux,dgg in flux_dgg ];
+    groups += [ dgg[1] for flux,dgg in flux_dgg ];
     num_diffgains = len(flux_dgg);
     # now make predict trees
     models = [];
@@ -265,63 +228,36 @@ def _define_forest(ns,parent=None,**kw):
       predict = meqmaker.make_predict_tree(MT.Subscope(),sources=group);
       ns.MT(i) << Meq.Composer(dims=[0],mt_polling=True,*[ predict(p,q) for p,q in array.ifrs() ]);
       models.append(ns.MT(i));
+    print "Number of diffgain predict groups:",len(groups);
   else:
+    diffgain_labels = [];
+    num_diffgains = 0;
     predict = meqmaker.make_predict_tree(ns);
     ns.MT << Meq.Composer(dims=[0],mt_polling=True,*[ predict(p,q) for p,q in array.ifrs() ]);
     models = [ ns.MT ];
-    global visualize_dE;
-    visualize_dE = False;
-
+    
   solve_ifrs  = array.subset(calibrate_ifrs,strict=False).ifrs();
-  gain_subtiling = [ stefcal_g_timeint,stefcal_g_freqint ];
-  gain_smoothing = [ stefcal_g_timesmooth,stefcal_g_freqsmooth ];
-  for i in range(2):
-    if gain_smoothing[i]:
-      gain_subtiling[i] = 1;
-  if all([not x for x in gain_smoothing]):
-    gain_smoothing = [];
-
-  diffgain_subtiling = [ stefcal_de_timeint,stefcal_de_freqint ];
-  diffgain_smoothing = [ stefcal_de_timesmooth,stefcal_de_freqsmooth ];
-  for i in range(2):
-    if diffgain_smoothing[i]:
-      diffgain_subtiling[i] = 1;
-  if all([not x for x in diffgain_smoothing]):
-    diffgain_smoothing = [];
+  downsample_subtiling = [ stefcal_downsample_timeint,stefcal_downsample_freqint ] if stefcal_downsample else [1,1];
 
   import Calico.OMS.StefCal.StefCal
-  global visualize_G,visualize_dE;
-  visualize_G = stefcal_visualize and visualize_G;
-  visualize_dE = stefcal_visualize and visualize_dE;
+  kwopts = {}
+  gopts.set_stefcal_node_options(kwopts,visualize=stefcal_visualize);
+  bopts.set_stefcal_node_options(kwopts,visualize=stefcal_visualize);
+  deopts.set_stefcal_node_options(kwopts,visualize=stefcal_visualize);
   ns.stefcal << Meq.PyNode(class_name="StefCalNode",module_name=Calico.OMS.StefCal.StefCal.__file__,
                            ifrs=[ "%s:%s"%(p,q) for p,q in array.ifrs() ],
                            baselines=[ array.baseline(ip,iq) for (ip,p),(iq,q) in array.ifr_index() ],
                            solve_ifrs=[ "%s:%s"%(p,q) for p,q in solve_ifrs ],
-                           max_iter=stefcal_niter_g,max_iter_1=stefcal_niter1_g,max_iter_2=stefcal_niter2_g,
-                           delta=stefcal_delta,delta_1=stefcal_delta_1,delta_2=stefcal_delta_2,
-                           epsilon=stefcal_epsilon_g,
-                           weigh_gains=stefcal_weigh_g,
-                           diffgain_max_iter=stefcal_niter_de,
-                           diffgain_delta=stefcal_delta_de,
-                           diffgain_epsilon=stefcal_epsilon_de,
-                           weigh_diffgains=stefcal_weigh_de,
-                           max_major=stefcal_nmajor,
-                           omega=stefcal_omega,omega_1=stefcal_omega_1,omega_de=stefcal_omega_de,
-                           average=stefcal_average,average_1=stefcal_average_1,average_de=stefcal_average_de,
-                           feed_forward=stefcal_ff,feed_forward_1=stefcal_ff_1,feed_forward_de=stefcal_ff_de,
-                           convergence_quota=stefcal_quota_g,diffgain_convergence_quota=stefcal_quota_de,
-                           gain_subtiling=gain_subtiling,diffgain_subtiling=diffgain_subtiling,
-                           gain_smoothing=gain_smoothing,diffgain_smoothing=diffgain_smoothing,
-                           implementation=stefcal_implementation,
+                           noise_per_chan=stefcal_noise_per_chan,
+                           downsample_subtiling=downsample_subtiling,
+                           num_major_loops=stefcal_nmajor,
                            regularization_factor=1e-6,#
                            rescale=stefcal_rescale,
                            init_from_previous=False,
-                           # gain solution options
-                           solve_gains=(stefcal_gain_mode != MODE_SOLVE_APPLY),
-                           save_gains=(stefcal_gain_mode == MODE_SOLVE_SAVE),
-                           reset_gains=stefcal_gain_reset,
-                           gain_table=stefcal_gain_table,
-                           diff_gain_table=stefcal_diff_gain_table,
+                           critical_flag_threshold=critical_flag_threshold,
+                           diffgain_labels=diffgain_labels,
+                           # flagging options
+                           output_flag_bit=Meow.MSUtils.FLAGMASK_OUTPUT,
                            # IFR gain solution options
                            apply_ifr_gains=stefcal_ifr_gains,
                            solve_ifr_gains=(stefcal_ifr_gain_mode != MODE_SOLVE_APPLY),
@@ -330,51 +266,55 @@ def _define_forest(ns,parent=None,**kw):
                            ifr_gain_table=stefcal_ifr_gain_table,
                            per_chan_ifr_gains=stefcal_per_chan_ifr_gains,
                            diag_ifr_gains=(stefcal_diagonal_ifr_gains == DIAGONLY),
-#                          gains_on_data=True,
-#                           gain_bounds=[.01,1000],
-                           gains_on_data=(stefcal_eqtype == EQTYPE_DATA),
-#                           gain_bounds=[1e-5,10],
-                           visualize_gains=visualize_G,visualize_diffgains=visualize_dE,
-#                           dump_domain=0,dump_diffgain=-1,
-                           correct=(do_output in (CORRECTED_DATA,CORRECTED_RESIDUALS)),
-                           residuals=(do_output in (RESIDUALS,CORRECTED_RESIDUALS)),
+                           residuals=(do_output == CORRECTED_RESIDUALS),
+                           subtract_dgsrc=(do_output == CORRECTED_DATA_SUB),
                            verbose=stefcal_verbose,
-                           children=[ns.DT]+models);
-
-  if visualize_G:
-    ns.stefcal_vis_G << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
-      label="G",flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
-      vells_label=Context.correlations);
-    ns.stefcal_vis_G_avg << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
-      label="G",freq_average=True,flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
-      vells_label=Context.correlations);
-  if visualize_dE:
-    for i in range(num_diffgains):
-      ns.stefcal_vis_dE(i) << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
-        label="dE:%d"%i,flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
-        vells_label=Context.correlations);
-      ns.stefcal_vis_dE_avg(i) << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
-                                    label="dE:%d"%i,freq_average=True,flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
-                                    vells_label=Context.correlations);
-
+                           children=[ns.DT]+models,**kwopts);
+                           
+  inspectors = meqmaker.get_inspectors() or [];
+  # make output bookmarks
   nv = 0;
   for p,q in array.ifrs():
     sel = ns.output_sel(p,q) << Meq.Selector(ns.stefcal,index=range(nv,nv+4),multi=True);
     ns.output(p,q) << Meq.Composer(sel,dims=[2,2]);
     nv += 4;
   meqmaker.make_per_ifr_bookmarks(ns.output,"Output visibilities");
+  
+  Bookmarks.Page("StefCal outputs").add(ns.stefcal,viewer="Record Browser");
 
-  inspectors = meqmaker.get_inspectors() or [];
-  if visualize_G:
+  if gopts.enabled and gopts.visualize and stefcal_visualize:
+    ns.stefcal_vis_G << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
+      label="G",flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
+      vells_label=Context.correlations);
+    ns.stefcal_vis_G_avg << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
+      label="G",freq_average=True,flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
+      vells_label=Context.correlations);
     Bookmarks.Page("StefCal G plotter").add(ns.stefcal_vis_G,viewer="Result Plotter");
     Bookmarks.Page("StefCal G inspector").add(ns.stefcal_vis_G_avg,viewer="Collections Plotter");
     inspectors += [ ns.stefcal_vis_G,ns.stefcal_vis_G_avg ];
-  if visualize_dE:
-    for i in range(num_diffgains):
-      Bookmarks.Page("StefCal dE:%d plotter"%i).add(ns.stefcal_vis_dE(i),viewer="Result Plotter");
-      Bookmarks.Page("StefCal dE:%d inspector"%i).add(ns.stefcal_vis_dE_avg(i),viewer="Collections Plotter");
-      inspectors += [ ns.stefcal_vis_dE(i),ns.stefcal_vis_dE_avg(i) ];
+  if bopts.enabled and bopts.visualize and stefcal_visualize:
+    ns.stefcal_vis_B << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
+      label="B",flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
+      vells_label=Context.correlations);
+    ns.stefcal_vis_B_avg << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
+      label="B",freq_average=True,flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
+      vells_label=Context.correlations);
+    Bookmarks.Page("StefCal B plotter").add(ns.stefcal_vis_B,viewer="Result Plotter");
+    Bookmarks.Page("StefCal B inspector").add(ns.stefcal_vis_B_avg,viewer="Collections Plotter");
+    inspectors += [ ns.stefcal_vis_B,ns.stefcal_vis_B_avg ];
+  if deopts.enabled and deopts.visualize and stefcal_visualize:
+    for i,label in enumerate(diffgain_labels):
+      vde = ns.stefcal_vis_dE(label) << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
+        label="dE:%s"%label,flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
+        vells_label=Context.correlations);
+      vde_avg = ns.stefcal_vis_dE_avg(label) << Meq.PyNode(class_name="StefCalVisualizer",module_name=Calico.OMS.StefCal.StefCal.__file__,
+                                    label="dE:%s"%label,freq_average=True,flag_unity=visualize_flag_unity,norm_offdiag=visualize_norm_offdiag,
+                                    vells_label=Context.correlations);
+      Bookmarks.Page("StefCal dE:%s plotter"%label).add(vde,viewer="Result Plotter");
+      Bookmarks.Page("StefCal dE:%s inspector"%label).add(vde_avg,viewer="Collections Plotter");
+      inspectors += [ vde,vde_avg ];
 
+  # make sinks
   StdTrees.make_sinks(ns,ns.output,spigots=spigots,post=inspectors,
       corr_index=mssel.get_corr_index());
   # this should come last, since runtime options may be built up during compilation.
@@ -390,27 +330,32 @@ def _define_forest(ns,parent=None,**kw):
   # add options to clear all solutions 
   from Calico.OMS.StefCal import StefCal
   TDLRuntimeOption("stefcal_reset_all","Remove all existing solutions",False);
-  for table,varname,desc in [ 
-        (stefcal_gain_table,'stefcal_reset_gains',"gain solutions"),
-        (stefcal_diff_gain_table,'stefcal_reset_diff_gains',"differential gain solutions"),
-        (stefcal_ifr_gain_table,'stefcal_reset_ifr_gains',"IFR-based gain solutions") ]:
-    TDLRuntimeOption(varname,"Remove existing %s (%s)"%(desc,os.path.basename(table)),False);
+  for opt in gopts,bopts,deopts:
+    if opt.enabled:
+      TDLRuntimeOption("reset","Remove existing %s solutions (%s)"%(opt.label,os.path.basename(opt.table)),False,namespace=opt);
+  if stefcal_ifr_gains:
+    TDLRuntimeOption("stefcal_reset_ifr_gains","Remove existing interferometer errors (%s)"%(
+        os.path.basename(stefcal_ifr_gain_table)),False);
   TDLRuntimeJob(_run_stefcal,"Run StefCal",job_id="stefcal");
 
 def _run_stefcal (mqs,parent,wait=False):
-  for table,varname,desc in [ 
-        (stefcal_gain_table,'stefcal_reset_gains',"gain solutions"),
-        (stefcal_diff_gain_table,'stefcal_reset_diff_gains',"differential gain solutions"),
-        (stefcal_ifr_gain_table,'stefcal_reset_ifr_gains',"IFR-based gain solutions") ]:
-    if stefcal_reset_all or globals().get(varname,False):
-      if os.path.exists(table):
-        print "Removing %s as requested"%table;
-        try:
-          os.unlink(table);
-        except:
-          traceback.print_exc();
-          print "Error removing %s"%table;
-      else:
-        print "%s does not exist, so not trying to remove"%table;
+  # collect which tables to remove
+  to_remove = [];
+  for opt in gopts,bopts,deopts:
+    if stefcal_reset_all or (opt.enabled and opt.reset):
+      to_remove.append(opt.table);
+  if stefcal_reset_all or (stefcal_ifr_gains and stefcal_reset_ifr_gains):
+    to_remove.append(stefcal_ifr_gain_table);
+  # remove tables
+  for fname in to_remove:
+    if os.path.exists(fname):
+      print "Removing %s as requested"%fname;
+      try:
+        os.unlink(fname);
+      except:
+        traceback.print_exc();
+        print "Error removing %s"%fname;
+    else:
+      print "%s does not exist, so not trying to remove"%fname;
   mqs.clearcache('VisDataMux');
   mqs.execute('VisDataMux',mssel.create_io_request(),wait=wait);

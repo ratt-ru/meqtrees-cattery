@@ -8,7 +8,7 @@ identity_function = lambda x:x;
 
 # returns 0 if an element is 0
 def is_null (x):
-  return (numpy.isscalar(x) and x == 0) or (x.size == 1 and x.flat[0] == 0);
+  return x is None or ( not x if numpy.isscalar(x) else numpy.ma.is_masked(x) or (x.size == 1 and x.flat[0] == 0) );
 
 # list of matrix indices in a flat 4-list representation
 IJ2x2 = [ (i,j) for i in range(2) for j in range(2) ];
@@ -24,11 +24,14 @@ def make_matrix (datadict,key0):
 def matrix_copy (A):
   return [ x if numpy.isscalar(x) else x.copy() for x in A ];
 
+def _mul (x,y):
+  return 0 if is_null(x) or is_null(y) else x*y;
+  
 def matrix_multiply (A,B):
   """Multiplies two matrices given as flat 4-lists""";
   a11,a12,a21,a22 = A;
   b11,b12,b21,b22 = B;
-  return [ a11*b11+a12*b21,a11*b12+a12*b22,a21*b11+a22*b21,a21*b12+a22*b22 ];
+  return [ _mul(a11,b11)+_mul(a12,b21),_mul(a11,b12)+_mul(a12,b22),_mul(a21,b11)+_mul(a22,b21),_mul(a21,b12)+_mul(a22,b22) ];
 
 def matrix_conj (A):
   """Conjugates a matrix given as a flat 4-list""";
@@ -72,18 +75,20 @@ def matrix_invert (A,reg=0):
   if reg:
     a = a+reg;
     d = d+reg;
-  det = a*d-b*c;
-  return d/det,-b/det,-c/det,a/det;
+  if not (is_null(b) and is_null(c)):
+    det = a*d-b*c;
+    return d/det,-b/det,-c/det,a/det;
+  else:
+    return 1/a,0,0,1/d;
 
 def matrix_maskinf (A):
   """Replaces infinities with unity matrix""";
   mask = ~numpy.isfinite(A[0]);
   for a in A[1:]:
     mask |= ~numpy.isfinite(a);
-  A[0][mask] = 1;
-  A[1][mask] = 0;
-  A[2][mask] = 0;
-  A[3][mask] = 1;
+  for a,defval in zip(A,(1,0,0,1)):
+    if not numpy.isscalar(a):
+      a[mask] = defval;
   return A
   
 def array_to_vells (x,vellshape=None,expanded_slice=None):
