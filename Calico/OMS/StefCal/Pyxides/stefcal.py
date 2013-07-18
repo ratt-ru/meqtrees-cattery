@@ -77,7 +77,8 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",label="G",
     'stefcal_gain1.table': STEFCAL_GAIN1,
     'stefcal_diffgain.table': STEFCAL_DIFFGAIN,
     'stefcal_diffgain1.table': STEFCAL_DIFFGAIN1,
-    'stefcal_ifr_gain_table': STEFCAL_IFRGAIN
+    'stefcal_ifr_gain_table': STEFCAL_IFRGAIN,
+    'stefcal_visualize': False
   }
 
   # add user-defined args

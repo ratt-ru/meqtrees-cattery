@@ -133,7 +133,7 @@ class GainOpts (object):
         # ...and copy its value into our OPTION attribute
         setattr(self,option,value);
         # and print
-        dprint(3,"%s: setting"%self.name,optname,"=",value);
+        dprint(4,"%s: setting"%self.name,optname,"=",value);
     self.polarized = False;
     # get implementation class
     # given X.Y.Z, import module X.Y, and use symbol Z from that
