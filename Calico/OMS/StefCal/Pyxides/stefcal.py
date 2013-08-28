@@ -18,6 +18,8 @@ define("STEFCAL_GAIN_SAVE_Template","$OUTFILE.gain.cp","archive destination for 
 define("STEFCAL_GAIN1_SAVE_Template","$OUTFILE.gain.cp","archive destination for gain1 solutions")
 define("STEFCAL_DIFFGAIN_SAVE_Template","$OUTFILE.diffgain.cp","archive destination for diffgain solutions")
 define("STEFCAL_IFRGAIN_SAVE_Template","$OUTFILE.ifrgain.cp","archive destination for IFR gain solutions")
+define("STEFCAL_DIFFGAIN_SMOOTHING","","smoothing kernel (time,freq) for diffgains, overrides TDL config file")
+define("STEFCAL_DIFFGAIN_INTERVALS","","solution intervals (time,freq) for diffgains, overrides TDL config file")
 
 def stefcal ( msname="$MS",section="$STEFCAL_SECTION",label="G",
               apply_only=False,
@@ -27,6 +29,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",label="G",
               plotvis="${ms.PLOTVIS}",
               dirty=True,restore=False,restore_lsm=True,
               args=[],options={},
+              diffgain_intervals=None,diffgain_smoothing=None,
               **kws):
   """Generic function to run a stefcal job.
   
@@ -38,7 +41,8 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",label="G",
                     or T1,T2 for --above T1 --fm-above T2
   'output'          output visibilities ('CORR_DATA','CORR_RES', 'RES' are useful)
   'plotvis'         if not empty, specifies which output visibilities to plot using plot-ms (see plot.ms.py --help) 
-  'dirty','restore' image output visibilities (passed to make_image above as is)
+  'dirty','restore' 
+  'restore_lsm'     image output visibilities (passed to imager.make_image above as is)
   'args','options'  passed to the stefcal job as is (as a list of arguments and kw=value pairs), 
                     can be used to supply extra TDL options
   extra keywords:   passed to the stefcal job as kw=value, can be used to supply extra TDL options, thus
@@ -64,8 +68,6 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",label="G",
     if diffgains is True:
       diffgains = "=dE";
     args0.append("de_subset.subset_enabled=1 de_subset.source_subset=$diffgains"); 
-  if output == "CORR":
-    output = "CORR_DATA";
   opts = {
     'do_output': output,
     'stefcal_gain.mode': "apply" if apply_only else "solve-save",
@@ -80,6 +82,12 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",label="G",
     'stefcal_ifr_gain_table': STEFCAL_IFRGAIN,
     'stefcal_visualize': False
   }
+  timesmooth,freqsmooth = diffgain_smoothing or STEFCAL_DIFFGAIN_SMOOTHING or (0,0);
+  timeint,freqint = diffgain_intervals or STEFCAL_DIFFGAIN_INTERVALS or (0,0);
+  opts['stefcal_diffgain.timeint'] = 0 if timesmooth else timeint;
+  opts['stefcal_diffgain.freqint'] = 0 if freqsmooth else freqint;
+  opts['stefcal_diffgain.timesmooth'] = timesmooth;
+  opts['stefcal_diffgain.freqsmooth'] = freqsmooth;
 
   # add user-defined args
   args0 += list(args);

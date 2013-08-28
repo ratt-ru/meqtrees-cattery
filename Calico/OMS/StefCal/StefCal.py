@@ -540,8 +540,8 @@ class StefCalNode (pynode.PyNode):
           dsum += sum([x*numpy.conj(x) for x in d]);
           msum += sum([x*numpy.conj(x) for x in m]);
         if self.rescale == "scalar":
-          dsum = dsum.sum();
-          msum = msum.sum();
+          dsum = dsum.sum() if dsum is not 0 else 0+0j;
+          msum = msum.sum() if msum is not 0 else 0+0j;
           if dsum:
             scale[p] = numpy.power(msum.real/dsum.real,0.25),True;
           else:
@@ -632,7 +632,6 @@ class StefCalNode (pynode.PyNode):
           skip_solve = True;
     else:
       skip_solve = True;
-      nflagged_due_to_insufficient = 0;
         
 ## -------------------- init gain solvers
     if not skip_solve:
@@ -1183,6 +1182,10 @@ class StefCalNode (pynode.PyNode):
         global_gains.setdefault(gopt.label,[]).append(gopt.solver.get_2x2_gains(expanded_datashape,expanded_dataslice));
       ## compute chisq if converged, or stopping, or using chi-sq convergence (delta!=0)
       delta = gopt.delta;
+      if looptype:
+        delta1 = getattr(gopt,"delta_loop%d"%looptype);
+        if delta1 == "same":
+          delta1 = gopt.delta;
       if delta != 0 or gopt.max_diverge or converged or niter == gopt.max_iter-1:
         chisq,chisq_unnorm,chisq_arr,chisq_unnorm_arr = self.compute_chisq(model,data,gopt.solver,weight=weight,bitflags=bitflags);
       if delta != 0:
@@ -1314,6 +1317,8 @@ class StefCalNode (pynode.PyNode):
         chisq_masked = numpy.ma.masked_array(chisq_arr,chisq_arr==0,fill_value=0);
         mode = getattr(gopt,"flag_chisq_loop%d"%looptype);
         mm = numpy.ma.median(chisq_masked,axis={FREQMED:0,TIMEMED:1}.get(mode,None));
+        if numpy.ma.is_masked(mm):
+          mm = mm.filled(fill_value=1e+999);
         dprint(3,"M (median chisq value):",mm);
       # get flagmask based on theshold  
       chisq_flagmask = (chisq_arr > mm*gopt.flag_chisq_threshold);

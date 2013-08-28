@@ -125,8 +125,30 @@ meqmaker.add_uv_jones('G','gains/phases',oms_gain_models);
 TDLCompileOptions(*meqmaker.compile_options());
 
 # noise option
-TDLCompileOption("noise_stddev","Add noise, Jy",[None,1e-6,1e-3],more=float);
+_noise_option = TDLOption("noise_stddev","Add noise, Jy per visibility",[None,1e-6,1e-3],more=float);
+_sefd_options = [ 
+    TDLOption("noise_sefd","SEFD, Jy",0,more=float),
+    TDLOption("noise_sefd_bw_khz","Channel width, kHz",4,more=float),
+    TDLOption("noise_sefd_integration","Integration, s",60,more=float),
+];
+_sefd_menu = TDLMenu("Compute from SEFD",toggle="noise_from_sefd",
+  doc="""To compute per-visibility noise from the system equivalent flux density, enable this option,
+and enter correct values for SEFD (per antenna), channel width and integration time in the fields below.
+The formula actually used is sigma = SEFD/sqrt(2*bandwidth*integration).
+""",
+  *_sefd_options);
 
+TDLCompileMenu("Add noise",
+  _noise_option,
+  _sefd_menu);
+  
+def _recompute_noise (dum):
+  if noise_from_sefd:
+    _noise_option.set_value(noise_sefd/math.sqrt(2*noise_sefd_bw_khz*1e+3*noise_sefd_integration));
+
+for opt in _sefd_options + [_sefd_menu]:
+  opt.when_changed(_recompute_noise);
+  
 TDLCompileOption("random_seed","Random generator seed",["time",0],more=int,
   doc="""<P>To get a reproducible distribution for noise (and other "random" errors), supply a fixed seed value 
   here. The default setting of "time" uses the current time to seed the generator, so the distribution
@@ -192,14 +214,16 @@ def _define_forest (ns):
   # very important -- insert meqmaker's options properly
   TDLRuntimeOptions(*meqmaker.runtime_options());
 
+  TDLRuntimeJob(_tdl_job_1_simulate_MS,"Run simulation",job_id="simulate",doc="""Runs the simulation.
+NB: if you see a "1 simulate MS" button below, this does the same thing -- it's for backwards compatibility.
+""");
+
   # close the meqmaker. This produces annotations, etc.
   meqmaker.close();
-
 
 def _tdl_job_1_simulate_MS (mqs,parent,wait=False):
   mqs.clearcache('VisDataMux');
   mqs.execute('VisDataMux',mssel.create_io_request(),wait=wait);
-
 
 # this is a useful thing to have at the bottom of the script, it allows us to check the tree for consistency
 # simply by running 'python script.tdl'

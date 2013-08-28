@@ -73,7 +73,11 @@ class GainOpts (object):
               TDLOption("epsilon","Solution convergence criterion",[1e-4,1e-5,1e-6,1e-7,1e-8],more=float,default=1e-6,namespace=self),
               TDLOption("quota","Solution convergence quorum",[.95,.99,1],more=float,namespace=self),
               TDLOption("delta","Chi-sq convergence criterion (0 disables)",
-                          [0,1e-3,1e-5,1e-6,1e-7],more=float,default=1e-6,namespace=self),
+                          [0,1e-3,1e-6],more=float,default=1e-6,namespace=self),
+              TDLOption("delta_loop1","...for intermediate major loops",
+                          ["same",0,1e-3,1e-6],more=float,default="same",namespace=self),
+              TDLOption("delta_loop2","...for final major loop",
+                          ["same",0,1e-3,1e-6],more=float,default="same",namespace=self),
               TDLOption("max_diverge","Iterations to allow chi-sq to diverge for",[0,1,5],more=int,default=1,namespace=self),
               TDLOption("omega","Averaging weight (omega)",[0.5,1.8],more=float,namespace=self),
               TDLOption("average","Averaging mode",[0,1,2],default=2,namespace=self),
@@ -99,6 +103,8 @@ class GainOpts (object):
             ('chisq_flag',5),
             ('epsilon',1e-5),            # when the update is ||G-G'||<epsilon, we are converged
             ('delta',1e-6),              # when chisq changes by less than delta, we are converged
+            ('delta_loop1',"same"),              # when chisq changes by less than delta, we are converged
+            ('delta_loop2',"same"),              # when chisq changes by less than delta, we are converged
             ('max_iter',50),             # max gain iter 
             ('max_diverge',10),          # max iterations to diverge allowed 
             ('convergence_quota',0.99),   # what percentage of parms should converge
@@ -159,6 +165,8 @@ class GainOpts (object):
     kw['%s_flag_chisq_loop2'%name] = self.flag_chisq_loop2;
     kw['%s_epsilon'%name]    = self.epsilon;
     kw['%s_delta'%name]      = self.delta;
+    kw['%s_delta_loop1'%name]= self.delta_loop1;
+    kw['%s_delta_loop2'%name]= self.delta_loop2;
     kw['%s_max_diverge'%name]= self.max_diverge;
     kw['%s_max_iter'%name]   = self.niter;
     kw['%s_convergence_quota'%name] = self.quota
