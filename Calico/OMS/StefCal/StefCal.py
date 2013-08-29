@@ -632,6 +632,7 @@ class StefCalNode (pynode.PyNode):
           skip_solve = True;
     else:
       skip_solve = True;
+      nflagged_due_to_insufficient = 0;
         
 ## -------------------- init gain solvers
     if not skip_solve:
@@ -835,7 +836,6 @@ class StefCalNode (pynode.PyNode):
       # count flagged but unpadded points
       if fmask is not None:
         nfl += (((fmask&~FPRIOR)!=0)&self._expansion_mask).sum();
-    print nfl,nflagged_due_to_insufficient;
     flagpc = (nfl - nflagged_due_to_insufficient*len(data))*100./ndata;
     if flagpc > self.critical_flag_threshold:
       dprint(0,"***CRITICAL*** %.2f%% (%d/%d) data points were flagged in the stefcal process. Can not take. Stopping!"%(flagpc,nfl,ndata));
