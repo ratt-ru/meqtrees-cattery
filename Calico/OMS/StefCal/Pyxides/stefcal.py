@@ -22,14 +22,17 @@ define("STEFCAL_DIFFGAIN_SMOOTHING","","smoothing kernel (time,freq) for diffgai
 define("STEFCAL_DIFFGAIN_INTERVALS","","solution intervals (time,freq) for diffgains, overrides TDL config file")
 
 def stefcal ( msname="$MS",section="$STEFCAL_SECTION",label="G",
-              apply_only=False,
               diffgains=None,
+              apply_only=False,
+              gain_apply_only=False,
+              diffgain_apply_only=False,
+              ifrgain_apply_only=False,
+              diffgain_intervals=None,diffgain_smoothing=None,
               flag_threshold=None,
               output="CORR_RES",
               plotvis="${ms.PLOTVIS}",
               dirty=True,restore=False,restore_lsm=True,
               args=[],options={},
-              diffgain_intervals=None,diffgain_smoothing=None,
               **kws):
   """Generic function to run a stefcal job.
   
@@ -37,6 +40,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",label="G",
   'label'           will be assigned to the global LABEL for purposes of file naming
   'apply_only'      if true, will only apply saved solutions
   'diffgains'       set to a source subset string to solve for diffgains. Set to True to use "=dE"
+  'diffgain_mode'   'solve-save' to solve & save, 'solve-nosave' to not save, 'apply' to apply only
   'flag_threshold'  threshold flaging post-solutions. Give one threshold to flag with --above,
                     or T1,T2 for --above T1 --fm-above T2
   'output'          output visibilities ('CORR_DATA','CORR_RES', 'RES' are useful)
@@ -70,11 +74,11 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",label="G",
     args0.append("de_subset.subset_enabled=1 de_subset.source_subset=$diffgains"); 
   opts = {
     'do_output': output,
-    'stefcal_gain.mode': "apply" if apply_only else "solve-save",
-    'stefcal_gain1.mode': "apply" if apply_only else "solve-save",
-    'stefcal_diffgain.mode': "apply" if apply_only else "solve-save",
-    'stefcal_diffgain1.mode': "apply" if apply_only else "solve-save",
-    'stefcal_ifr_gain_mode': "apply" if apply_only else "solve-save",
+    'stefcal_gain.mode': "apply" if apply_only or gain_apply_only else "solve-save",
+    'stefcal_gain1.mode': "apply" if apply_only  or gain_apply_only else "solve-save",
+    'stefcal_diffgain.mode': "apply" if apply_only or diffgain_apply_only else "solve-save",
+    'stefcal_diffgain1.mode': "apply" if apply_only or diffgain_apply_only  else "solve-save",
+    'stefcal_ifr_gain_mode': "apply" if apply_only or ifrgain_apply_only else "solve-save",
     'stefcal_gain.table': STEFCAL_GAIN,
     'stefcal_gain1.table': STEFCAL_GAIN1,
     'stefcal_diffgain.table': STEFCAL_DIFFGAIN,

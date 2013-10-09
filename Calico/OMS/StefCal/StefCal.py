@@ -1324,7 +1324,7 @@ class StefCalNode (pynode.PyNode):
       chisq_flagmask = (chisq_arr > mm*gopt.flag_chisq_threshold);
       nfl,nsl = chisq_flagmask.sum(),(chisq_arr!=0).sum();
       dprint(2,"flagging %f%% of data (%d/%d slots) due to chi-sq > M*%.1f"%(
-          nfl*100./nsl,nfl,nsl,gopt.chisq_flag));
+          nfl*100./nsl,nfl,nsl,gopt.flag_chisq_threshold));
       # make trial stats for other thresholds
       for f in 2,3,5,10,20:
         nfl1 = ((chisq_arr>mm*f)).sum(); 
