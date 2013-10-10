@@ -196,25 +196,29 @@ class GainOpts (object):
     """Loads initial values from table (if available)"""
     self.init_value = default;
     self.has_init_value = False;
-    if self.enable and os.path.exists(self.table):
-      try:
-        struct = cPickle.load(file(self.table));
-        if not isinstance(struct,dict) or struct.get('version',0) < 2:
-          dprint(0,"error loading %s solutions: %s format or version not known"%(self.label,self.table));
-          return;
-        gains = struct['gains'];
-        if self.label not in gains:
-          dprint(0,"no %s solutions found in %s (table contains: %s)"%(self.label,self.table,", ".join(sorted(gains.keys()))));
-          return;
-        gains = gains[self.label];
-        if gains['implementation'] != self.implementation:
-          dprint(0,"%s solutions in %s are for class %s, expected %s"%(self.label,self.table,gains['implementation'],self.implementation));
-        self.init_value = gains['solutions'];
-        self.has_init_value = True;
-        dprint(1,"loaded %d %s solutions from %s"%(len(self.init_value),self.name,self.table));
-      except:
-        traceback.print_exc();
-        dprint(0,"error loading %s solutions from"%self.label,self.table);
+    if not self.enable:
+      return;
+    if not os.path.exists(self.table):
+      dprint(0,"not loading %s solutions: %s does not exist"%(self.label,self.table));
+      return;
+    try:
+      struct = cPickle.load(file(self.table));
+      if not isinstance(struct,dict) or struct.get('version',0) < 2:
+        dprint(0,"error loading %s solutions: %s format or version not known"%(self.label,self.table));
+        return;
+      gains = struct['gains'];
+      if self.label not in gains:
+        dprint(0,"no %s solutions found in %s (table contains: %s)"%(self.label,self.table,", ".join(sorted(gains.keys()))));
+        return;
+      gains = gains[self.label];
+      if gains['implementation'] != self.implementation:
+        dprint(0,"%s solutions in %s are for class %s, expected %s"%(self.label,self.table,gains['implementation'],self.implementation));
+      self.init_value = gains['solutions'];
+      self.has_init_value = True;
+      dprint(1,"loaded %d %s solutions from %s"%(len(self.init_value),self.name,self.table));
+    except:
+      traceback.print_exc();
+      dprint(0,"error loading %s solutions from"%self.label,self.table);
 
   _outgoing_tables = {};
         

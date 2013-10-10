@@ -21,7 +21,7 @@ define("STEFCAL_IFRGAIN_SAVE_Template","$OUTFILE.ifrgain.cp","archive destinatio
 define("STEFCAL_DIFFGAIN_SMOOTHING","","smoothing kernel (time,freq) for diffgains, overrides TDL config file")
 define("STEFCAL_DIFFGAIN_INTERVALS","","solution intervals (time,freq) for diffgains, overrides TDL config file")
 
-def stefcal ( msname="$MS",section="$STEFCAL_SECTION",label="G",
+def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
               diffgains=None,
               apply_only=False,
               gain_apply_only=False,
@@ -32,6 +32,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",label="G",
               output="CORR_RES",
               plotvis="${ms.PLOTVIS}",
               dirty=True,restore=False,restore_lsm=True,
+              label=None,
               args=[],options={},
               **kws):
   """Generic function to run a stefcal job.
@@ -58,7 +59,9 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",label="G",
   makedir(v.DESTDIR);
   
   # increment step counter and assign global label
-  v.LABEL = str(label);
+  
+  if label is not None:
+    v.LABEL = str(label);
   if type(v.STEP) is int:
     v.STEP += 1;
 
