@@ -9,17 +9,19 @@ define("STEFCAL_SCRIPT","${mqt.CATTERY}/Calico/calico-stefcal.py","stefcal TDL s
 define("STEFCAL_SECTION","stefcal","default TDL config section")
 define("STEFCAL_JOBNAME","stefcal","default TDL job name")
 define("STEFCAL_TDLOPTS","","extra TDL options for stefcal")
-define("STEFCAL_GAIN_Template","$MS/gain.cp","current file for gain solutions")
-define("STEFCAL_GAIN1_Template","$MS/gain1.cp","current file for gain1 solutions")
-define("STEFCAL_IFRGAIN_Template","$MS/ifrgain.cp","current file for IFR gain solutions")
-define("STEFCAL_DIFFGAIN_Template","$MS/diffgain.cp","current file for diffgain solutions")
-define("STEFCAL_DIFFGAIN1_Template","$MS/diffgain.cp","current file for diffgain solutions")
+define("STEFCAL_GAIN_Template","$MS/gain${SUFFIX}.cp","current file for gain solutions")
+define("STEFCAL_GAIN1_Template","$MS/gain1${SUFFIX}.cp","current file for gain1 solutions")
+define("STEFCAL_IFRGAIN_Template","$MS/ifrgain${SUFFIX}.cp","current file for IFR gain solutions")
+define("STEFCAL_DIFFGAIN_Template","$MS/diffgain${SUFFIX}.cp","current file for diffgain solutions")
+define("STEFCAL_DIFFGAIN1_Template","$MS/diffgain${SUFFIX}.cp","current file for diffgain solutions")
 define("STEFCAL_GAIN_SAVE_Template","$OUTFILE.gain.cp","archive destination for gain solutions")
 define("STEFCAL_GAIN1_SAVE_Template","$OUTFILE.gain.cp","archive destination for gain1 solutions")
 define("STEFCAL_DIFFGAIN_SAVE_Template","$OUTFILE.diffgain.cp","archive destination for diffgain solutions")
 define("STEFCAL_IFRGAIN_SAVE_Template","$OUTFILE.ifrgain.cp","archive destination for IFR gain solutions")
 define("STEFCAL_DIFFGAIN_SMOOTHING","","smoothing kernel (time,freq) for diffgains, overrides TDL config file")
 define("STEFCAL_DIFFGAIN_INTERVALS","","solution intervals (time,freq) for diffgains, overrides TDL config file")
+
+define("STEFCAL_STEP_INCR",1,"automatically increment v.STEP with each call to stefcal");
 
 def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
               diffgains=None,
@@ -62,8 +64,8 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
   
   if label is not None:
     v.LABEL = str(label);
-  if type(v.STEP) is int:
-    v.STEP += 1;
+  if type(v.STEP) is int and STEFCAL_STEP_INCR:
+    v.STEP += STEFCAL_STEP_INCR;
 
   # setup stefcal options and run 
   info("Running stefcal ${step <STEP} ${(<LABEL>)}");
