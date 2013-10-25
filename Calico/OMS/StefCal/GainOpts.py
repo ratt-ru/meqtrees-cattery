@@ -3,6 +3,7 @@ import Kittens.utils
 import os.path
 import os
 import cPickle
+import numpy
 
 MODE_SOLVE_SAVE = "solve-save";
 MODE_SOLVE_NOSAVE = "solve-nosave"
