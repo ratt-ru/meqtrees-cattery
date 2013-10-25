@@ -282,7 +282,8 @@ class GainOpts (object):
     if self.bounds:
       dprint(0,"  gains will be flagged on amplitudes outside of",self.bounds);
     if self.has_init_value:
-      dprint(1,"  initial values loaded, first number is",self.init_value.values()[0][0].flat[0]);
+      initval = self.init_value.values()[0][0];
+      dprint(1,"  initial values loaded, first number is",initval.flat[0] if numpy.isarray(initval) else initval);
     else:
       dprint(1,"  default initial value is",self.init_value);
     # init gain parms object
