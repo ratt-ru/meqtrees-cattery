@@ -3,6 +3,7 @@ import Kittens.utils
 import os.path
 import os
 import cPickle
+import marshal
 import numpy
 
 MODE_SOLVE_SAVE = "solve-save";
@@ -83,7 +84,7 @@ class GainOpts (object):
               TDLOption("omega","Averaging weight (omega)",[0.5,1.8],more=float,namespace=self),
               TDLOption("average","Averaging mode",[0,1,2],default=2,namespace=self),
               TDLOption("ff","Enable feed-forward averaging",True,namespace=self),
-              TDLOption("table","Filename for solution table",["%s.cp"%name],more=str,namespace=self),
+              TDLOption("table","Filename for solution table",["%s.ma"%name],more=str,namespace=self),
             )
         ] + post_opts;
       self._menuopt = TDLMenu("Use '%s' %s"%(label,desc),toggle='enabled',namespace=self,*menuopts)
@@ -203,7 +204,7 @@ class GainOpts (object):
       dprint(0,"not loading %s solutions: %s does not exist"%(self.label,self.table));
       return;
     try:
-      struct = cPickle.load(file(self.table));
+      struct = marshal.load(file(self.table));
       if not isinstance(struct,dict) or struct.get('version',0) < 2:
         dprint(0,"error loading %s solutions: %s format or version not known"%(self.label,self.table));
         return;
@@ -234,7 +235,7 @@ class GainOpts (object):
       if initval:
         struct = dict(description="stefcal gain solutions table",version=2,gains=initval);
         try:
-          cPickle.dump(struct,file(table,'w'));
+          marshal.dump(struct,file(table,'w'));
           dprint(1,"saved %d gain set(s) to %s"%(len(initval),table));
         except:
           traceback.print_exc();
@@ -267,7 +268,7 @@ class GainOpts (object):
     for opt in opts:
       if opt.enable:
         opt.subtiling = [ gs or ds for gs,ds in zip(opt.subtiling,expanded_datashape) ];
-        dprint(1,"%s tiling is"%opt.name,opt.subtiling);
+        dprint(1,"%s tiling is"%opt.name,opt.subtiling,"smoothing is",opt.smoothing);
     dprint(1,"based on an LCM tiling of",lcm_tiling);
 
     return expanded_datashape;

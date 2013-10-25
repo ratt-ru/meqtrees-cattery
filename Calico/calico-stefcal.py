@@ -158,7 +158,7 @@ TDLCompileMenu("Use interferometer errors",
   TDLOption("stefcal_diagonal_ifr_gains","Polarizations",
             {DIAGONLY:"parallel-hand only",ALLFOUR:"full 2x2"}),
   TDLOption("stefcal_per_chan_ifr_gains","Solve on a per-channel basis",False),
-  TDLOption("stefcal_ifr_gain_table","Filename for solutions",["ifrgains.cp"],more=str),
+  TDLOption("stefcal_ifr_gain_table","Filename for solutions",["ifrgains.ma"],more=str),
   toggle="stefcal_ifr_gains",
 );
 TDLCompileOption("stefcal_nmajor","Number of major loops",[1,2,3,5],more=int,default=2);
