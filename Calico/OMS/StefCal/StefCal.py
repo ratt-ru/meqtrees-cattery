@@ -7,7 +7,7 @@ import math
 import operator
 import Kittens.utils
 import time
-import cPickle
+import marshal
 import os.path
 import traceback
 import scipy.ndimage.measurements
@@ -276,7 +276,7 @@ class StefCalNode (pynode.PyNode):
       self.ifr_gain = {};
       if self.apply_ifr_gains and not self.reset_ifr_gains and os.path.exists(self.ifr_gain_table):
         try:
-          self.ifr_gain = cPickle.load(file(self.ifr_gain_table));
+          self.ifr_gain = marshal.load(file(self.ifr_gain_table));
           dprint(1,"loaded %d ifr gains from %s"%(len(self.ifr_gain),self.ifr_gain_table));
           # reset off-diagonals to 1
           if self.diag_ifr_gains:
@@ -997,7 +997,7 @@ class StefCalNode (pynode.PyNode):
       # save
       if self.save_ifr_gains:
         try:
-          cPickle.dump(self.ifr_gain,file(self.ifr_gain_table,'w'));
+          marshal.dump(self.ifr_gain,file(self.ifr_gain_table,'w'));
           dprint(1,"saved %d ifr gains to %s"%(len(self.ifr_gain),self.ifr_gain_table));
         except:
           traceback.print_exc();
@@ -1312,7 +1312,7 @@ class StefCalNode (pynode.PyNode):
         b1 = chisq_histbins[min(imaxbin+1,len(chisq_histbins)-1)]
         mm = chisq_arr[(chisq_arr>=b0)&(chisq_arr<=b1)].mean();
         dprint(3,"M (mean chisq value in bin range %g:%g) = %g"%(b0,b1,mm));
-        cPickle.dump((chisq_hist,chisq_histbins),file("stefcal.chisq.dump","w"));
+        marshal.dump((chisq_hist,chisq_histbins),file("stefcal.chisq.dump","w"));
       else:
         chisq_masked = numpy.ma.masked_array(chisq_arr,chisq_arr==0,fill_value=0);
         mode = getattr(gopt,"flag_chisq_loop%d"%looptype);
