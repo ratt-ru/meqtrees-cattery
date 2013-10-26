@@ -61,7 +61,7 @@ class Gain2x2 (DataTiler):
           for i,(g,value) in enumerate(zip(gmat,values)):
             if is_null(value):
               gmat[i] = 0;
-            elif value.ndim == 1:
+            elif numpy.isscalar(value) or value.ndim == 1:
               g[numpy.newaxis,...] = value;
             else:
               # just being defensive if shapes are different 
