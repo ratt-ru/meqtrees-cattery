@@ -54,7 +54,7 @@ class Gain2x2 (DataTiler):
     # as a starting point
     if isinstance(init_value,dict):
       # init values will write into arrays, so make a copy
-      self.gain = dict([(p,(self._unity.copy(),self._zero.copy(),self._zero.copy(),self._unity.copy())) for p in self._antennas]);
+      self.gain = dict([(p,[self._unity.copy(),self._zero.copy(),self._zero.copy(),self._unity.copy()]) for p in self._antennas]);
       for p,values in init_value.iteritems():
         gmat = self.gain.get(p);
         if gmat is not None:
