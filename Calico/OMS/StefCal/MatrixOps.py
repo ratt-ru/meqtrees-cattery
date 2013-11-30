@@ -53,12 +53,15 @@ def matrix_add1 (A,B):
 
 def matrix_scale (A,c):
   """Scales a matrix by scalar c""";
-  return [ a*c for a in A ];
+  return [ _mul(a,c) for a in A ];
 
 def matrix_scale1 (A,c):
   """Scales a matrix by scalar c""";
   for i,a in enumerate(A):
-    A[i] *= c;
+    if is_null(a) or is_null(c):
+      A[i] = 0;
+    else:
+      A[i] *= c;
   return A;
 
 def matrix_sub (A,B):

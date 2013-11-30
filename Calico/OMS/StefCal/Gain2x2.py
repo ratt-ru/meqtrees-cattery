@@ -153,9 +153,10 @@ class Gain2x2 (DataTiler):
               if weight is None:
                 d = matrix_copy(d);
                 m = matrix_copy(m);
-              for dm in d,m:
+              for idm,dm in enumerate((d,m)):
                 for x in dm:
                   if not is_null(x):
+#                    print ('m' if idm else 'd'),p,q,x.shape,bfmask.shape
                     x[bfmask] = 0;
             # get the current gain
             g = map(self.tile_subshape,active_gain[q]);

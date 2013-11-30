@@ -136,7 +136,9 @@ def compute_jones (Jones,stations=None,**kw):
     # now make the rotation matrix. 'cos' and 'sin' may be nodes or constants at this point, it doesn't matter.
     if not Context.observation.circular():
       Jj << Meq.Matrix22(cos,-sin,sin,cos);
+#      print "feed_angle: linear pol"
     else:
-      Jj << Meq.Matrix22(nexp,0,0,pexp);
+      Jj << Meq.Matrix22(pexp,0,0,nexp);
+#      print "feed_angle: circular pol"
 
   return Jones;

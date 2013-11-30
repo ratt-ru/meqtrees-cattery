@@ -466,6 +466,9 @@ class StefCalNode (pynode.PyNode):
     dprint(2,"  valid ifrs outside the solvable set:"," ".join(["%s-%s"%pq for pq in set(valid_ifrs)-set(self._solvable_ifrs)]));
     dprint(2,"  ifrs with no data:"," ".join(["%s-%s"%pq for pq in set(self._ifrs)-set(valid_ifrs)]));
     min_baselines_for_solution = len(solvable_antennas)*2;
+    
+#    for pq,mm in model.iteritems():
+#      print pq,[m.shape for m in mm];
 
 ## -------------------- downsample data and model, if needed
     downsample_subtiling = self.downsample_subtiling;
@@ -599,6 +602,9 @@ class StefCalNode (pynode.PyNode):
       raise RuntimeError,"not enough valid baselines";
       
     skip_solve = False;
+    
+#    for pq,mm in model.iteritems():
+#      print pq,[m.shape for m in mm];
   
 ## ----------------------- if solving for gains, check for required number of baselines per each t/f slot
 ## ----------------------- flag those that are missing
@@ -634,6 +640,9 @@ class StefCalNode (pynode.PyNode):
     else:
       skip_solve = True;
       nflagged_due_to_insufficient = 0;
+      
+#    for pq,mm in model.iteritems():
+#      print pq,[m.shape for m in mm];
         
 ## -------------------- init gain solvers
     if not skip_solve:
