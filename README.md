@@ -1,6 +1,8 @@
 meqtrees-cattery
 ================
 
+[![Build Status](https://travis-ci.org/ska-sa/meqtrees-cattery.png)](https://travis-ci.org/ska-sa/meqtrees-cattery)
+
 MeqTrees-based frameworks for simulation and calibration of radio
 interferometers.
 
