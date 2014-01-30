@@ -1,6 +1,9 @@
 meqtrees-cattery
 ================
 
+MeqTrees-based frameworks for simulation and calibration of radio
+interferometers.
+
 MeqTrees is a software package for implementing Measurement Equations.
 This makes it uniquely suited for simulation and calibration of
 radioastronomical data, especially that involving new radiotelescopes and

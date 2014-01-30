@@ -42,7 +42,7 @@ for dirpath, dirnames, filenames in os.walk('Cattery'):
 
 setup(name='meqtrees-cattery',
       version='1.3.0',
-      description='',
+      description='MeqTrees-based frameworks for simulation and calibration of radio interferometers ',
       author='Oleg Smirnov',
       author_email='Oleg Smirnov <osmirnov@gmail.com>',
       url='https://github.com/ska-sa/meqtrees-cattery',
