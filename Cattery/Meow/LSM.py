@@ -28,7 +28,7 @@
 #
 
 from Timba.TDL import *
-from LSM0.LSM import LSM
+from Cattery.LSM import LSM
 from Timba.utils import curry
 import traceback
 import Meow
