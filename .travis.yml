@@ -7,7 +7,7 @@ before_install:
  - sudo apt-get install -qq cmake libblitz0-dev python-dev libcasacore-dev \
     libblas-dev liblapack-dev libgdbm-dev wcslib-dev libfftw3-dev \
     python-numpy libcfitsio3-dev casacore-data lwimager makems \
-    python-astlib python-kitens python-meqtrees-timba python-owlcat \
+    python-astlib python-kittens python-meqtrees-timba python-owlcat \
     python-purr python-pyxis python-tigger
 install: 
  - cd ${TRAVIS_BUILD_DIR}
