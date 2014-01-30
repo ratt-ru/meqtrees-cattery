@@ -40,7 +40,7 @@ for dirpath, dirnames, filenames in os.walk('Cattery'):
         data_files.append([dirpath, [os.path.join(dirpath, f) for f in filenames]])
 
 
-setup(name='meqtrees-cattery',
+setup(name='meqtrees_cattery',
       version='1.3.0',
       description='MeqTrees-based frameworks for simulation and calibration of radio interferometers ',
       author='Oleg Smirnov',
