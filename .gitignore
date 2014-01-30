@@ -1,3 +1,12 @@
 build/
 debian/
-
+test/Batchtest/.tdl.conf
+test/Batchtest/WSRT-I-channel1.img/
+test/Batchtest/WSRT.MS.MODEL_DATA.channel.1ch.fits
+test/Batchtest/WSRT.MS/
+test/Batchtest/data_i.png
+test/Batchtest/test-lsm.lsm.html
+test/Batchtest/test-lsm1.lsm.html
+test/Batchtest/test-lsm1.txt
+test/Batchtest/test-lsm1.txt.tmp
+test/Batchtest/tmp.fits
