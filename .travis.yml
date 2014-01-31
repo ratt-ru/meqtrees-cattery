@@ -8,9 +8,7 @@ before_install:
  - sudo apt-get install cmake libblitz0-dev python-dev libcasacore-dev libblas-dev liblapack-dev libgdbm-dev wcslib-dev libfftw3-dev python-numpy libcfitsio3-dev casacore-data lwimager makems python-astlib python-kittens python-meqtrees-timba python-owlcat python-purr python-pyxis python-tigger
 install: 
  - cd ${TRAVIS_BUILD_DIR}
- - mkdir build && cd build
- - cmake ..
- - make
+ - python setup.py install
 env:
  - MEQTREES_CATTERY_PATH: /usr/lib/python2.7/dist-packages/Cattery
 script: 
