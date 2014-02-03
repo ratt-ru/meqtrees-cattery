@@ -572,7 +572,7 @@ class StefCalNode (pynode.PyNode):
       for (p,q),dd in data.iteritems():
         s1,f = scale.get(p,(None,None));
         s2,f = scale.get(q,(None,None));
-        if s is not None and s2 is not None:
+        if s1 is not None and s2 is not None:
           matrix_scale1(dd,s1*s2);
           
 ## -------------------- compute the noise estimate, and weights based on this

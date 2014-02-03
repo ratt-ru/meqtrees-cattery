@@ -292,6 +292,7 @@ separate the per-component groups with '+'.""");
       hdr.update('CRVAL3',freq0,"");
       hdr.update('CDELT3',options.delta_freq*1e+6,"");
       hdr.update('CUNIT3','HZ',"");
+      hdr.update('EMSSROT',options.rotate);
       if os.path.exists(filename):
         os.unlink(filename);
       hdu.writeto(filename,clobber=True);

@@ -25,6 +25,7 @@
 #
 import re
 import math
+import fnmatch
 import traceback
 
 from Timba.array import array
@@ -293,27 +294,34 @@ class IfrSet (object):
       # if first is wildcard, change them around, so X* becomes *X
       if p == "*":
         p,q = q,p;
-      ip = self._name_to_number.get(p.upper(),None);
-      iq = self._name_to_number.get(q.upper(),None);
-      # first token must be a valid antenna
-      if ip is None:
-        if strict:
-          raise ValueError,"invalid ifr specification '%s' (station '%s' not found)"%(spec,p);
-        print "Ignoring invalid ifr specification '%s' (station '%s' not found)"%(spec,p);
-#        traceback.print_stack();
-        continue;
-      # second token may be a wildcard
-      if q == "*":
-        add_or_remove([(px,qx) for px,qx in self._ifr_index if px[0]==ip or qx[0]==ip ]);
-      elif iq is None:
-        if strict:
-          raise ValueError,"invalid ifr specification '%s' (station '%s' not found)"%(spec,q);
-        print "Ignoring invalid ifr specification '%s' (station '%s' not found)"%(spec,q);
-        traceback.print_stack();
-      elif ip<iq:
-        add_or_remove([(px,qx) for px,qx in self._ifr_index if (px[0],qx[0])==(ip,iq)]);
-      elif ip>iq:
-        add_or_remove([(px,qx) for px,qx in self._ifr_index if (px[0],qx[0])==(iq,ip)]);
+      p = p.upper();
+      q = q.upper();
+      psubset = fnmatch.filter(self._stations,p);
+      qsubset = fnmatch.filter(self._stations,q);
+      print p,psubset,q,qsubset;
+      for p in psubset:
+        for q in qsubset:
+          ip = self._name_to_number.get(p.upper(),None);
+          iq = self._name_to_number.get(q.upper(),None);
+          # first token must be a valid antenna
+          if ip is None:
+            if strict:
+              raise ValueError,"invalid ifr specification '%s' (station '%s' not found)"%(spec,p);
+            print "Ignoring invalid ifr specification '%s' (station '%s' not found)"%(spec,p);
+    #        traceback.print_stack();
+            continue;
+          # second token may be a wildcard
+          if q == "*":
+            add_or_remove([(px,qx) for px,qx in self._ifr_index if px[0]==ip or qx[0]==ip ]);
+          elif iq is None:
+            if strict:
+              raise ValueError,"invalid ifr specification '%s' (station '%s' not found)"%(spec,q);
+            print "Ignoring invalid ifr specification '%s' (station '%s' not found)"%(spec,q);
+            traceback.print_stack();
+          elif ip<iq:
+            add_or_remove([(px,qx) for px,qx in self._ifr_index if (px[0],qx[0])==(ip,iq)]);
+          elif ip>iq:
+            add_or_remove([(px,qx) for px,qx in self._ifr_index if (px[0],qx[0])==(iq,ip)]);
     # intersect final result with our own set of IFRs: if we're already a subset of some parent set, then the spec
     # string may refer to ifrs from our parent set that are not members of our set. These must be trimmed.
     return result.intersection(self._ifr_index);

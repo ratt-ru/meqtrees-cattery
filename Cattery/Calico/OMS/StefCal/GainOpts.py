@@ -61,7 +61,7 @@ class GainOpts (object):
               TDLOption("flag_ampl_low","Lower threshold (0 disables)",[0,.5],more=float,default=0,namespace=self),
               TDLOption("flag_ampl_high","Upper threshold (0 disables)",[0,1.5],more=float,default=0,namespace=self),
             toggle='flag_ampl',namespace=self),
-          TDLOption("implementation","Jones matrix type",["GainDiag","Gain2x2","GainDiagCommon" ] ,namespace=self),
+          TDLOption("implementation","Jones matrix type",["GainDiag","Gain2x2","GainDiagCommon","GainDiagPhase" ] ,namespace=self),
           TDLOption("mode","Solution mode",
             {MODE_SOLVE_SAVE:"solve and save",MODE_SOLVE_NOSAVE:"solve, do not save",MODE_SOLVE_APPLY:"load and apply"},
             default=MODE_SOLVE_SAVE,namespace=self),
