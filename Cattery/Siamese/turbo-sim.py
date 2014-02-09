@@ -214,9 +214,7 @@ def _define_forest (ns):
   # very important -- insert meqmaker's options properly
   TDLRuntimeOptions(*meqmaker.runtime_options());
 
-  TDLRuntimeJob(_tdl_job_1_simulate_MS,"Run simulation",job_id="simulate",doc="""Runs the simulation.
-NB: if you see a "1 simulate MS" button below, this does the same thing -- it's for backwards compatibility.
-""");
+  TDLRuntimeJob(_tdl_job_1_simulate_MS,"Run simulation",job_id="simulate");
 
   # close the meqmaker. This produces annotations, etc.
   meqmaker.close();

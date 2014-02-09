@@ -10,3 +10,4 @@ test/Batchtest/test-lsm1.lsm.html
 test/Batchtest/test-lsm1.txt
 test/Batchtest/test-lsm1.txt.tmp
 test/Batchtest/tmp.fits
+*.pyc
