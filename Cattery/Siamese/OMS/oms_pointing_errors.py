@@ -51,8 +51,8 @@ def compute_pointings(nodes,stations=None,**kw):
   # create nodes to compute pointing errors per antenna
   for p in stations:
     if p in subset:
-      node_maker1(ns.l(p),station=p);
-      node_maker2(ns.m(p),station=p);
+      node_maker1(ns.l(p),station=p,axis='l');
+      node_maker2(ns.m(p),station=p,axis='m');
       nodes(p) << Meq.Composer(ns.l(p),ns.m(p));
     else:
       nodes(p) << Meq.Composer(0,0);

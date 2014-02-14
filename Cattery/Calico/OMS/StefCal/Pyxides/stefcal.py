@@ -130,7 +130,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
   if plotvis:
     info("Plotting visibilities ($plotvis)");
     ms.PLOTVIS = plotvis;
-    ms.plotms("-o ${OUTFILE}_residuals${_s<step}${_<label}.png");
+    ms.plotms("-o ${OUTFILE}_${output}${_s<STEP}${_<label}.png");
     
   # make images
   imager.make_image(msname,dirty=dirty,restore=restore,restore_lsm=restore_lsm);
