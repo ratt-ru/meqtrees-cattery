@@ -135,13 +135,14 @@ class SineError (RandomError):
     node << ns.offset + ns.ampl*Meq.Sin(Meq.Time()*(2*math.pi/period)+p0);
     return node;
 
-class RandomPolc (RandomError):
+class RandomPolc (ErrorGenerator):
   def __init__ (self,name,nominal_value=0,typical_error=0,**kw):
-    RandomError.__init__(self,name,nominal_value,typical_error,**kw);
+    ErrorGenerator.__init__(self,name,nominal_value,typical_error,**kw);
     self._offset_opt = TDLOption("offset","Offset, MJD",0,more=float,namespace=self);
     self._scale_opt = TDLOption("scale","Scale, hours",1,more=float,namespace=self);
     
     self.opts += [
+      TDLOption("min0","Min amplitude of coefficient 0",0,more=float,namespace=self),
       TDLOption("max0","Max amplitude of coefficient 0",0,more=float,namespace=self),
       TDLOption("max1","Max amplitude of coefficient 1",0,more=float,namespace=self),
       TDLOption("max2","Max amplitude of coefficient 2",0,more=float,namespace=self),
@@ -160,7 +161,7 @@ class RandomPolc (RandomError):
     
   def make_node (self,node,station,axis,**kw):
     ns = node.Subscope();
-    coeff = [random.uniform(-self.max0,self.max0)]
+    coeff = [random.uniform(self.min0,self.max0)*random.choice([-1,1])]
     for i in range(1,4):
       c = getattr(self,'max%d'%i);
       if c:
