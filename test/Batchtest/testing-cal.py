@@ -80,10 +80,9 @@ cal_toggle.when_changed(enable_calibration);
 # these will show up in the menu automatically
 from Calico.OMS import central_point_source
 from Siamese.OMS import fitsimage_sky
-import Meow.LSM
-lsm = Meow.LSM.MeowLSM(include_options=False);
-
-meqmaker.add_sky_models([lsm,central_point_source,fitsimage_sky]);
+from Siamese.OMS.tigger_lsm import TiggerSkyModel
+  
+meqmaker.add_sky_models([TiggerSkyModel(),central_point_source,fitsimage_sky]);
 
 # now add optional Jones terms
 # these will show up in the menu automatically

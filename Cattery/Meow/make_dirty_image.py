@@ -12,7 +12,7 @@ for fd in range(3,1024):
     pass;
 
 args = list(sys.argv);
-args[0] = 'lwimager';
+args[0] = os.environ.get('LWIMAGER_PATH','lwimager');
 # insert cachesize option
 for arg in args:
   if arg.startswith("cachesize="):

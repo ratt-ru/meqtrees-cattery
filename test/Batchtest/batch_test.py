@@ -16,6 +16,7 @@ def path (filename):
   return os.path.join(dir0,filename);
 
 global owlcat;  
+os.environ['LWIMAGER_PATH'] = 'lwimager1.2'
   
 def run (*commands):
   cmd = " ".join(commands);
@@ -86,9 +87,9 @@ if __name__ == '__main__':
   print "========== Running makems";
   run("makems %s"%path("WSRT_makems.cfg"));
   run("mv WSRT.MS_p0 WSRT.MS");
-  run("ls WSRT.MS");
+  run("ls -ld WSRT.MS");
   run("owlcat downweigh-redundant-baselines WSRT.MS");
-  run("lwimager ms=WSRT.MS data=CORRECTED_DATA mode=channel weight=natural npix=10");
+  run("lwimager1.2 ms=WSRT.MS data=CORRECTED_DATA mode=channel weight=natural npix=10");
   # make test LSMs
   run("""tigger-convert test-lsm.txt --rename --format "ra_d dec_d i q u v" --center 0.1deg,60.5deg -f""");
   run("""tigger-convert test-lsm.lsm.html test-lsm1.txt --output-format "name ra_h dec_d i q u v freq0 spi rm tags..." -f""");

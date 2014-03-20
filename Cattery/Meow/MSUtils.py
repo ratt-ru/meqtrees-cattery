@@ -1399,11 +1399,11 @@ class ImagingSelector (object):
         except:
           pass;
     print "MSUtils: imager args are"," ".join(args);
-    # add imaging columns, if necessary
-    try:
-      _addImagingColumns and _addImagingColumns(self.mssel.msname);
-    except:
-      pass;
+    # # add imaging columns, if necessary
+    # try:
+    #   _addImagingColumns and _addImagingColumns(self.mssel.msname);
+    # except:
+    #   pass;
     # run script
     if wait:
       return Timba.Apps.spawnvp_wait(_IMAGER,args);

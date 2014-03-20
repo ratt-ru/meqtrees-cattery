@@ -27,6 +27,9 @@
 from Timba.TDL import *
 import random
 import math
+import Meow.Context
+import Meow.MSUtils
+from Timba.Meq import meq
 
 class ErrorGenerator (object):
   def __init__ (self,name,nominal_value,typical_error,unit=None,label=None,**kw):
@@ -132,12 +135,55 @@ class SineError (RandomError):
     node << ns.offset + ns.ampl*Meq.Sin(Meq.Time()*(2*math.pi/period)+p0);
     return node;
 
+class RandomPolc (ErrorGenerator):
+  def __init__ (self,name,nominal_value=0,typical_error=0,**kw):
+    ErrorGenerator.__init__(self,name,nominal_value,typical_error,**kw);
+    self._offset_opt = TDLOption("offset","Offset, MJD",0,more=float,namespace=self);
+    self._scale_opt = TDLOption("scale","Scale, hours",1,more=float,namespace=self);
+    
+    self.opts += [
+      TDLOption("min0","Min amplitude of coefficient 0",0,more=float,namespace=self),
+      TDLOption("max0","Max amplitude of coefficient 0",0,more=float,namespace=self),
+      TDLOption("max1","Max amplitude of coefficient 1",0,more=float,namespace=self),
+      TDLOption("max2","Max amplitude of coefficient 2",0,more=float,namespace=self),
+      TDLOption("max3","Max amplitude of coefficient 3",0,more=float,namespace=self),
+      self._offset_opt,
+      self._scale_opt,
+      TDLOption("dump","Dump values to file",[None,"errors.txt"],more=str,namespace=self)
+    ];
+    Meow.Context.mssel.when_changed(self.set_ms);
+
+  def set_ms (self,msname):
+    times = Meow.MSUtils.TABLE(msname).getcol("TIME");
+    t0,t1 = min(times),max(times);
+    self._offset_opt.set_custom_value(t0/(24*3600));
+    self._scale_opt.set_custom_value((t1-t0)/3600);
+    
+  def make_node (self,node,station,axis,**kw):
+    ns = node.Subscope();
+    coeff = [random.uniform(self.min0,self.max0)*random.choice([-1,1])]
+    for i in range(1,4):
+      c = getattr(self,'max%d'%i);
+      if c:
+        coeff.append(random.uniform(-c,c));
+    scale = self.scale*3600;
+    offset = self.offset*(3600*24);
+    polc = meq.polc(coeff,scale=scale,offset=offset);
+    ns.offset << Meq.Parm(polc);
+    node << ns.offset*self.factor;
+    if self.dump:
+      file(self.dump,'a').write("%s %s %f %f %s\n"%(station,axis,offset,scale,
+          " ".join(["%f"%c for c in coeff])));
+    return node;
+
+
 # This list shows the available generator classes
 generator_classes = [
   (NoError,       'no error'),
   (FixedOffset,   'static offset'),
   (ListOfValues,  'list of values'),
-  (RandomError,   'random error, constant in time'),
+  (RandomError,   'random offset, constant in time'),
+  (RandomPolc,    'random polynomial in time'),
   (SineError,     'periodically varying error')
 ];
 

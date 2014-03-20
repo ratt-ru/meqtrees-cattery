@@ -11,3 +11,7 @@ test/Batchtest/test-lsm1.txt
 test/Batchtest/test-lsm1.txt.tmp
 test/Batchtest/tmp.fits
 *.pyc
+*~
+*.bck
+
+

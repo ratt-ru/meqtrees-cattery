@@ -122,8 +122,10 @@ def compute_jones (Jones,stations=None,**kw):
         cos = ns.cos_fa << Meq.Cos(ns.fa);
         sin = ns.sin_fa << Meq.Sin(ns.fa);
       else:
-        pexp = ns.exp_pfa << Meq.Polar(1,ns.fa);
-        nexp = ns.exp_nfa << Meq.Polar(1,-ns.fa);
+        # pexp = ns.exp_pfa << Meq.Polar(1,ns.fa);
+        # nexp = ns.exp_nfa << Meq.Polar(1,-ns.fa);
+        pexp = ns.exp_pfa << Meq.Polar(1,-ns.fa);
+        nexp = ns.exp_nfa << Meq.Polar(1,ns.fa);
     # no p.a., work out sines and cosines directly (as constants)
     else:
       if not Context.observation.circular():
