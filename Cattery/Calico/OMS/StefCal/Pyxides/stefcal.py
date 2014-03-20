@@ -9,6 +9,7 @@ define("STEFCAL_SCRIPT","${mqt.CATTERY}/Calico/calico-stefcal.py","stefcal TDL s
 define("STEFCAL_SECTION","stefcal","default TDL config section")
 define("STEFCAL_JOBNAME","stefcal","default TDL job name")
 define("STEFCAL_TDLOPTS","","extra TDL options for stefcal")
+define("STEFCAL_OUTPUT_COLUMN","CORRECTED_DATA","default output column")
 define("STEFCAL_GAIN_Template","$MS/gain${SUFFIX}.cp","current file for gain solutions")
 define("STEFCAL_GAIN1_Template","$MS/gain1${SUFFIX}.cp","current file for gain1 solutions")
 define("STEFCAL_IFRGAIN_Template","$MS/ifrgain${SUFFIX}.cp","current file for IFR gain solutions")
@@ -71,6 +72,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
   info("Running stefcal ${step <STEP} ${(<LABEL>)}");
   # setup args
   args0 = [ """${ms.MS_TDL} ${ms.CHAN_TDL} ${lsm.LSM_TDL} ms_sel.ms_ifr_subset_str=${ms.IFRS} 
+    ms_sel.output_column=$STEFCAL_OUTPUT_COLUMN
     stefcal_gain.enabled=1 stefcal_diffgain.enabled=%d %s"""%
     ((1 if diffgains else 0),STEFCAL_TDLOPTS) ];
   if diffgains:
@@ -133,7 +135,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
     ms.plotms("-o ${OUTFILE}_${output}${_s<STEP}${_<label}.png");
     
   # make images
-  imager.make_image(msname,dirty=dirty,restore=restore,restore_lsm=restore_lsm);
+  imager.make_image(msname,column=STEFCAL_OUTPUT_COLUMN,dirty=dirty,restore=restore,restore_lsm=restore_lsm);
 
 # document global options for stefcal()
 document_globals(stefcal,"MS LSM mqt.TDLCONFIG STEFCAL_* ms.DDID ms.CHANRANGE ms.IFRS ms.PLOTVIS STEP LABEL");
