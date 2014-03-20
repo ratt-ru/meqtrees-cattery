@@ -69,6 +69,7 @@ class GainOpts (object):
           TDLMenu("Ninja options",
 ##              TDLOption("global_solution","One solution per all antennas",False,namespace=self),
               TDLOption("real_only","Constrain to real solutions only",False,namespace=self),
+              TDLOption("nmajor_start","Start solving at major loop",[0,1],more=int,namespace=self),
               TDLOption("weigh","Apply noise-based weights",False,namespace=self),
               TDLOption("niter","Max iterations",[20,50,100],more=int,default=50,namespace=self),
               TDLOption("epsilon","Solution convergence criterion",[1e-4,1e-5,1e-6,1e-7,1e-8],more=float,default=1e-6,namespace=self),
@@ -119,6 +120,7 @@ class GainOpts (object):
             ('save',True),
             ('global',False),
             ('real_only',False),
+            ('nmajor_start',0),
             ('flag_non_converged',False),
             ('flag_chisq',False),
             ('flag_chisq_threshold',5),
@@ -182,6 +184,7 @@ class GainOpts (object):
     kw['%s_bounds'%name]     = self.flag_ampl and [self.flag_ampl_low,self.flag_ampl_high];
 ##   kw['%s_global_solution'%name] = self.global_solution;
     kw['%s_real_only'%name]  = self.real_only;
+    kw['%s_nmajor_start'%name] = self.nmajor_start;
     kw['%s_visualize'%name]  = visualize and self.visualize;
     subtiling = [ self.timeint,self.freqint ];
     smoothing = [ self.timesmooth,self.freqsmooth ];

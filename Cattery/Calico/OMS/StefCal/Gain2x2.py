@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import numpy
 import math
 import cmath
@@ -149,6 +148,7 @@ class Gain2x2 (DataTiler):
             bfmask = bitflags.get((p,q),0)!=0;
             # zero flagged elements in data, model
             if numpy.any(bfmask):
+              bfmask = self.tile_data(bfmask);
               # copy matrices, unless we applied weight above, in which case we already have the copy
               if weight is None:
                 d = matrix_copy(d);

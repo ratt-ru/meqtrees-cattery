@@ -724,8 +724,11 @@ class StefCalNode (pynode.PyNode):
         di_solved = False;
         for i,opt in enumerate(self.gainopts):
           model = dimodels.pop();
-          ## do we need to solve for this DI term? On the last loop, solve for the outermost term only
-          if opt.solve and not (last_loop and di_solved):
+          ## do we need to solve for this DI term? 
+          ## On the first loop, optionally skip the first term
+          ## On the last loop, we solve for the outermost term only
+          dprintf(1,"%s: solvable %d from major loop %d (current %d)\n",opt.label,opt.solve,opt.nmajor_start,nmajor);
+          if opt.solve and (nmajor >= opt.nmajor_start) and not (last_loop and di_solved):
             # recompute noise, unless this is the outer term, since it will have been rescaled
             if i:
               newnoise,weight = self.compute_noise(data,bitflags);
