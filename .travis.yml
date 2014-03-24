@@ -9,8 +9,7 @@ install:
  - cd ${TRAVIS_BUILD_DIR}
  - sudo python setup.py install
 env:
- - MEQTREES_CATTERY_PATH: /usr/local/lib/python2.7/dist-packages/Cattery
- - LWIMAGER_PATH: lwimager1.2
+ - MEQTREES_CATTERY_PATH=/usr/local/lib/python2.7/dist-packages/Cattery LWIMAGER_PATH=lwimager1.2
 script: 
  - cd test/Batchtest
  - python batch_test.py
