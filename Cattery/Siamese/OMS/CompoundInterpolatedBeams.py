@@ -72,10 +72,9 @@ class FITSCompoundBeamInterpolatorNode (pynode.PyNode):
       vbs = [];
       for filename_real,filename_imag in self._vb_key:
         # if files do not exist, replace with blanks
-        if not os.path.exists(filename_real) and self.missing_is_null:
+        if not ( os.path.exists(filename_real) and os.path.exists(filename_imag) ) and self.missing_is_null:
           filename_real = None;
-        if not os.path.exists(filename_imag) and self.missing_is_null:
-          filename_real = None;
+          print "No beam pattern %s or %s, assuming null beam"%(filename_real,filename_imag);
         # now, create VoltageBeam if at least the real part still exists
         if filename_real:
           vb = LMVoltageBeam(
@@ -110,11 +109,13 @@ class FITSCompoundBeamInterpolatorNode (pynode.PyNode):
         grid[axis] = values;
     # interpolate
     vellsets = [];
+    hasfreq = False;
     for vb in vbs:
       if vb is None:
         vellsets.append(meq.vellset(meq.sca_vells(0.)));
       else:
         beam = vb.interpolate(freqaxis=self._freqaxis,**grid);
+        hasfreq = hasfreq or vb.hasFrequencyAxis();
         if self.normalize and beam_max != 0:
           beam /= beam_max;
         vells = meq.complex_vells(beam.shape);
@@ -122,7 +123,7 @@ class FITSCompoundBeamInterpolatorNode (pynode.PyNode):
         # make vells and return result
         vellsets.append(meq.vellset(vells));
     # create result object
-    cells = request.cells if vb.hasFrequencyAxis() else getattr(lm,'cells',None);
+    cells = request.cells if hasfreq else getattr(lm,'cells',None);
     result = meq.result(vellsets[0],cells=cells);
     result.vellsets[1:] = vellsets[1:];
     result.dims = (2,len(vellsets)/2);
