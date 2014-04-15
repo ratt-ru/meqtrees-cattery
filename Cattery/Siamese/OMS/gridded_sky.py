@@ -41,7 +41,7 @@ def estimate_image_size (**kw):
   return grid_size*grid_step;
 
 def make_source (ns,name,l,m,I=1):
-  """Makes a source with a directio, using the current option set. 
+  """Makes a source with a direction, using the current option set. 
   Returns None for sources out of the "sky". 
   (l^2+m^2>1)""";
   l = math.sin(l);
