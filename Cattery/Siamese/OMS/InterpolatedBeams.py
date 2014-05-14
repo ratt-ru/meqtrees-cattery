@@ -271,7 +271,9 @@ class LMVoltageBeam (object):
       freq = numpy.array(freq);
       if not freq.ndim:
         freq = freq.reshape(1);
+      dprint(3,"frequencies are",freq);
       freq = self._freqToPixel(freq);
+      dprint(3,"in frequency plane coordinates we have",freq);
       # case (A): reuse same frequency for every l/m point
       if len(freq) == 1:
         lm = numpy.vstack((l.ravel(),m.ravel(),[freq[0]]*l.size));
@@ -298,12 +300,12 @@ class LMVoltageBeam (object):
       output.resize(l.shape);
     dprint(3,"interpolating %d lm points"%(lm.size/2));
     output.real = interpolation.map_coordinates(self._beam_real,lm,order=self._spline_order,
-                  prefilter=(self._spline_order==1)).reshape(l.shape);
+                  prefilter=(self._spline_order==1),mode='nearest').reshape(l.shape);
     output.imag = interpolation.map_coordinates(self._beam_imag,lm,order=self._spline_order,
-                  prefilter=(self._spline_order==1)).reshape(l.shape);
+                  prefilter=(self._spline_order==1),mode='nearest').reshape(l.shape);
     if not self._beam_ampl is None:
       output_ampl = interpolation.map_coordinates(self._beam_ampl,lm,order=self._spline_order,
-                  prefilter=(self._spline_order==1)).reshape(l.shape);
+                  prefilter=(self._spline_order==1),mode='nearest').reshape(l.shape);
       phase_array = numpy.arctan2(output.imag,output.real)
       output.real = output_ampl * numpy.cos(phase_array)
       output.imag = output_ampl * numpy.sin(phase_array)
