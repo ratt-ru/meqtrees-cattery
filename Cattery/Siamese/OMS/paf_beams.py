@@ -90,7 +90,8 @@ TDLCompileMenu("Simulate element gain errors",
   TDLOption("min_period_var","Minimum variation period, hours",2,more=float),
   TDLOption("max_period_var","Maximum variation period, hours",24,more=float),
   toggle='sim_element_errors');
-TDLCompileOption("do_normalize","Renormalize gain towards each source",False,doc="""<P>If true,       the gain towards each source is dividied by the nominal gain in that direction
+TDLCompileOption("do_normalize","Renormalize gain towards each source",False,doc="""<P>If true,
+    the gain towards each source is divided by the nominal gain in that direction
     (so that each source is effectively put in with an apparent flux that is equal to the
     intrinsic flux of the model).</P>""");
 TDLCompileOption("do_correct","Correct for gain of first source",False,doc="""<P>If true, then
@@ -224,7 +225,7 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
     ex0 = Jones(*(qq+["x0"])) << Meq.MatrixMultiply(JE(*qq),ns.w0("x"));
     ey0 = Jones(*(qq+["y0"])) << Meq.MatrixMultiply(JE(*qq),ns.w0("y"));
     J0 = Jones(*(qq+["nominal"])) << Meq.Composer(ex0,ey0,dims=[2,2]);
-    if do_normalize or (qq[0] is sources[0] and not do_correct):
+    if do_normalize or (qq[0] is sources[0] and do_correct):
       make_norm(J0,Jones(*(qq+["norm"])));
 
   if do_normalize:
@@ -232,7 +233,7 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
     if per_station:
       for src in sources:
         Jones(src,"norm") << Meq.Add(*[Jones(src,p,"norm") for p in stations])/len(stations);
-  elif not do_correct:
+  elif do_correct:
     if per_station:
       for src in sources:
         Jones(sources[0],"norm") << Meq.Add(*[Jones(sources[0],p,"norm") for p in stations])/len(stations);

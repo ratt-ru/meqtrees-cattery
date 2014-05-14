@@ -56,9 +56,9 @@ def _define_forest(ns):
     spigots('abs',p,q) << Meq.Abs(spigots(p,q));
 
   # ...and an inspector for them
-  Meow.StdTrees.vis_inspector(ns.inspector('input'),spigots,
+  Meow.StdTrees.vis_inspector(ns.inspector('input'),spigots,vells_label=Context.correlations,
                               bookmark="Inspect input visibilities");
-  Meow.StdTrees.vis_inspector(ns.inspector('ampl'),spigots('abs'),
+  Meow.StdTrees.vis_inspector(ns.inspector('ampl'),spigots('abs'),vells_label=Context.correlations,
                               bookmark="Inspect mean visibility amplitudes");
   Bookmarks.make_node_folder("Input visibilities by baseline",
     [ spigots(p,q) for p,q in array.ifrs() ],sorted=True,ncol=2,nrow=2);
