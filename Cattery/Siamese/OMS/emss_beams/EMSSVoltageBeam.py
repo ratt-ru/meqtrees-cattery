@@ -211,7 +211,7 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
       freqgrid = self.freqGrid();
       if not self._freq_warning:
         dprint(0,"WARNING: requested frequencies (%s) are outside the supplied beam frequency range (%f to %f MHz)"%
-          (",".join(["%f"%x*1e-6 for x in freq[oob]]),freqgrid[0]*1e-6,freqgrid[-1]*1e-6));
+          (",".join(["%f"%(x*1e-6) for x in freq[oob]]),freqgrid[0]*1e-6,freqgrid[-1]*1e-6));
         dprint(0,"Falling back to nearest-neighbour extrapolation, this is not very accurate");
         self._freq_warning = True;
       freqcoord[freq<=freqgrid[0]] = 0;
