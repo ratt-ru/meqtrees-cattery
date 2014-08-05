@@ -3,8 +3,13 @@ meqtrees-cattery
 
 [![Build Status](https://travis-ci.org/ska-sa/meqtrees-cattery.png)](https://travis-ci.org/ska-sa/meqtrees-cattery)
 
-MeqTrees-based frameworks for simulation and calibration of radio
-interferometers.
+The Cattery is a set of MeqTrees-based frameworks for simulation and calibration of 
+radio interferometers. Pretty much everything is done via a Cattry package these
+days.
+
+Cattery bugs should be reported via the main MeqTrees repository here:
+
+https://github.com/ska-sa/meqtrees/issues
 
 MeqTrees is a software package for implementing Measurement Equations.
 This makes it uniquely suited for simulation and calibration of
