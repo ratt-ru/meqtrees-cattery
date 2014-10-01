@@ -46,7 +46,8 @@ class PointSource(SkyComponent):
           are supplied, an unpolarized source representation is used.
       'spi' and 'freq0' are constants, nodes or Meow.Parms. If both are
           supplied, a spectral index is added, otherwise the fluxes are
-          constant in frequency.
+          constant in frequency. 'spi' may be a list of such, in which case
+          higher-order indices are used.
       'RM' is rotation measure (constants, nodes or Meow.Parms). If None,
           no intrinsic rotation measure is used.
     """;
@@ -65,7 +66,13 @@ class PointSource(SkyComponent):
     # see if a spectral index is present (freq0!=0 then), create polc
     self._has_spi = spi != 0 and spi is not None;
     if self._has_spi:
-      self._add_parm('spi',spi or 0.,tags="spectrum");
+      if isinstance(spi,(list,tuple)):
+        self._nspi = len(spi);
+        for i,x in enumerate(spi):
+          self._add_parm('spi' if not i else 'spi_%d'%(i+1),x,tags="spectrum");
+      else:  
+        self._nspi = 1;
+        self._add_parm('spi',spi or 0.,tags="spectrum");
     if self._has_spi or self._has_rm:
       # for freq0, use placeholder node for first MS frequency,
       # unless something else is specified
@@ -133,7 +140,14 @@ class PointSource(SkyComponent):
     nsp = self.ns.norm_spectrum;
     if not nsp.initialized():
       freq = self.ns0.freq ** Meq.Freq;
-      nsp << Meq.Pow(freq/self._parm('spi_fq0'),self._parm('spi'));
+      fr = self.ns.freqratio << freq/self._parm('spi_fq0');  
+      if self._nspi == 1:
+        nsp << Meq.Pow(fr,self._parm('spi'));
+      else:
+        # multi-term spectral index
+        logfr = self.ns.logfreqratio << Meq.Log(fr);
+        nsp << Meq.Pow(fr,Meq.Add(self._parm('spi'),self._parm('spi_2')*logfr,
+          *[ self._parm('spi_%d'%(i+1))*Meq.Pow(logfr,i) for i in range(2,self._nspi)] ));
     return nsp;
 
   def coherency_elements (self,observation):
