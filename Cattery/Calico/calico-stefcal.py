@@ -78,8 +78,9 @@ meqmaker.add_sky_models(models);
 # E - beam
 # add a fixed primary beam first
 from Calico.OMS import wsrt_beams  #,wsrt_beams_zernike
+from Siamese.OMS import pybeams_fits
 
-meqmaker.add_sky_jones('E','primary beam',[wsrt_beams]); # ,wsrt_beams_zernike]);
+meqmaker.add_sky_jones('E','primary beam',[wsrt_beams,pybeams_fits]); # ,wsrt_beams_zernike]);
 
 # P - feed angle
 from Siamese.OMS import feed_angle
@@ -195,8 +196,6 @@ def _define_forest(ns,parent=None,**kw):
   # setup contexts from MS
   mssel.setup_observation_context(ns);
   array = Meow.Context.array;
-  if not len(array.ifrs()):
-    raise RuntimeError,"No baselines selected. Check your interferometer subset setting";
 
   # make spigot nodes for data
   mssel.enable_input_column(True);
@@ -239,9 +238,6 @@ def _define_forest(ns,parent=None,**kw):
     models = [ ns.MT ];
     
   solve_ifrs  = array.subset(calibrate_ifrs,strict=False).ifrs();
-  if len(solve_ifrs) < 2:
-    raise RuntimeError,"'%s' selects only %d interferometers for calibration. Check your interferometer subset setting"%(
-      calibrate_ifrs,len(solve_ifrs));
   downsample_subtiling = [ stefcal_downsample_timeint,stefcal_downsample_freqint ] if stefcal_downsample else [1,1];
 
   import Calico.OMS.StefCal.StefCal
