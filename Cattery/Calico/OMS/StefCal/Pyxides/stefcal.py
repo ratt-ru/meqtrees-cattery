@@ -27,9 +27,13 @@ define("STEFCAL_STEP_INCR",1,"automatically increment v.STEP with each call to s
 def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
               diffgains=None,
               apply_only=False,
+              reset=False,
               gain_apply_only=False,
+              gain_reset=False,
               diffgain_apply_only=False,
+              diffgain_reset=False,
               ifrgain_apply_only=False,
+              ifrgain_reset=False,
               diffgain_intervals=None,diffgain_smoothing=None,
               flag_threshold=None,
               output="CORR_RES",
@@ -42,7 +46,12 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
   
   'section'         TDL config file section
   'label'           will be assigned to the global LABEL for purposes of file naming
-  'apply_only'      if true, will only apply saved solutions
+  'apply_only'      if true, will only apply saved solutions rather than re-solve
+  '{gain,diffgain,ifrgain}_apply_only'      
+                    if true, will only apply saved gain/diffgain/IFR gain solutions rather than re-solve
+  'reset'           if true, will reset all saved solutuions prior to starting
+  '{gain,diffgain,ifrgain}_reset'      
+                    if true, will reset saved gain/diffgain/IFR gain solutuions prior to starting
   'diffgains'       set to a source subset string to solve for diffgains. Set to True to use "=dE"
   'diffgain_mode'   'solve-save' to solve & save, 'solve-nosave' to not save, 'apply' to apply only
   'flag_threshold'  threshold flaging post-solutions. Give one threshold to flag with --above,
@@ -83,9 +92,13 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
     'do_output': output,
     'stefcal_gain.mode': "apply" if apply_only or gain_apply_only else "solve-save",
     'stefcal_gain1.mode': "apply" if apply_only  or gain_apply_only else "solve-save",
+    'stefcal_gain.reset': int(reset or gain_reset),
     'stefcal_diffgain.mode': "apply" if apply_only or diffgain_apply_only else "solve-save",
     'stefcal_diffgain1.mode': "apply" if apply_only or diffgain_apply_only  else "solve-save",
+    'stefcal_diffgain.reset': int(reset or diffgain_reset),
+    'stefcal_diffgain1.reset': int(reset or diffgain_reset),
     'stefcal_ifr_gain_mode': "apply" if apply_only or ifrgain_apply_only else "solve-save",
+    'stefcal_ifr_gain_reset': int(reset or ifrgain_reset),
     'stefcal_gain.table': STEFCAL_GAIN,
     'stefcal_gain1.table': STEFCAL_GAIN1,
     'stefcal_diffgain.table': STEFCAL_DIFFGAIN,
