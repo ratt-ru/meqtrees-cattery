@@ -16,12 +16,10 @@ Installation
 
  $ python setup.py install
 
- There are debian packages available also:
 
- https://launchpad.net/~ska-sa/+archive/main
+Documentation
+-------------
 
+Read everything about MeqTrees on the wiki:
 
-Questions or problems?
-----------------------
-
-Just e-mail Oleg Smirnov <osmirnov@gmail.com> or open an issue on Github.
+https://github.com/ska-sa/meqtrees/wiki

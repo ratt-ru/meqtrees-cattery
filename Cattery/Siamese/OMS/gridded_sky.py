@@ -41,7 +41,7 @@ def estimate_image_size (**kw):
   return grid_size*grid_step;
 
 def make_source (ns,name,l,m,I=1):
-  """Makes a source with a directio, using the current option set. 
+  """Makes a source with a direction, using the current option set. 
   Returns None for sources out of the "sky". 
   (l^2+m^2>1)""";
   l = math.sin(l);
@@ -50,8 +50,9 @@ def make_source (ns,name,l,m,I=1):
     srcdir = Meow.LMDirection(ns,name,l,m);
     if source_spi is not None:
       freq0 = source_freq0*1e+6 if source_freq0 else Meow.Context.observation.freq0();
+      spi = source_spi if source_spi_2 is None else [ source_spi,source_spi_2 ];
     else:
-      freq0 = None;
+      spi = freq0 = None;
     if source_pol:
       Q = I*source_qi;
       U = I*source_ui;
@@ -59,11 +60,11 @@ def make_source (ns,name,l,m,I=1):
     else:
       Q = U = V = None;
     if source_type == "point":
-      return Meow.PointSource(ns,name,srcdir,I=I,Q=Q,U=U,V=V,spi=source_spi,freq0=freq0);
+      return Meow.PointSource(ns,name,srcdir,I=I,Q=Q,U=U,V=V,spi=spi,freq0=freq0);
     elif source_type == "gaussian":
       s1,s2 = gauss_smaj*ARCSEC,gauss_smin*ARCSEC;
       pa = gauss_pa*DEG;
-      return Meow.GaussianSource(ns,name,srcdir,I=I,Q=Q,U=U,V=V,spi=source_spi,freq0=freq0,
+      return Meow.GaussianSource(ns,name,srcdir,I=I,Q=Q,U=U,V=V,spi=spi,freq0=freq0,
           lproj=s1*math.sin(pa),mproj=s1*math.cos(pa),ratio=s2/s1);
   # else fall through and return none
   return None;
@@ -189,6 +190,7 @@ TDLCompileOption("grid_l0","Offset w.r.t. phase center (l), in arcmin",
 TDLCompileOption("grid_m0","Offset w.r.t. phase center (m), in arcmin",
       [0],more=float);
 TDLCompileOption("source_spi","Spectral index",[None],more=float);
+TDLCompileOption("source_spi_2","Spectral curvature",[None],more=float);
 TDLCompileOption("source_freq0","Reference frequency, MHz",[None],more=float);
 
 

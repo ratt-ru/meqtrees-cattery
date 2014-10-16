@@ -28,7 +28,7 @@
 #
 
 from Timba.TDL import *
-from Cattery.LSM import LSM
+from Cattery.LSM.LSM import LSM as LSMClass
 from Timba.utils import curry
 import traceback
 import Meow
@@ -170,7 +170,7 @@ class MeowLSM (object):
     filename = filename or self.filename;
     format = format or self.format;
 
-    self.lsm = LSM();
+    self.lsm = LSMClass();
 
     # set up table of format readers
     # all are expected to take an lsm object (e.g. self) as arg 1,
