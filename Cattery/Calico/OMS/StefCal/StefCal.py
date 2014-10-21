@@ -997,13 +997,14 @@ class StefCalNode (pynode.PyNode):
     # if last domain, then write ifr gains to file
     if self.solve_ifr_gains and time1 >= numtime:
       # get time slicing (to go back from expanded shape to true data shape)
-      slc = self._expanded_dataslice[0:1] if self._expanded_dataslice else (None,);
+      slc = self._expanded_dataslice[0:1] if self._expanded_dataslice else None;
       # apply updates
       for pq in self._ifrs:
-        self.ifr_gain[pq] = [ g*g1[slc] for g,g1 in zip(self.ifr_gain.get(pq,[1,1,1,1]),self.ifr_gain_update[pq]) ];
+        self.ifr_gain[pq] = [ g*(g1 if numpy.isscalar(g1) or not slc else g1[slc]) 
+            for g,g1 in zip(self.ifr_gain.get(pq,[1,1,1,1]),self.ifr_gain_update[pq]) ];
       dprint(2,"IFR gain solutions update: ",", ".join(
             ["%s%s:%s%s %s"%(p,self.corr_names[i],q,self.corr_names[j],
-            self.ifr_gain_update[(p,q),i,j][slc])
+            self.ifr_gain_update[(p,q),i,j])
             for (p,q),i,j in pqij_data[0:3]]));
       dprint(2,"IFR gain solutions: ",", ".join(
             ["%s%s:%s%s %s"%(p,self.corr_names[i],q,self.corr_names[j],
