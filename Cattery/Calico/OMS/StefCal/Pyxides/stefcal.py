@@ -21,6 +21,7 @@ define("STEFCAL_DIFFGAIN_SAVE_Template","$OUTFILE.diffgain${SUFFIX}.cp","archive
 define("STEFCAL_IFRGAIN_SAVE_Template","$OUTFILE.ifrgain${SUFFIX}.cp","archive destination for IFR gain solutions")
 define("STEFCAL_DIFFGAIN_SMOOTHING","","smoothing kernel (time,freq) for diffgains, overrides TDL config file")
 define("STEFCAL_DIFFGAIN_INTERVALS","","solution intervals (time,freq) for diffgains, overrides TDL config file")
+define("STEFCAL_DIFFGAIN_PLOT_PREFIX","dE","automatically plot diffgain solutions. Set to empty string to disable.")
 
 define("STEFCAL_STEP_INCR",1,"automatically increment v.STEP with each call to stefcal");
 
@@ -32,6 +33,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
               gain_reset=False,
               diffgain_apply_only=False,
               diffgain_reset=False,
+              diffgain_plot_prefix="$STEFCAL_DIFFGAIN_PLOT_PREFIX",
               ifrgain_apply_only=False,
               ifrgain_reset=False,
               diffgain_intervals=None,diffgain_smoothing=None,
@@ -54,6 +56,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
                     if true, will reset saved gain/diffgain/IFR gain solutuions prior to starting
   'diffgains'       set to a source subset string to solve for diffgains. Set to True to use "=dE"
   'diffgain_mode'   'solve-save' to solve & save, 'solve-nosave' to not save, 'apply' to apply only
+  'diffgain_plot'   automatically invoke make_diffgain_plots() if True
   'flag_threshold'  threshold flaging post-solutions. Give one threshold to flag with --above,
                     or T1,T2 for --above T1 --fm-above T2
   'output'          output visibilities ('CORR_DATA','CORR_RES', 'RES' are useful)
@@ -66,7 +69,8 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
                     overriding settings in the TDL config file. Useful arguments of this kind are e.g.:
                     stefcal_reset_all=True to remove prior gains solutions.
   """
-  msname,section,lsm,label,plotvis = interpolate_locals("msname section lsm label plotvis");
+  msname,section,lsm,label,plotvis,diffgain_plot_prefix = \
+    interpolate_locals("msname section lsm label plotvis diffgain_plot_prefix");
   
   makedir(v.DESTDIR);
   
@@ -128,6 +132,8 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
       std.copy(STEFCAL_GAIN1,STEFCAL_GAIN1_SAVE);
     if os.path.exists(STEFCAL_DIFFGAIN):
       std.copy(STEFCAL_DIFFGAIN,STEFCAL_DIFFGAIN_SAVE);
+      if diffgain_plot_prefix:
+        make_diffgain_plots(STEFCAL_DIFFGAIN_SAVE,prefix=diffgain_plot_prefix);
     if os.path.exists(STEFCAL_IFRGAIN):
       std.copy(STEFCAL_IFRGAIN,STEFCAL_IFRGAIN_SAVE);
     
@@ -152,4 +158,113 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
 
 # document global options for stefcal()
 document_globals(stefcal,"MS LSM mqt.TDLCONFIG STEFCAL_* ms.DDID ms.CHANRANGE ms.IFRS ms.PLOTVIS STEP LABEL");
+
+import cPickle
+
+define("DIFFGAIN_PLOT_DIR_Template","$OUTFILE.diffgain${SUFFIX}.plots","directory for diffgain plots")
+define("DIFFGAIN_PLOT_AMPL_YLIM",(0,2),"explicit Y axis limits for amplitude plot, as (y1,y2) tuple, or None for auto-scale")
+
+def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIFFGAIN_PLOT_DIR",ylim=None,subset=None,ant=None):
+  """Makes a set of diffgain plots from the specified saved file ('filename'). Plots are placed into directory
+  'dir' and filenames are prefixed by 'prefix'. 
+  'ylim' can be used to override DIFFGAIN_PLOT_AMPL_YLIM setting.
+  'subset' can be set to a whitespace-separated list of parameter names
+  'ant' can be set to a whitespace-separated list of antennas. Wildcard patterns are allowed in both cases"""
+  import pylab
   
+  filename,prefix,dir = interpolate_locals("filename prefix dir");
+  if dir:
+    makedir(dir);
+  else:
+    dir = ".";
+
+  info("loading diffgain solutions from $filename");
+  DG0 = cPickle.load(file(filename))
+
+  DG = DG0['gains']
+  srcnames = sorted(DG.keys())
+  ncols = len(srcnames)
+  antennas = sorted(DG[srcnames[0]]['solutions'].keys(),lambda a,b:cmp(int(a),int(b)));
+  
+  ylim = ylim or DIFFGAIN_PLOT_AMPL_YLIM;
+  
+  # apply subsets
+  if subset:
+    info("applying subset '$src' to parameters",*srcnames);
+    src = subset.split();
+    srcnames = [ x for x in srcnames if any([ fnmatch.fnmatch(x,patt) for patt in src ]) ];
+  if ant:
+    info("applying subset '$ant' to antennas",*antennas);
+    ant = ant.split();
+    antennas = [ x for x in antennas if any([ fnmatch.fnmatch(x,patt) for patt in ant ]) ];
+    
+  if not srcnames or not antennas:
+    info("no parameters or antennas to plot");
+    return;
+
+  info("making diffgain plots for",*srcnames);
+  info("and %d antennas"%len(antennas));
+
+  for ant in antennas:
+    filename = II("$dir/$prefix-ant-$ant.png");   
+    info("making plot $filename");
+    pylab.figure(figsize=(5*ncols,3*8))
+    for i,src in enumerate(sorted(srcnames)):
+      sols = DG[src]['solutions'][ant]
+      for j,xx in enumerate(("RR","RL","LR","LL")):
+        pylab.subplot(8,ncols,j*2*ncols+i+1)
+        pylab.title("%s:%s:%s:ampl"%(src,ant,xx));
+        if not hasattr(sols[j],'shape'):
+          continue;
+        ntime,nfreq = sols[j].shape;
+        pylab.xticks([]);
+        pylab.xlim(0,ntime-1);
+        if ylim:
+          pylab.ylim(*ylim);
+        if nfreq>1:
+          x = range(ntime);
+          pylab.fill_between(x,abs(sols[j][:,0]),abs(sols[j][:,-1]),color='grey')
+          pylab.plot(abs(sols[j][:,nfreq/2]))
+        else:
+          pylab.plot(abs(sols[j][:,0]))
+        pylab.subplot(8,ncols,(j*2+1)*ncols+i+1)
+        ph = numpy.angle(sols[j])*180/math.pi;
+        if nfreq>1:
+          pylab.plot(ph[:,0],'.',ms=0.5,mec='0.2')
+          pylab.plot(ph[:,-1],'.',ms=0.5,mec='0.2')
+          pylab.plot(ph[:,nfreq/2],'.b',ms=0.5)
+        else:
+          pylab.plot(ph[:,0],'.',ms=0.5)
+        pylab.title("%s:%s:%s:phase (deg)"%(src,ant,xx));
+        pylab.xticks([]);
+        pylab.xlim(0,ntime-1)
+    pylab.savefig(filename,dpi=150);
+    pylab.close();
+
+  ncols = len(srcnames)
+  nrows = len(antennas)
+  filename = II("$dir/$prefix-ampl-summary.png")
+  info("making plot $filename");
+  pylab.figure(figsize=(5*ncols,3*nrows));
+  for row,ant in enumerate(antennas):
+    for isrc,src in enumerate(sorted(srcnames)):
+      sols = DG[src]['solutions'][ant][0]
+      pylab.subplot(nrows,ncols,row*ncols+isrc+1)
+      pylab.title("%s:%s:%s:ampl"%(src,ant,"RR"));
+      if not hasattr(sols,'shape'):
+        continue;
+      ntime,nfreq = sols.shape;
+      if nfreq>1:
+        x = range(ntime);
+        pylab.fill_between(x,abs(sols[:,0]),abs(sols[:,-1]),color='grey')
+        pylab.plot(abs(sols[:,nfreq/2]))
+      else:
+        pylab.plot(abs(sols[:,0]))
+      pylab.xticks([]);
+      pylab.xlim(0,ntime-1)
+      if ylim:
+        pylab.ylim(*ylim);
+  pylab.savefig(filename,dpi=150);
+  pylab.close();
+  
+document_globals(make_diffgain_plots,"DIFFGAIN_PLOT* STEFCAL_DIFFGAIN_SAVE");
