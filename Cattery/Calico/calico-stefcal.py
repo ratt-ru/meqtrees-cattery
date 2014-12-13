@@ -91,8 +91,9 @@ read_ms_model_opt = TDLCompileOption("read_ms_model","Read additional uv-model v
 # add a fixed primary beam first
 from Calico.OMS import wsrt_beams  #,wsrt_beams_zernike
 from Siamese.OMS import pybeams_fits
+from Siamese.OMS.emss_beams import emss_polar_beams
 
-meqmaker.add_sky_jones('E','primary beam',[wsrt_beams,pybeams_fits]); # ,wsrt_beams_zernike]);
+meqmaker.add_sky_jones('E','primary beam',[wsrt_beams,pybeams_fits,emss_polar_beams]); # ,wsrt_beams_zernike]);
 
 # P - feed angle
 from Siamese.OMS import feed_angle
