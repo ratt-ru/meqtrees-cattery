@@ -194,7 +194,7 @@ class Gain2x2 (DataTiler):
         if self.opts.smoothing:
           sum_vhv = [ x if is_null(x) else 
                         scipy.ndimage.filters.gaussian_filter(x.real,self.opts.smoothing,mode='constant')
-<                       +1j*scipy.ndimage.filters.gaussian_filter(x.imag,self.opts.smoothing,mode='constant') 
+                        +1j*scipy.ndimage.filters.gaussian_filter(x.imag,self.opts.smoothing,mode='constant') 
                       for x in sum_vhv ];
           sum_dv = [ x if is_null(x) else
                         scipy.ndimage.filters.gaussian_filter(x.real,self.opts.smoothing,mode='constant')

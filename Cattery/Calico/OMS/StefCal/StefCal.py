@@ -527,7 +527,7 @@ class StefCalNode (pynode.PyNode):
         self._expanded_size /= downsample_factor;
     
 ## -------------------- rescale data to model if asked to
-    if self.rescale:
+    if self.rescale and self.rescale != "no":
       scale = {};
       finite = {};
       # compute scales as s(p) = ||sum_q Mpq||/||sum_q Dpq||
