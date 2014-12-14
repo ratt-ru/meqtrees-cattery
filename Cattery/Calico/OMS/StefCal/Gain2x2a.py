@@ -23,8 +23,9 @@ verbose_stations_corr = (); # set([p[0] for p in verbose_baselines_corr]+[p[1] f
 
 from DataTiler import DataTiler    
 
-class Gain2x2 (DataTiler):
+class Gain2x2a (DataTiler):
   """Support class to handle a set of subtiled gains in the form of 2x2 G matrices.
+  Version 2x2a: add proper flag accounting during smoothing.
   """;
   polarized = True;
   nparm = 4;
