@@ -21,6 +21,8 @@ define("STEFCAL_DIFFGAIN_SAVE_Template","$OUTFILE.diffgain${SUFFIX}.cp","archive
 define("STEFCAL_IFRGAIN_SAVE_Template","$OUTFILE.ifrgain${SUFFIX}.cp","archive destination for IFR gain solutions")
 define("STEFCAL_DIFFGAIN_SMOOTHING","","smoothing kernel (time,freq) for diffgains, overrides TDL config file")
 define("STEFCAL_DIFFGAIN_INTERVALS","","solution intervals (time,freq) for diffgains, overrides TDL config file")
+define("STEFCAL_GAIN_PLOT_PREFIX","G","automatically plot gain solutions. Set to empty string to disable.")
+define("STEFCAL_IFRGAIN_PLOT_PREFIX","IG","automatically IFR gain solutions. Set to empty string to disable.")
 define("STEFCAL_DIFFGAIN_PLOT_PREFIX","dE","automatically plot diffgain solutions. Set to empty string to disable.")
 
 define("STEFCAL_STEP_INCR",1,"automatically increment v.STEP with each call to stefcal");
@@ -33,6 +35,8 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
               gain_reset=False,
               diffgain_apply_only=False,
               diffgain_reset=False,
+              gain_plot_prefix="$STEFCAL_GAIN_PLOT_PREFIX",
+              ifrgain_plot_prefix="$STEFCAL_IFRGAIN_PLOT_PREFIX",
               diffgain_plot_prefix="$STEFCAL_DIFFGAIN_PLOT_PREFIX",
               ifrgain_apply_only=False,
               ifrgain_reset=False,
@@ -69,8 +73,8 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
                     overriding settings in the TDL config file. Useful arguments of this kind are e.g.:
                     stefcal_reset_all=True to remove prior gains solutions.
   """
-  msname,section,lsm,label,plotvis,diffgain_plot_prefix = \
-    interpolate_locals("msname section lsm label plotvis diffgain_plot_prefix");
+  msname,section,lsm,label,plotvis,gain_plot_prefix,ifrgain_plot_prefix,diffgain_plot_prefix = \
+    interpolate_locals("msname section lsm label plotvis gain_plot_prefix ifrgain_plot_prefix diffgain_plot_prefix");
   
   makedir(v.DESTDIR);
   
@@ -136,7 +140,9 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
         make_diffgain_plots(STEFCAL_DIFFGAIN_SAVE,prefix=diffgain_plot_prefix);
     if os.path.exists(STEFCAL_IFRGAIN):
       std.copy(STEFCAL_IFRGAIN,STEFCAL_IFRGAIN_SAVE);
-    
+      if ifrgain_plot_prefix:
+        make_ifrgain_plots(STEFCAL_IFRGAIN_SAVE,prefix=ifrgain_plot_prefix);
+                  
   # post-calibration flagging
   if flag_threshold:
     if isinstance(flag_threshold,(list,tuple)):
@@ -171,6 +177,7 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
   'subset' can be set to a whitespace-separated list of parameter names
   'ant' can be set to a whitespace-separated list of antennas. Wildcard patterns are allowed in both cases"""
   import pylab
+  from Timba.Meq import meq
   
   filename,prefix,dir = interpolate_locals("filename prefix dir");
   if dir:
@@ -268,3 +275,68 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
   pylab.close();
   
 document_globals(make_diffgain_plots,"DIFFGAIN_PLOT* STEFCAL_DIFFGAIN_SAVE");
+
+
+_IFRGAIN_DIR = "."
+_IFRGAIN_PREFIX = "IG"
+_IFRGAIN_TYPE = "rrll"
+
+define("IFRGAIN_PLOT_Template","${_IFRGAIN_DIR}/$OUTFILE.${_IFRGAIN_PREFIX}-${_IFRGAIN_TYPE}${-<SUFFIX}.png","filename for ifrgain plots")
+define("IFRGAIN_PLOT_FEED","rl","feed type for ifrgains: rl or xy")
+define("IFRGAIN_PLOT_OFFDIAG",False,"plot off-diagonal IFR gains")
+
+def _normifrgain (rr):
+  if type(rr) is float:
+    return abs(rr-1);
+  else:
+    return float(abs(rr[rr!=1]-1).mean());
+
+def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",dir="$IFRGAIN_PLOT_DIR",offdiag=None,feed="$IFRGAIN_PLOT_FEED"):
+  """Makes a set of ifrgain plots from the specified saved file ('filename'). Plots are placed into directory
+    'dir' and filenames are prefixed by 'prefix'. 
+  """
+  import pylab   
+  from Timba.Meq import meq
+  
+  filename,prefix,dir,feed = interpolate_locals("filename prefix dir feed");
+  if dir:
+    makedir(dir);
+  else:
+    dir = ".";
+  global _IFRGAIN_DIR,_IFRGAIN_PREFIX,_IFRGAIN_TYPE;
+  _IFRGAIN_DIR,_IFRGAIN_PREFIX = dir,prefix;
+  if offdiag is None:
+    offdiag = IFRGAIN_PLOT_OFFDIAG;
+  if feed.upper() == "RL":
+    feeds = "RR","LL","RL","LR";  
+  else:
+    feeds = "XX","YY","XY","YX";  
+
+
+  ig = cPickle.load(file(filename))         
+
+  crl = {}
+  for (p,q),(rr,rl,lr,ll) in ig.iteritems():
+    crl[p,q] = _normifrgain(rr),_normifrgain(ll);
+  pylab.figure(figsize=(16,12))
+  vals = crl.values()
+  pylab.plot([cr for cr,cl in vals],[cl for cr,cl in vals],'.w')
+  for pq,(cr,cl) in crl.iteritems():
+    pylab.text(cr,cl,"%s-%s"%pq,horizontalalignment='center',verticalalignment='center',size=8)
+  pylab.title("IFR offsets (%s vs. %s)"%feeds[:2])
+  _IFRGAIN_TYPE = ("%s%s"%feeds[:2]).lower();
+  pylab.savefig(II("$IFRGAIN_PLOT"),dpi=100);
+
+  if offdiag:
+    crl = {}
+    for (p,q),(rr,rl,lr,ll) in ig.iteritems():
+      crl[p,q] = _normifrgain(rl),_normifrgain(lr);
+    pylab.figure(figsize=(16,12))
+    pylab.plot([cr for cr,cl in crl.itervalues()],[cl for cr,cl in crl.itervalues()],'.w')
+    for pq,(cr,cl) in crl.iteritems():
+      pylab.text(cr,cl,"%s-%s"%pq,horizontalalignment='center',verticalalignment='center',size=8)
+    pylab.title("IFR offsets (%s vs. %s)"%feeds[2:])
+    _IFRGAIN_TYPE = ("%s%s"%feeds[2:]).lower();
+    pylab.savefig(II("$IFRGAIN_PLOT"),dpi=100);
+
+document_globals(make_ifrgain_plots,"IFRGAIN_PLOT* STEFCAL_IFRGAIN_SAVE");
