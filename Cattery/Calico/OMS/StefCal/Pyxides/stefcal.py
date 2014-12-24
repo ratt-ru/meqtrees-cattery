@@ -538,7 +538,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
           pylab.plot(x[xvalid,0],amid[xvalid],'.',mec='blue',mfc='blue')
         else:
           pylab.plot(x[valid],amp[valid],'.',ms=0.5,mec='grey',mfc='grey')
-          pylab.plot(x[xvalid,0],amid[xvalid],'.-',ms=0.5,mec='blue',mfc='blue')
+          pylab.plot(x[xvalid,0],amid[xvalid],'-',ms=0.5,mec='blue',mfc='blue',color='blue')
         pylab.title("%s:%s:ampl"%(ant,feed));
         pylab.xticks([]);
         pylab.xlim(0,nx-1)
@@ -550,7 +550,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
         ph = ph0[:,ny/2];
         xvalid = valid[:,ny/2];
         if xvalid.any():
-          pylab.plot(x[xvalid,0],ph[xvalid],'.-',ms=0.5,mec='blue',mfc='blue')
+          pylab.plot(x[xvalid,0],ph[xvalid],'-',ms=0.5,mec='blue',mfc='blue',color='blue')
         
         pylab.title("%s:%s:phase (deg)"%(ant,feed));
         pylab.xticks([]);
