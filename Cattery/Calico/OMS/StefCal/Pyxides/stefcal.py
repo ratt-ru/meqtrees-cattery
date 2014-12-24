@@ -361,8 +361,8 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",offdiag=No
     );
     # plot labels
     for l1,l2,(x,xe),(y,ye) in content:
-      pylab.text(x.real,x.imag,l1,horizontalalignment='center',verticalalignment='center',size=8)
-      pylab.text(y.real,y.imag,l2,horizontalalignment='center',verticalalignment='center',size=8)
+      pylab.text(x.real,x.imag,l1,horizontalalignment='center',verticalalignment='center',color='blue',size=8)
+      pylab.text(y.real,y.imag,l2,horizontalalignment='center',verticalalignment='center',color='red',size=8)
     pylab.title(title)
     pylab.savefig(II("$IFRGAIN_PLOT"),dpi=100);
     info("generated plot $IFRGAIN_PLOT")
@@ -396,10 +396,10 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",offdiag=No
   igpa = {}
   for (p,q),(rr,rl,lr,ll) in ig.iteritems():
     rr,ll = _normifrgain(rr),_normifrgain(ll);
-    igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[0]),rr));
-    igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[0]),rr));
-    igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[1]),ll));
-    igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[1]),ll));
+    igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[0]),'blue',rr));
+    igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[0]),'blue',rr));
+    igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[1]),'red',ll));
+    igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[1]),'red',ll));
 
   def plot_ants (content,title):
     """Plots x vs y""";
@@ -412,10 +412,10 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",offdiag=No
     # );
     # plot labels
     for i,(p,gainlist) in enumerate(content):
-      for label,(value,std) in gainlist: 
+      for label,color,(value,std) in gainlist: 
         if value:
           pylab.plot(i,value,'w.')
-          pylab.text(i,value,label,horizontalalignment='center',verticalalignment='center',size=8)
+          pylab.text(i,value,label,horizontalalignment='center',verticalalignment='center',size=8,color=color)
     pylab.xlim(-1,len(content));
     pylab.xticks(range(len(content)),[p for p,gainlist in content ]);
     pylab.title(title)
