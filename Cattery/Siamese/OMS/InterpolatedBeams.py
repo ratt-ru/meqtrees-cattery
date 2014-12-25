@@ -87,7 +87,7 @@ class FITSAxes (object):
         self._axis[self._type[i]] = i;
       # axis gridding
       # use non-standard keywords GRtype1 .. GRtypeN to supply explicit grid values and ignore CRVAL/CRPIX/CDELT
-      grid = [ hdr.get('GR%s%d'%(ctype,i),None) for i in range(1,nx+1) ];
+      grid = [ hdr.get('G%s%d'%(ctype,j),None) for j in range(1,nx+1) ];
       if all([x is not None for x in grid]):
         self._grid[i] = numpy.array(grid);
         self._w2p[i] = interpolate.interp1d(grid,range(len(grid)),'linear');
