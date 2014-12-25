@@ -70,6 +70,9 @@ class FITSAxes (object):
     self._type = ['']*naxis;
     self._rpix = [0]*naxis;
     self._rval = [0]*naxis;
+    self._grid = [None]*naxis;
+    self._w2p  = [None]*naxis;
+    self._p2w  = [None]*naxis;
     self._delta = [1]*naxis;
     self._delta0 = [1]*naxis;
     self._unit = [None]*naxis;
@@ -79,13 +82,23 @@ class FITSAxes (object):
       ax = str(i+1);
       nx = self._naxis[i] = hdr.get('NAXIS'+ax);
       # CTYPE is axis name
-      self._type[i] = hdr.get('CTYPE'+ax,None);
+      self._type[i] = ctype = hdr.get('CTYPE'+ax,None);
       if self._type[i] is not None:
         self._axis[self._type[i]] = i;
       # axis gridding
-      self._rval[i] = rval = hdr.get('CRVAL'+ax,0);
-      self._rpix[i] = rpix = hdr.get('CRPIX'+ax,1) - 1;
-      self._delta[i] = self._delta0[i] = delta = hdr.get('CDELT'+ax,1);
+      # use non-standard keywords GRtype1 .. GRtypeN to supply explicit grid values and ignore CRVAL/CRPIX/CDELT
+      grid = [ hdr.get('GR%s%d'%(ctype,i),None) for i in range(1,nx+1) ];
+      if all([x is not None for x in grid]):
+        self._grid[i] = numpy.array(grid);
+        self._w2p[i] = interpolate.interp1d(grid,range(len(grid)),'linear');
+        self._p2w[i] = interpolate.interp1d(range(len(grid)),grid,'linear');
+      else:
+        self._rval[i] = rval = hdr.get('CRVAL'+ax,0);
+        self._rpix[i] = rpix = hdr.get('CRPIX'+ax,1) - 1;
+        self._delta[i] = self._delta0[i] = delta = hdr.get('CDELT'+ax,1);
+        self._grid[i] = (numpy.arange(0.,float(nx))-rpix)*delta+rval;
+        self._w2p[i] =  lambda world,rpix=rpix,rval=rval,delta=delta:rpix+(world-rval)/delta;
+        self._p2w[i] =  lambda pix,rpix=rpix,rval=rval,delta=delta:(pix-rpix)*delta+rval;
       self._unit[i] = hdr.get('CUNIT'+ax,'').strip().upper();
 
   def ndim (self):
@@ -98,10 +111,7 @@ class FITSAxes (object):
     return axisname if isinstance(axisname,int) else self._axis.get(axisname,-1);
 
   def grid (self,axis):
-    iaxis = self.iaxis(axis);
-    if iaxis < 0:
-      raise TypeError,"missing axis '%s'"%axis;
-    return (numpy.arange(0.,float(self._naxis[iaxis])) - self._rpix[naxis])*self._delta[naxis] + self._rval[naxis];
+    return self._grid[self.iaxis(axis)];
 
   def type (self,axis):
     return self._type[self.iaxis(axis)];
@@ -116,17 +126,12 @@ class FITSAxes (object):
 
   def toPixel (self,axis,world):
     """Converts array of world coordinates to pixel coordinates""";
-    iaxis = self.iaxis(axis);
-    return self._rpix[iaxis] + (world - self._rval[iaxis])/self._delta[iaxis];
+    return self._w2p[self.iaxis(axis)](world);
 
   def toWorld (self,axis,pixel):
     """Converts array of pixel coordinates to world coordinates""";
-    iaxis = self.iaxis(axis);
-    return (pixel - self._rpix[iaxis])*self._delta[iaxis] + self._rval[iaxis];
+    return self._p2w[self.iaxis(axis)](pixel);
 
-  def grid (self,axis):
-    iaxis = self.iaxis(axis);
-    return self.toWorld(iaxis,numpy.arange(0.,float(self._naxis[iaxis])));
 
 class LMVoltageBeam (object):
   """This class implements a complex voltage beam as a function of LM."""
@@ -312,7 +317,6 @@ class LMVoltageBeam (object):
     dprint(3,"interpolated value [0] is",output.ravel()[0]);
     dprint(4,"interpolated value is",output);
     return output;
-
 
 class LMVoltageMultifreqBeam (LMVoltageBeam):
   """This class implements an LMVoltageBeam where the
