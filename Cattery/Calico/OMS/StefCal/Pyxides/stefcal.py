@@ -231,7 +231,7 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
   info("making diffgain plots for",*srcnames);
   info("and %d antennas"%len(antennas));
   # feed labels
-  feeds = "RR","RL","LR","LL" if FEED_TYPE.upper() == "RL" else "XX","XY","YX","YY";  
+  feeds = ("RR","RL","LR","LL") if FEED_TYPE.upper() == "RL" else ("XX","XY","YX","YY");  
 
   for ant in antennas:
     filename = II("$dir/$prefix-ant-$ant.png");   
@@ -341,7 +341,7 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     makedir(dir)
 
   # feed labels
-  feeds = "RR","LL","RL","LR" if FEED_TYPE.upper() == "RL" else "XX","YY","XY","YX";  
+  feeds = ("RR","LL","RL","LR") if FEED_TYPE.upper() == "RL" else ("XX","YY","XY","YX");  
 
   ig = cPickle.load(file(filename))         
 
@@ -495,7 +495,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
     return;
 
   # feed labels
-  feeds = "RR","RL","LR","LL" if FEED_TYPE.upper() == "RL" else "XX","XY","YX","YY";  
+  feeds = ("RR","RL","LR","LL") if FEED_TYPE.upper() == "RL" else ("XX","XY","YX","YY");  
 
   ncols = 8
   nrows = len(antennas)
