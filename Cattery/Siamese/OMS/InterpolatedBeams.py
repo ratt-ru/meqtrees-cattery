@@ -96,10 +96,15 @@ class FITSAxes (object):
         self._rval[i] = rval = hdr.get('CRVAL'+ax,0);
         self._rpix[i] = rpix = hdr.get('CRPIX'+ax,1) - 1;
         self._delta[i] = self._delta0[i] = delta = hdr.get('CDELT'+ax,1);
-        self._grid[i] = (numpy.arange(0.,float(nx))-rpix)*delta+rval;
-        self._w2p[i] =  lambda world,rpix=rpix,rval=rval,delta=delta:rpix+(world-rval)/delta;
-        self._p2w[i] =  lambda pix,rpix=rpix,rval=rval,delta=delta:(pix-rpix)*delta+rval;
+        self._setup_grid(i);
       self._unit[i] = hdr.get('CUNIT'+ax,'').strip().upper();
+
+  def _setup_grid (self,i):
+    """Internal helper to set up the grid based on rval/rpix/delta"""
+    nx,rpix,rval,delta = self._naxis[i],self._rpix[i],self._rval[i],self._delta[i];
+    self._grid[i] = (numpy.arange(0.,float(nx))-rpix)*delta+rval;
+    self._w2p[i] =  lambda world,rpix=rpix,rval=rval,delta=delta:rpix+(world-rval)/delta;
+    self._p2w[i] =  lambda pix,rpix=rpix,rval=rval,delta=delta:(pix-rpix)*delta+rval;
 
   def ndim (self):
     return len(self._naxis);
@@ -123,6 +128,7 @@ class FITSAxes (object):
     iaxis = self.iaxis(axis);
     self._unit_scale[iaxis] = scale;
     self._delta[iaxis] = self._delta0[iaxis]*scale;
+    self._setup_grid(iaxis);
 
   def toPixel (self,axis,world):
     """Converts array of world coordinates to pixel coordinates""";
