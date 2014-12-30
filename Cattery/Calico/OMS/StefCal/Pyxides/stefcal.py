@@ -370,11 +370,25 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
       [xe for l1,l2,(x,xe),(y,ye) in content],[xe for l1,l2,(x,xe),(y,ye) in content],
       fmt=None,ecolor="lightgrey"
     );
+    pylab.errorbar(
+      [y.real for l1,l2,(x,xe),(y,ye) in content],[y.imag for l1,l2,(x,xe),(y,ye) in content],
+      [ye for l1,l2,(x,xe),(y,ye) in content],[ye for l1,l2,(x,xe),(y,ye) in content],
+      fmt=None,ecolor="lightgrey"
+    );
+    # max plot amplitude -- max point plus 1/4th of the error bar
+    maxa = max([ max(abs(x),abs(y)) for l1,l2,(x,xe),(y,ye) in content ]);
+    plotlim = max([ abs(numpy.array([ 
+                     getattr(v,attr)+sign*e/4 for v,e in (x,xe),(y,ye) for attr in 'real','imag' for sign in 1,-1 
+                   ])).max() 
+      for l1,l2,(x,xe),(y,ye) in content ]);
+    
     # plot labels
     for l1,l2,(x,xe),(y,ye) in content:
       pylab.text(x.real,x.imag,l1,horizontalalignment='center',verticalalignment='center',color='blue',size=8)
       pylab.text(y.real,y.imag,l2,horizontalalignment='center',verticalalignment='center',color='red',size=8)
-    pylab.title(title)
+    pylab.xlim(-plotlim,plotlim);
+    pylab.ylim(-plotlim,plotlim);
+    pylab.title(title+" (max %.5g)"%maxa)
     pylab.savefig(II("$IFRGAIN_PLOT"),dpi=100);
     info("generated plot $IFRGAIN_PLOT")
 
@@ -515,7 +529,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
         else:
           xhminmax = (min(xhminmax[0],amin),max(xhminmax[1],amax));
 
-  for xaxis,yaxis,label in (0,1,"time"),(1,0,"freq"):
+  for xaxis,yaxis,label in (0,1,"timeslot"),(1,0,"chan"):
     pylab.figure(figsize=(5*ncols,3*nrows))
     for row,ant in enumerate(antennas):
       sols = G[ant]
@@ -539,9 +553,18 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
         else:
           pylab.plot(x[valid],amp[valid],'.',ms=0.5,mec='grey',mfc='grey')
           pylab.plot(x[xvalid,0],amid[xvalid],'-',ms=0.5,mec='blue',mfc='blue',color='blue')
-        pylab.title("%s:%s:ampl"%(ant,feed));
-        pylab.xticks([]);
-        pylab.xlim(0,nx-1)
+        pylab.title("%s:%s:ampl - %s"%(ant,feed,label));
+        tickstep = 10**int(math.log10(nx)-1);
+        labstep = 10**int(math.log10(nx));
+        if nx/labstep < 5:
+          labstep /= 2;
+#        if label == "timeslot":
+#          xtloc = xtlab = [];
+#        else:
+        xtloc = range(0,nx,tickstep);
+        xtlab = [ ("" if t%labstep else str(t)) for t in xtloc ];
+        pylab.xticks(xtloc,xtlab);
+        pylab.xlim(-1,nx)
         pylab.ylim(*(ppminmax if j in (0,3) else xhminmax))
         
         pylab.subplot(nrows,ncols,row*ncols+icol*2+2)
@@ -551,10 +574,9 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
         xvalid = valid[:,ny/2];
         if xvalid.any():
           pylab.plot(x[xvalid,0],ph[xvalid],'-',ms=0.5,mec='blue',mfc='blue',color='blue')
-        
-        pylab.title("%s:%s:phase (deg)"%(ant,feed));
-        pylab.xticks([]);
-        pylab.xlim(0,nx-1)
+        pylab.title("%s:%s:phase (deg) - %s"%(ant,feed,label));
+        pylab.xticks(xtloc,xtlab);
+        pylab.xlim(-1,nx)
 
     _GAIN_TYPE = label;
     pylab.savefig(II("$GAIN_PLOT"),dpi=150);  
