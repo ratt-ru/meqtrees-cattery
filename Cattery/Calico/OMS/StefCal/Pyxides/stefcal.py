@@ -348,8 +348,6 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
 
   def plot_xy (content,title):
     """Plots x vs y""";
-    pylab.figure(figsize=(16,12))
-    # plot errors bars, if available
     pylab.errorbar(
       [x for l,(x,xe),(y,ye) in content],[y for l,(x,xe),(y,ye) in content],
       [ye for l,(x,xe),(y,ye) in content],[xe for l,(x,xe),(y,ye) in content],
@@ -359,12 +357,16 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     for label,(x,xe),(y,ye) in content:
       pylab.text(x,y,label,horizontalalignment='center',verticalalignment='center',size=8)
     pylab.title(title)
-    pylab.savefig(II("$IFRGAIN_PLOT"),dpi=100);
-    info("generated plot $IFRGAIN_PLOT")
+
+  def plot_hist (content,title):
+    """Plots histogram""";
+    values = [x for l,(x,xe),(y,ye) in content] + [y for l,(x,xe),(y,ye) in content];
+    hist = pylab.hist(values);
+    pylab.xlim(min(values),max(values));
+    pylab.title(title)
 
   def plot_complex (content,title):
     """Plots x vs y""";
-    pylab.figure(figsize=(16,12))
     # plot errors bars, if available
     pylab.errorbar(
       [x.real for l1,l2,(x,xe),(y,ye) in content],[x.imag for l1,l2,(x,xe),(y,ye) in content],
@@ -390,18 +392,9 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     pylab.xlim(-plotlim,plotlim);
     pylab.ylim(-plotlim,plotlim);
     pylab.title(title+" (max %.5g)"%maxa)
-    pylab.savefig(II("$IFRGAIN_PLOT"),dpi=100);
-    info("generated plot $IFRGAIN_PLOT")
 
   def plot_ants (content,title):
     """Plots x vs y""";
-    pylab.figure(figsize=(16,12))
-    # plot errors bars, if available
-    # pylab.errorbar(
-    #   range(1,len(content)+1),[x for lx,x,xe,ly,y,ye in content],
-    #   [xe for lx,x,xe,ly,y,ye in content],
-    #   fmt=None,ecolor="lightgrey"
-    # );
     # plot labels
     for i,(p,gainlist) in enumerate(content):
       for label,color,(value,std) in gainlist: 
@@ -411,40 +404,26 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     pylab.xlim(-1,len(content));
     pylab.xticks(range(len(content)),[p for p,gainlist in content ]);
     pylab.title(title)
-    pylab.savefig(II("$IFRGAIN_PLOT"),dpi=100);
-    info("generated plot $IFRGAIN_PLOT")
-  
+
   # plot RR vs LL offsets
-  crl = [ ("%s-%s"%(p,q),_normifrgain(rr),_normifrgain(ll)) 
+  crl_diag = [ ("%s-%s"%(p,q),_normifrgain(rr),_normifrgain(ll)) 
     for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rr,ll) ];
-  have_diag = bool(crl);
-  if have_diag:
-    _IFRGAIN_TYPE = ("%s%s-offset"%feeds[:2]).lower();
-    plot_xy(crl,"IFR offset amplitude (%s vs. %s)"%feeds[:2]);
-
+  have_diag = bool(crl_diag);
   # plot RL vs LR offsets, if present
-  crl = [ ("%s-%s"%(p,q),_normifrgain(rl),_normifrgain(lr)) 
+  crl_offdiag = [ ("%s-%s"%(p,q),_normifrgain(rl),_normifrgain(lr)) 
     for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rl,lr) ];
-  have_offdiag = bool(crl);
-  if have_offdiag:
-    _IFRGAIN_TYPE = ("%s%s-offset"%feeds[:2]).lower();
-    plot_xy(crl,"IFR offset amplitude (%s vs. %s)"%feeds[2:]);
+  have_offdiag = bool(crl_offdiag);
 
-  # plot RR and LL complex
   if have_diag:
+    pylab.figure(figsize=(16,12));
+    pylab.subplot(2,2,3);
+    plot_xy(crl_diag,"IFR offset amplitude (%s vs. %s)"%feeds[:2]);
+    pylab.subplot(2,2,4);
+    plot_hist(crl_diag,"IFR offset histogram for %s and %s"%feeds[:2]);
     crl = [ ("%s-%s:%s"%(p,q,feeds[0].upper()),"%s-%s:%s"%(p,q,feeds[1].upper()),_complexifrgain(rr),_complexifrgain(ll)) 
       for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rr,ll) ];
-    _IFRGAIN_TYPE = ("%s%s-complex"%feeds[:2]).lower();
+    pylab.subplot(2,2,1);
     plot_complex(crl,"IFR complex %s %s offsets"%feeds[:2]);
-
-  if have_offdiag:
-    crl = [ ("%s-%s:%s"%(p,q,feeds[0].upper()),"%s-%s:%s"%(p,q,feeds[1].upper()),_complexifrgain(rl),_complexifrgain(lr)) 
-      for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rl,lr) ];
-    _IFRGAIN_TYPE = ("%s%s-complex"%feeds[2:]).lower();
-    plot_complex(crl,"IFR complex %s %s offsets"%feeds[2:]);
-
-  # plot per antenna
-  if have_diag:
     igpa = {}
     for (p,q),(rr,rl,lr,ll) in ig.iteritems():
       rr,ll = _normifrgain(rr),_normifrgain(ll);
@@ -453,10 +432,18 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
       igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[1]),'red',ll));
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[1]),'red',ll));
     content = [ (p,igpa[p]) for p in sorted(igpa.keys(),cmp=_cmp_antenna) ];
-    _IFRGAIN_TYPE = ("%s%s-perant"%feeds[:2]).lower();
+    pylab.subplot(2,2,2);
     plot_ants(content,"IFR %s %s offset amplitudes per antenna"%feeds[:2]);
+    pylab.savefig(II("$IFRGAIN_PLOT"),dpi=200)
+    info("generated plot $IFRGAIN_PLOT")
 
   if have_offdiag:
+    pylab.figure(figsize=(16,12));
+    plot_xy(crl,"IFR offset amplitude (%s vs. %s)"%feeds[2:]);
+    plot_hist(crl,"IFR offset histogram for %s and %s"%feeds[2:]);
+    crl = [ ("%s-%s:%s"%(p,q,feeds[0].upper()),"%s-%s:%s"%(p,q,feeds[1].upper()),_complexifrgain(rl),_complexifrgain(lr)) 
+      for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rl,lr) ];
+    plot_complex(crl,"IFR complex %s %s offsets"%feeds[2:]);
     igpa = {}
     for (p,q),(rr,rl,lr,ll) in ig.iteritems():
       rr,ll = _normifrgain(rl),_normifrgain(lr);
@@ -465,8 +452,9 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
       igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[3]),'red',ll));
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[3]),'red',ll));
     content = [ (p,igpa[p]) for p in sorted(igpa.keys(),cmp=_cmp_antenna) ];
-    _IFRGAIN_TYPE = ("%s%s-perant"%feeds[:2]).lower();
     plot_ants(content,"IFR %s %s offset amplitudes per antenna"%feeds[2:]);
+    pylab.savefig(II("$IFRGAIN_PLOT"),dpi=200)
+    info("generated plot $IFRGAIN_PLOT")
 
 document_globals(make_ifrgain_plots,"IFRGAIN_PLOT* STEFCAL_IFRGAIN_SAVE FEED_TYPE");
 
