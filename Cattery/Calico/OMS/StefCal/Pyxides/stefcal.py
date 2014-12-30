@@ -209,7 +209,6 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
 
   DG = DG0['gains']
   srcnames = sorted(DG.keys())
-  ncols = len(srcnames)
   antennas = sorted(DG[srcnames[0]]['solutions'].keys(),_cmp_antenna);
   
   ylim = ylim or DIFFGAIN_PLOT_AMPL_YLIM;
@@ -227,6 +226,8 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
   if not srcnames or not antennas:
     info("no parameters or antennas to plot");
     return;
+    
+  ncols = len(srcnames)
 
   info("making diffgain plots for",*srcnames);
   info("and %d antennas"%len(antennas));
@@ -484,6 +485,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
   'ant' can be set to a whitespace-separated list of antennas. Wildcard patterns are allowed."""
   import pylab
   from Timba.Meq import meq
+  from matplotlib.ticker import MultipleLocator, FormatStrFormatter
   
   filename,prefix = interpolate_locals("filename prefix");
 
@@ -540,7 +542,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
         nx,ny = gg.shape;
         x = numpy.zeros((nx,ny));
         x[...] = numpy.arange(nx)[:,numpy.newaxis];
-        pylab.subplot(nrows,ncols,row*ncols+icol*2+1);
+        ax = pylab.subplot(nrows,ncols,row*ncols+icol*2+1);
         pylab.subplots_adjust(bottom=.01,left=.01,top=.99,right=.99);
         valid = (gg!=0)&(gg!=1);  # mask trivial or unfilled solutions
         amp = abs(gg)
@@ -558,16 +560,21 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
         labstep = 10**int(math.log10(nx));
         if nx/labstep < 5:
           labstep /= 2;
+        ax.xaxis.set_major_locator(MultipleLocator(labstep));
+        ax.xaxis.set_minor_locator(MultipleLocator(tickstep));
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%d'));
+        ax.xaxis.set_tick_params(which='major',length=6);
+        ax.xaxis.set_tick_params(which='minor',length=3);
 #        if label == "timeslot":
 #          xtloc = xtlab = [];
 #        else:
-        xtloc = range(0,nx,tickstep);
-        xtlab = [ ("" if t%labstep else str(t)) for t in xtloc ];
-        pylab.xticks(xtloc,xtlab);
+#        xtloc = range(0,nx,tickstep);
+#        xtlab = [ ("" if t%labstep else str(t)) for t in xtloc ];
+#        pylab.xticks(xtloc,xtlab);
         pylab.xlim(-1,nx)
         pylab.ylim(*(ppminmax if j in (0,3) else xhminmax))
         
-        pylab.subplot(nrows,ncols,row*ncols+icol*2+2)
+        ax = pylab.subplot(nrows,ncols,row*ncols+icol*2+2)
         ph0 = numpy.angle(gg)*180/math.pi;
         pylab.plot(x[valid],ph0[valid],'.',ms=0.5,mec='grey',mfc='grey')
         ph = ph0[:,ny/2];
@@ -575,8 +582,12 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
         if xvalid.any():
           pylab.plot(x[xvalid,0],ph[xvalid],'-',ms=0.5,mec='blue',mfc='blue',color='blue')
         pylab.title("%s:%s:phase (deg) - %s"%(ant,feed,label));
-        pylab.xticks(xtloc,xtlab);
         pylab.xlim(-1,nx)
+        ax.xaxis.set_major_locator(MultipleLocator(labstep));
+        ax.xaxis.set_minor_locator(MultipleLocator(tickstep));
+        ax.xaxis.set_major_formatter(FormatStrFormatter('%d'));
+        ax.xaxis.set_tick_params(which='major',length=6);
+        ax.xaxis.set_tick_params(which='minor',length=3);
 
     _GAIN_TYPE = label;
     pylab.savefig(II("$GAIN_PLOT"),dpi=150);  
