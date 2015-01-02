@@ -153,6 +153,7 @@ diffgain_tag = 'dE';
 diffgain_group = 'cluster';
 
 from Calico.OMS.StefCal.GainOpts import GainOpts,MODE_SOLVE_SAVE,MODE_SOLVE_NOSAVE,MODE_SOLVE_APPLY
+from Calico.OMS.Stefcal import RESCALE
 
 gopts = GainOpts("direction-independent gain","gain","G","stefcal");
 TDLCompileOptions(*gopts.tdl_options);
@@ -164,6 +165,7 @@ deopts = GainOpts("differential gain","diffgain","dE","stefcal",pre_opts=dgsel.o
 TDLCompileOptions(*deopts.tdl_options);
 
 DIAGONLY,ALLFOUR = "diag","full";
+
 TDLCompileMenu("Use interferometer errors",
   TDLOption("stefcal_ifr_gain_mode","Solution mode",
     {MODE_SOLVE_SAVE:"solve and save",MODE_SOLVE_NOSAVE:"solve, do not save",MODE_SOLVE_APPLY:"load and apply"}),
@@ -175,7 +177,9 @@ TDLCompileMenu("Use interferometer errors",
   toggle="stefcal_ifr_gains",
 );
 TDLCompileOption("stefcal_nmajor","Number of major loops",[1,2,3,5],more=int,default=2);
-TDLCompileOption("stefcal_rescale","Rescale data to model before solving",["no","scalar","per slot"]);
+TDLCompileOption("stefcal_rescale","Rescale data to model before solving",
+    (RESCALE.NO,None),(RESCALE.SCALAR,"scalar"),(RESCALE.PERSLOT,"per slot")
+  ]);
 TDLCompileOption("stefcal_noise_per_chan","Use per-channel noise estimates",True);
 stefcal_downsample = False;
 #TDLCompileMenu("Use on-the-fly downsampling",
