@@ -471,7 +471,6 @@ class MSSelector (object):
                 pattern="*.ms *.MS",
                 has_input=True,has_model=False,has_output=True,
                 forbid_output=["DATA"],
-                output_columns=None,
                 std_ifr_subsets=None,
                 tile_sizes=[1,5,10,20,30,60],
                 max_tiles=None,
@@ -487,7 +486,6 @@ class MSSelector (object):
     has_input:  is an input column selector initially enabled.
     has_model:  is an input model column selector initially enabled.
     has_input:  is an output column selector initially enabled.
-    output_columns: if None, all "*DATA" columns are included automatically. Else set to list of columns.
     forbid_output: a list of forbidden output columns. "DATA" by default"
     tile_sizes: list of suggested tile sizes. If False, no tile size selector is provided.
     max_tiles:  list of suggested max_tile settings. If None, mnno max tiles selector is provided.
@@ -537,7 +535,7 @@ class MSSelector (object):
     self.polarization_option.when_changed(self._select_polarization);
     self._compile_opts += [ self.polarization_option,self.corrsel_option ];
 
-    self.ms_data_columns = output_columns if output_columns else ["DATA","MODEL_DATA","CORRECTED_DATA"];
+    self.ms_data_columns = ["DATA","MODEL_DATA","CORRECTED_DATA"];
     if isinstance(forbid_output,str):
       self._forbid_output = set([forbid_output]);
     elif forbid_output:

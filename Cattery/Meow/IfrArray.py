@@ -336,7 +336,6 @@ class IfrArray (object):
     or using the global phase center if None is given.
     If an IFR is supplied, returns UVW node for that IFR""";
     dir0 = Context.get_dir0(dir0);
-    print dir0
     radec0 = dir0.radec();
     uvw_ifr = self.ns.uvw_ifr.qadd(radec0);
     if not uvw_ifr(*(self.ifrs()[0])).initialized():
