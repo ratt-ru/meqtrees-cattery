@@ -514,7 +514,6 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
         if rr.count() > 1:
           a1,a2 = numpy.ma.flatnotmasked_edges(rr)
           baseline, = pylab.plot(rr+i*offset,'-');
-          print a1,a2;
           pylab.text(a1,rr[a1]+i*offset,"%s:%s"%(qant,feeds[0]),horizontalalignment='left',verticalalignment='center',size=8,
             color=baseline.get_color());
         if ll.count() > 1:
