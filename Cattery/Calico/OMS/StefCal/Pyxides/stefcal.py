@@ -329,33 +329,17 @@ def _complexifrgain (rr):
 def _is_unity (rr,ll):
   return type(rr) in (float,complex) and rr == 1 and type(ll) in (float,complex) and ll == 1;
 
-def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFRGAIN_PLOT_FEED",msname="$MS"):
+def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFRGAIN_PLOT_FEED"):
   """Makes a set of ifrgain plots from the specified saved file.""" 
   import pylab   
   from Timba.Meq import meq
   
-  filename,prefix,msname = interpolate_locals("filename prefix msname");
+  filename,prefix = interpolate_locals("filename prefix");
   global __IFRGAIN_PREFIX,_IFRGAIN_TYPE,_IFRGAIN_COMP;
   _IFRGAIN_PREFIX = prefix;
   dir = os.path.dirname(IFRGAIN_PLOT);
   if dir:
     makedir(dir)
-
-  # load baseline info, if MS is available
-  baseline = None;
-  if msname:
-    try:
-      anttab = ms.ms(msname,"ANTENNA");
-      antpos = anttab.getcol("POSITION");
-      antname = anttab.getcol("NAME");
-      antpos = [ (name,antpos[i]) for i,name in enumerate(antname) ];
-      # make dict of p,q to baseline length
-      baseline = dict([ ("%s-%s"%(p,q),math.sqrt(((ppos-qpos)**2).sum())) for p,ppos in antpos for q,qpos in antpos ]) 
-    except:
-      traceback.print_exc();
-      warn("can't access $msname antenna table, so IFR gain versus baseline length plots will not be made");
-  else:
-    warn("MS not specified, thus no antenna info. IFR gain versus baseline length plots will not be made");
 
   # feed labels
   feeds = ("RR","LL","RL","LR") if FEED_TYPE.upper() == "RL" else ("XX","YY","XY","YX");  
@@ -372,29 +356,6 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     # plot labels
     for label,(x,xe),(y,ye) in content:
       pylab.text(x,y,label,horizontalalignment='center',verticalalignment='center',size=8)
-    pylab.title(title)
-
-  def plot_baseline (content,baseline,title,feeds):
-    """Plots offset versus baseline""";
-    bl = [];
-    xx = [];
-    xxe = [];
-    lab = [];
-    col = [];
-    for l,(x,xe),(y,ye) in content:
-      b = baseline.get(l,None);
-      if b is None:
-        warn("baseline $l not found in MS ANTENNA table")
-      else:
-        lab += [ "%s:%s"%(l,feeds[0]),"%s:%s"%(l,feeds[1]) ];
-        col += [ "blue","red" ]
-        xx += [x,y];
-        xxe += [xe,ye];
-        bl += [b,b];
-    pylab.errorbar(bl,xx,yerr=xxe,fmt=None,ecolor="lightgrey");
-    # plot labels
-    for l,x,y,c in zip(lab,bl,xx,col):
-      pylab.text(x,y,l,horizontalalignment='center',verticalalignment='center',size=8,color=c)
     pylab.title(title)
 
   def plot_hist (content,title):
@@ -453,20 +414,15 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rl,lr) ];
   have_offdiag = bool(crl_offdiag);
 
-  # plot size and layout
-  FS = (16,12) if baseline else (16,18);
-  NR = 3 if baseline else 2;
-  NC = 2;
-
   if have_diag:
-    pylab.figure(figsize=FS);
-    pylab.subplot(NR,NC,3);
+    pylab.figure(figsize=(16,12));
+    pylab.subplot(2,2,3);
     plot_xy(crl_diag,"IFR offset amplitude (%s vs. %s)"%feeds[:2]);
-    pylab.subplot(NR,NC,4);
+    pylab.subplot(2,2,4);
     plot_hist(crl_diag,"IFR offset histogram for %s and %s"%feeds[:2]);
     crl = [ ("%s-%s:%s"%(p,q,feeds[0].upper()),"%s-%s:%s"%(p,q,feeds[1].upper()),_complexifrgain(rr),_complexifrgain(ll)) 
       for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rr,ll) ];
-    pylab.subplot(NR,NC,1);
+    pylab.subplot(2,2,1);
     plot_complex(crl,"IFR complex %s %s offsets"%feeds[:2]);
     igpa = {}
     for (p,q),(rr,rl,lr,ll) in ig.iteritems():
@@ -476,24 +432,18 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
       igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[1]),'red',ll));
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[1]),'red',ll));
     content = [ (p,igpa[p]) for p in sorted(igpa.keys(),cmp=_cmp_antenna) ];
-    pylab.subplot(NR,NC,2);
+    pylab.subplot(2,2,2);
     plot_ants(content,"IFR %s %s offset amplitudes per antenna"%feeds[:2]);
-    if baseline:
-      pylab.subplot(NR,NC,5);
-      plot_baseline(crl_diag,baseline,"IFR offset amplitude by baseline length",feeds[:2]);
     pylab.savefig(II("$IFRGAIN_PLOT"),dpi=200)
     info("generated plot $IFRGAIN_PLOT")
 
   if have_offdiag:
-    pylab.figure(figsize=FS);
-    pylab.subplot(NR,NC,3);
-    plot_xy(crl_diag,"IFR offset amplitude (%s vs. %s)"%feeds[2:]);
-    pylab.subplot(NR,NC,4);
-    plot_hist(crl_diag,"IFR offset histogram for %s and %s"%feeds[2:]);
+    pylab.figure(figsize=(16,12));
+    plot_xy(crl,"IFR offset amplitude (%s vs. %s)"%feeds[2:]);
+    plot_hist(crl,"IFR offset histogram for %s and %s"%feeds[2:]);
     crl = [ ("%s-%s:%s"%(p,q,feeds[0].upper()),"%s-%s:%s"%(p,q,feeds[1].upper()),_complexifrgain(rl),_complexifrgain(lr)) 
       for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rl,lr) ];
-    pylab.subplot(NR,NC,1);
-    plot_complex(crl_diag,"IFR complex %s %s offsets"%feeds[2:]);
+    plot_complex(crl,"IFR complex %s %s offsets"%feeds[2:]);
     igpa = {}
     for (p,q),(rr,rl,lr,ll) in ig.iteritems():
       rr,ll = _normifrgain(rl),_normifrgain(lr);
@@ -502,11 +452,7 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
       igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[3]),'red',ll));
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[3]),'red',ll));
     content = [ (p,igpa[p]) for p in sorted(igpa.keys(),cmp=_cmp_antenna) ];
-    pylab.subplot(NR,NC,2);
     plot_ants(content,"IFR %s %s offset amplitudes per antenna"%feeds[2:]);
-    if baseline:
-      pylab.subplot(NR,NC,5);
-      plot_baseline(crl_offdiag,baseline,"IFR offset amplitude by baseline length",feeds[:2]);
     pylab.savefig(II("$IFRGAIN_PLOT"),dpi=200)
     info("generated plot $IFRGAIN_PLOT")
 

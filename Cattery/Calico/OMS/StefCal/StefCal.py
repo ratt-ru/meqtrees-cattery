@@ -19,18 +19,13 @@ _verbosity = Kittens.utils.verbosity(name="stefcal");
 dprint = _verbosity.dprint;
 dprintf = _verbosity.dprintf;
 
-# rescaling options
-class RESCALE(object):
-  NO = "no";
-  SCALAR = "scalar";
-  PERSLOT = "per slot";
-
 ## bitflag constants used below
 FPRIOR  = 1;  # prior flags
 FINSUFF = 2;  # insufficient data for solution
 FNOCONV = 4;  # no convergence
 FCHISQ  = 8;  # chisq too high
 FSOLOOB = 16; # solution out of bounds
+
 
 def print_variance (variance):
   """Given a dictionary of per-baseline variances, computes per-station and mean overall variance""";
@@ -221,12 +216,9 @@ class StefCalNode (pynode.PyNode):
     mystate('apply_ifr_gains',False);
     # solve for IFR gains (if False, then simply load & apply)
     mystate('solve_ifr_gains',True);
-    # apply IFR gains on-the-fly (at the end of each major loop). Can only work well when
-    # tile size = entire data set, so beware. Enforces at least a second major loop
-    mystate('immediate_ifr_gains',True);
-    # save IFR gain solutions
+    # save solutions
     mystate('save_ifr_gains',True);
-    # ignore saved solutions, if any 
+    # ignore loaded solutions 
     mystate('reset_ifr_gains',True);
     if not self.apply_ifr_gains:
       self.solve_ifr_gains = self.save_ifr_gains = self.reset_ifr_gains = False;
@@ -482,9 +474,57 @@ class StefCalNode (pynode.PyNode):
     downsample_subtiling = self.downsample_subtiling;
     downsampler = None;
     if downsample_subtiling:
-      ## OMS: as of 22 Dec 2014. Nobody uses this and the code is not tested. Refer to commit history, and dig out a 
-      ## version prior to 22-12-2014 if you want this functionality back.
-      raise RuntimeError,"downsampling presently disabled";
+      downsample_subtiling = [ max(d,1) for d in downsample_subtiling ];
+      for iaxis,ds in enumerate(downsample_subtiling):
+        for opt in self.gainopts+self.dgopts:
+          if opt.subtiling[iaxis]%ds != 0:
+            raise RuntimeError,"axis %d: %s solution interval must be a multiple of downsample interval"%(iaxis,opt.name);
+      if max(downsample_subtiling) == 1:
+        downsample_subtiling = None;
+      else:
+        # create retiler for going from downsampled to full resolution
+        downsampler = DataTiler.DataTiler(expanded_datashape,downsample_subtiling,original_datashape=datashape);
+        # create retilers for going from gain tiling to full resolution
+        for opt in self.gainopts+self.dgopts:
+          opt.vis_tiler = DataTiler.DataTiler(expanded_datashape,opt.subtiling,original_datashape=datashape,force_subtiling=True);
+          if not self.downsample_output:
+            opt.tiler = opt.vis_tiler;
+          # update option settings
+          opt.smoothing = [ ds/float(st) for ds,st in zip(opt.smoothing,downsample_subtiling) ];
+          opt.subtiling = [ gs//st for gs,st in zip(opt.subtiling,downsample_subtiling) ];
+        # keep copies of model and data at original sampling
+        orig_sampled_data = data.copy();
+        orig_sampled_bitflags = bitflags.copy();
+        orig_sampled_model0 = model0.copy();
+        orig_sampled_dgmodel = [ dg.copy() for dg in dgmodel ];
+        # resample
+        downsample_factor = reduce(operator.mul,downsample_subtiling);
+        dprint(1,"resampling data by a factor of %d=%s"%(downsample_factor,"x".join(map(str,downsample_subtiling))));
+        for pq in data.keys():
+          flags = bitflags.get(pq);
+          # resample flags, and compute number of valid slots per resampled interval, and a norm based on this
+          if flags is not None and not numpy.isscalar(flags):
+            nv = downsample_factor - downsampler.reduce_tiles(downsampler.tile_data(flags!=0));
+            fl = bitflags[pq] = FPRIOR*(nv==0);
+            norm = numpy.where(fl,0,1./nv);
+          else:
+            norm = 1./downsample_factor;
+          # resample data
+          for vissets in [data,model,model0] + dgmodel:
+            dd = vissets.get(pq);
+            if dd is not None:
+              vissets[pq] = [ downsampler.reduce_tiles(downsampler.tile_data(d))*norm if 
+                              d is not None and not numpy.isscalar(d) else d for d in dd ];
+        # change other settings
+        orig_sampled_expanded_datashape = expanded_datashape;
+        orig_sampled_datashape = datashape;
+        orig_expansion_mask = self._expansion_mask;
+        self._expansion_mask = numpy.zeros(expanded_datashape);
+        self._datashape = datashape = [ int(math.ceil(ds/float(st))) for ds,st in zip(datashape,downsample_subtiling) ];
+        self._expansion_mask[tuple([ slice(0,nd) for nd in datashape ])] =True;
+        self._expanded_datashape = expanded_datashape = [ ds/st for ds,st in zip(expanded_datashape,downsample_subtiling) ];
+        self._datasize /= downsample_factor;
+        self._expanded_size /= downsample_factor;
     
 ## -------------------- rescale data to model if asked to
     if self.rescale and self.rescale != "no":
@@ -503,7 +543,7 @@ class StefCalNode (pynode.PyNode):
             continue;
           dsum += sum([x*numpy.conj(x) for x in d]);
           msum += sum([x*numpy.conj(x) for x in m]);
-        if self.rescale != RESCALE.PERSLOT:
+        if self.rescale == "scalar":
           dsum = dsum.sum() if dsum is not 0 else 0+0j;
           msum = msum.sum() if msum is not 0 else 0+0j;
           if dsum:
@@ -521,7 +561,7 @@ class StefCalNode (pynode.PyNode):
             scale[p] = s,f;
       # apply scales
       if scale:
-        if self.rescale != RESCALE.PERSLOT:
+        if self.rescale == "scalar":
           dprint(2,"per-antenna data scaling factors are ",", ".join(["%s %.3g"%(p,s) for p,(s,f) in scale.iteritems() ]));
         else:
           dprint(1,"min/max scaling factors are",min([s[f].min() for s,f in scale.itervalues()]),
@@ -656,7 +696,6 @@ class StefCalNode (pynode.PyNode):
         else:
           looptype = 1 if nmajor else 0;
         
-        # for debugging purposes: dumps the specified domain to a file
         if (domain_id == self.dump_domain or self.dump_domain == -1):
           dump_data_model(data,model,solvable_ifrs,"dump_G%d.txt"%nmajor);
 
@@ -1278,14 +1317,30 @@ class StefCalNode (pynode.PyNode):
     if gopt.visualize:
       self._set_ds_array('$final_chisq',chisq_arr);
     if gopt.flag_chisq:
-      # if False:  # flag on histogram and mean -- OMS: disabled 22-12-2014, as it's not being used at all
-      ## flag on median chi-sq
-      chisq_masked = numpy.ma.masked_array(chisq_arr,chisq_arr==0,fill_value=0);
-      mode = getattr(gopt,"flag_chisq_loop%d"%looptype);
-      mm = numpy.ma.median(chisq_masked,axis={FREQMED:0,TIMEMED:1}.get(mode,None));
-      if numpy.ma.is_masked(mm):
-        mm = mm.filled(fill_value=1e+999);
-      dprint(3,"M (median chisq value):",mm);
+      if False:  # flag on histogram and mean
+        # make histogram of chisq values
+        chisq_nonzero = (chisq_arr!=0);
+        # min bin must NOT be zero, we don't want to be picking up the flagged values
+        chisq_histbins = [ chisq*10**x for x in [-99]+list(numpy.arange(-5,5,.5)) ];
+        chisq_hist,dum = numpy.histogram(chisq_arr,bins=chisq_histbins);
+        if _verbosity.verbose>2:
+          for i,ch in enumerate(chisq_hist):
+            dprint(3,"  chisq histogram: %d values in [%g,%g)"%(ch,chisq_histbins[i],chisq_histbins[i+1]));
+        # find max bin, take this to be the nominal chi-sq value
+        imaxbin = numpy.argmax(chisq_hist);
+        dprint(3,"max chisq bin is %g"%chisq_histbins[imaxbin]);
+        b0 = chisq_histbins[max(imaxbin-1,0)]
+        b1 = chisq_histbins[min(imaxbin+1,len(chisq_histbins)-1)]
+        mm = chisq_arr[(chisq_arr>=b0)&(chisq_arr<=b1)].mean();
+        dprint(3,"M (mean chisq value in bin range %g:%g) = %g"%(b0,b1,mm));
+        cPickle.dump((chisq_hist,chisq_histbins),file("stefcal.chisq.dump","w"));
+      else:
+        chisq_masked = numpy.ma.masked_array(chisq_arr,chisq_arr==0,fill_value=0);
+        mode = getattr(gopt,"flag_chisq_loop%d"%looptype);
+        mm = numpy.ma.median(chisq_masked,axis={FREQMED:0,TIMEMED:1}.get(mode,None));
+        if numpy.ma.is_masked(mm):
+          mm = mm.filled(fill_value=1e+999);
+        dprint(3,"M (median chisq value):",mm);
       # get flagmask based on theshold  
       chisq_flagmask = (chisq_arr > mm*gopt.flag_chisq_threshold);
       nfl,nsl = chisq_flagmask.sum(),(chisq_arr!=0).sum();
@@ -1305,12 +1360,8 @@ class StefCalNode (pynode.PyNode):
       if gopt.visualize:
         chisq_arr[chisq_flagmask] = 0; 
         self._set_ds_array('$final_chisq_flagged',chisq_arr);
-      # now do the same for the per-channel chi-square, to identify dodgy channels
-      chisq_fq_masked = chisq_masked.mean(0);
-      mm_fq = float(numpy.ma.median(chisq_fq_masked)) or 1e+999;
-      dprint(2,"Median mean-per-frequency-chisq (MPFChi^2):",mm_fq);
-      dprint(2,"Per channel MPFChi^2/median:"," ".join(["%d:%.2g"%(i,x) for i,x in enumerate(chisq_fq_masked/mm_fq) ]));
-      # for now, just dump to output -- experimenting here
+#    self.set_state('$final_chisq_histbins',chisq_histbins); 
+#    self.set_state('$final_chisq_hist',chisq_hist); 
     return flagged;
     
   def _set_ds_array (self,field,array):
