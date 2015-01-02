@@ -293,7 +293,7 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
       pylab.xlim(0,ntime-1)
       if ylim:
         pylab.ylim(*ylim);
-  pylab.savefig(filename,dpi=150);
+  pylab.savefig(filename,dpi=75);
   pylab.close();
   
 document_globals(make_diffgain_plots,"DIFFGAIN_PLOT* STEFCAL_DIFFGAIN_SAVE FEED_TYPE");
@@ -444,6 +444,8 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     pylab.xticks(range(len(content)),[p for p,gainlist in content ]);
     pylab.title(title)
 
+  
+  antennas = set([ p for p,q in ig.keys() ])
   # plot RR vs LL offsets
   crl_diag = [ ("%s-%s"%(p,q),_normifrgain(rr),_normifrgain(ll)) 
     for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rr,ll) ];
@@ -454,7 +456,7 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
   have_offdiag = bool(crl_offdiag);
 
   # plot size and layout
-  FS = (16,12) if baseline else (16,18);
+  FS = (16,12) if not baseline else (16,18);
   NR = 3 if baseline else 2;
   NC = 2;
 
@@ -469,7 +471,19 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     pylab.subplot(NR,NC,1);
     plot_complex(crl,"IFR complex %s %s offsets"%feeds[:2]);
     igpa = {}
+    igpa0 = {}
+    igpa0_means = [];
     for (p,q),(rr,rl,lr,ll) in ig.iteritems():
+      rr0 = abs(numpy.array(rr)-1);
+      ll0 = abs(numpy.array(ll)-1);
+      rr0 = numpy.ma.masked_array(rr0,rr0==0);
+      ll0 = numpy.ma.masked_array(ll0,ll0==0);
+      if rr0.count():
+        igpa0_means += [rr0.mean()];
+      if ll0.count():
+        igpa0_means += [ll0.mean()];
+      igpa0.setdefault(p,{})[q] = rr0,ll0;
+      igpa0.setdefault(q,{})[p] = rr0,ll0;
       rr,ll = _normifrgain(rr),_normifrgain(ll);
       igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[0]),'blue',rr));
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[0]),'blue',rr));
@@ -481,8 +495,38 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     if baseline:
       pylab.subplot(NR,NC,5);
       plot_baseline(crl_diag,baseline,"IFR offset amplitude by baseline length",feeds[:2]);
-    pylab.savefig(II("$IFRGAIN_PLOT"),dpi=200)
+    _IFRGAIN_TYPE = "".join(feeds[:2]);
+    pylab.savefig(II("$IFRGAIN_PLOT"),dpi=75)
     info("generated plot $IFRGAIN_PLOT")
+    # make per-antenna figure
+    antennas = sorted(igpa0.keys(),_cmp_antenna);
+    NC = 4;
+    NR = int(math.ceil(len(antennas)/float(NC)));
+    offset = numpy.median(igpa0_means);
+    pylab.figure(figsize=(8*NC,6*NR));
+    for iant,pant in enumerate(antennas):
+      pylab.subplot(NR,NC,iant+1);
+      ig = igpa0[pant];
+      ants1 = sorted(ig.keys(),_cmp_antenna);
+      rr,ll = ig[ants1[0]];
+      for i,qant in enumerate(ants1):
+        rr,ll = ig[qant];
+        if rr.count() > 1:
+          a1,a2 = numpy.ma.flatnotmasked_edges(rr)
+          baseline, = pylab.plot(rr+i*offset,'-');
+          print a1,a2;
+          pylab.text(a1,rr[a1]+i*offset,"%s:%s"%(qant,feeds[0]),horizontalalignment='left',verticalalignment='center',size=8,
+            color=baseline.get_color());
+        if ll.count() > 1:
+          a1,a2 = numpy.ma.flatnotmasked_edges(ll)
+          baseline, = pylab.plot(ll+i*offset,'-');
+          pylab.text(a2,ll[a2]+i*offset,"%s:%s"%(qant,feeds[1]),horizontalalignment='right',verticalalignment='center',size=8,
+            color=baseline.get_color());
+      pylab.title("antenna %s"%pant);
+    _IFRGAIN_TYPE += "-ant";
+    pylab.savefig(II("$IFRGAIN_PLOT"),dpi=75)
+    info("generated plot $IFRGAIN_PLOT")
+
 
   if have_offdiag:
     pylab.figure(figsize=FS);
@@ -507,7 +551,7 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     if baseline:
       pylab.subplot(NR,NC,5);
       plot_baseline(crl_offdiag,baseline,"IFR offset amplitude by baseline length",feeds[:2]);
-    pylab.savefig(II("$IFRGAIN_PLOT"),dpi=200)
+    pylab.savefig(II("$IFRGAIN_PLOT"),dpi=75)
     info("generated plot $IFRGAIN_PLOT")
 
 document_globals(make_ifrgain_plots,"IFRGAIN_PLOT* STEFCAL_IFRGAIN_SAVE FEED_TYPE");
@@ -632,7 +676,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
         ax.xaxis.set_tick_params(which='minor',length=3);
 
     _GAIN_TYPE = label;
-    pylab.savefig(II("$GAIN_PLOT"),dpi=150);  
+    pylab.savefig(II("$GAIN_PLOT"),dpi=75);  
     info("generated plot $GAIN_PLOT")
 
 
