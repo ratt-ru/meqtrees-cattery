@@ -2,6 +2,8 @@ from Pyxis.ModSupport import *
 
 import std,ms,lsm,mqt,imager
 
+import os.path,glob
+
 # register ourselves with Pyxis, and define what superglobals we use (these come from ms)
 register_pyxis_module(superglobals="MS LSM DESTDIR OUTFILE STEP");
 
@@ -27,6 +29,34 @@ define("STEFCAL_IFRGAIN_PLOT_PREFIX","IG","automatically IFR gain solutions. Set
 define("STEFCAL_DIFFGAIN_PLOT_PREFIX","dE","automatically plot diffgain solutions. Set to empty string to disable.")
 
 define("STEFCAL_STEP_INCR",1,"automatically increment v.STEP with each call to stefcal");
+
+def preload_solutions (msname="$MS",gain=None,gain1=None,diffgain=None,diffgain1=None,ifrgain=None,missing=abort):
+  """Preloads gain/diffgain/ifrgain solutions prior to running stefcal
+  (by copying the specified files into the MS to the appropriate location).
+  Each argument can be a filename or a wildcard pattern. In the latter case, the most recent
+  file matching the pattern is used.
+  'missing' set to abort (default) to abort if not found, or warn to issue warning and continue
+  """
+  gain,gain1,diffgain,diffgain1,ifrgain = interpolate_locals("gain gain1 diffgain diffgain1 ifrgain");
+
+  def _copyfile (filename,dest,missing=abort):
+    if not exists(filename):
+      candidates = sorted([ (os.path.getmtime(f),f) for f in glob.glob(filename) ]);
+      if not candidates:
+        missing("no match for $filename");
+        return;
+      info("$filename specifies %d candidates"%len(candidates));
+      filename = candidates[-1][1];
+    info("pre-loading $dest from $filename")
+    std.copy(filename,dest)
+
+  gain and _copyfile(gain,STEFCAL_GAIN,missing=missing);
+  gain1 and _copyfile(gain1,STEFCAL_GAIN1,missing=missing);
+  ifrgain and _copyfile(ifrgain,STEFCAL_IFRGAIN,missing=missing);
+  diffgain and _copyfile(diffgain,STEFCAL_DIFFGAIN,missing=missing);
+  diffgain1 and _copyfile(diffgain1,STEFCAL_DIFFGAIN1,missing=missing);
+
+document_globals(preload_solutions,"STEFCAL_GAIN STEFCAL_GAIN1 STEFCAL_DIFFGAIN STEFCAL_DIFFGAIN1")
 
 def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
               diffgains=None,
@@ -644,7 +674,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
         tickstep = 10**int(math.log10(nx)-1);
         labstep = 10**int(math.log10(nx));
         if nx/labstep < 5:
-          labstep /= 2;
+          labstep /= 2.;
         ax.xaxis.set_major_locator(MultipleLocator(labstep));
         ax.xaxis.set_minor_locator(MultipleLocator(tickstep));
         ax.xaxis.set_major_formatter(FormatStrFormatter('%d'));

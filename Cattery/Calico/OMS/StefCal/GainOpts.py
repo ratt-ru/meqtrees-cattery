@@ -243,7 +243,7 @@ class GainOpts (object):
       if initval:
         struct = dict(description="stefcal gain solutions table",version=2,gains=initval);
         try:
-          cPickle.dump(struct,file(table,'w'));
+          cPickle.dump(struct,file(table,'w'),2);
           dprint(1,"saved %d gain set(s) to %s"%(len(initval),table));
         except:
           traceback.print_exc();
