@@ -425,6 +425,7 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     # plot labels
     for l,x,y,c in zip(lab,bl,xx,col):
       pylab.text(x,y,l,horizontalalignment='center',verticalalignment='center',size=8,color=c)
+    pylab.xtitle("Baseline, m.");
     pylab.title(title)
 
   def plot_hist (content,title):
@@ -524,7 +525,7 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     plot_ants(content,"IFR %s %s offset amplitudes per antenna"%feeds[:2]);
     if baseline:
       pylab.subplot(NR,NC,5);
-      plot_baseline(crl_diag,baseline,"IFR offset amplitude by baseline length",feeds[:2]);
+      plot_baseline(crl_diag,baseline,"IFR offset amplitude vs. baseline length",feeds[:2]);
     _IFRGAIN_TYPE = "".join(feeds[:2]);
     pylab.savefig(II("$IFRGAIN_PLOT"),dpi=75)
     info("generated plot $IFRGAIN_PLOT")
