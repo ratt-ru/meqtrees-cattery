@@ -900,7 +900,7 @@ class StefCalNode (pynode.PyNode):
 #      self.check_finiteness(corrupt_model,"corrupt model",bitflags);
 #      self.check_finiteness(data,"data",bitflags);
 #      cPickle.dump((corrupt_model,model,data,bitflags,[ (o.solver._gmat,o.solver._ginv) for o in self.gainopts]),file("dump.cp","wb"),2);
-      dprint(1,"done");
+      dprint(1,"done, updating IFR gains");
       # now update IFR solutions
       for pq in self._ifrs:
         dd = data.get(pq);
@@ -964,18 +964,18 @@ class StefCalNode (pynode.PyNode):
         continue;
       else:
         if self.residuals:
-          dprint(2,"computing residuals");
+          dprint(3,"computing residuals",pq);
           out = [ d-m for d,m in zip(dd,mm) ];
-          dprint(2,"done");
+          dprint(3,"done");
         else:
           out = dd;
           # subtract dE'd sources, if so specified
           if self.subtract_dgsrc:
-            dprint(2,"subtracting dE sources");
+            dprint(3,"subtracting dE sources",pq);
             for idg,dgcorr in enumerate(dgmodel_corr):
               for d,m in zip(out,dgcorr[pq]):
                 d -= m;
-            dprint(2,"done");
+            dprint(3,"done");
         # get flagmask, clear prior flags
         flagmask = bitflags.get(pq);
         # clear prior flags

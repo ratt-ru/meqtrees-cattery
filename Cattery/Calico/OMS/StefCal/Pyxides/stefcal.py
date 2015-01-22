@@ -2,7 +2,7 @@ from Pyxis.ModSupport import *
 
 import std,ms,lsm,mqt,imager
 
-import os.path,glob
+import os.path,glob,traceback
 
 # register ourselves with Pyxis, and define what superglobals we use (these come from ms)
 register_pyxis_module(superglobals="MS LSM DESTDIR OUTFILE STEP");
@@ -27,8 +27,8 @@ define("STEFCAL_GAIN_PLOT_PREFIX","G","automatically plot gain (G) solutions. Se
 define("STEFCAL_GAIN1_PLOT_PREFIX","B","automatically plot gain1 (B) solutions. Set to empty string to disable.")
 define("STEFCAL_IFRGAIN_PLOT_PREFIX","IG","automatically IFR gain solutions. Set to empty string to disable.")
 define("STEFCAL_DIFFGAIN_PLOT_PREFIX","dE","automatically plot diffgain solutions. Set to empty string to disable.")
-
 define("STEFCAL_STEP_INCR",1,"automatically increment v.STEP with each call to stefcal");
+define("STEFCAL_PLOT_FAIL",warn,"how to report plotting errors. Default is warn to warn and continue. Can also set to abort");
 
 def preload_solutions (msname="$MS",gain=None,gain1=None,diffgain=None,diffgain1=None,ifrgain=None,missing=abort):
   """Preloads gain/diffgain/ifrgain solutions prior to running stefcal
@@ -78,6 +78,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
               plotvis="${ms.PLOTVIS}",
               dirty=True,restore=False,restore_lsm=True,
               label=None,
+              plotfail="$STEFCAL_PLOT_FAIL",
               args=[],options={},
               **kws):
   """Generic function to run a stefcal job.
@@ -101,12 +102,13 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
   'restore_lsm'     image output visibilities (passed to imager.make_image above as is)
   'args','options'  passed to the stefcal job as is (as a list of arguments and kw=value pairs), 
                     can be used to supply extra TDL options
+  'plotfail'        plotting failure reported via warn or abort. 
   extra keywords:   passed to the stefcal job as kw=value, can be used to supply extra TDL options, thus
                     overriding settings in the TDL config file. Useful arguments of this kind are e.g.:
                     stefcal_reset_all=True to remove prior gains solutions.
   """
-  msname,section,lsm,label,plotvis,gain_plot_prefix,gain1_plot_prefix,ifrgain_plot_prefix,diffgain_plot_prefix = \
-    interpolate_locals("msname section lsm label plotvis gain_plot_prefix gain1_plot_prefix ifrgain_plot_prefix diffgain_plot_prefix");
+  msname,section,lsm,label,plotvis,gain_plot_prefix,gain1_plot_prefix,ifrgain_plot_prefix,diffgain_plot_prefix,plotfail = \
+    interpolate_locals("msname section lsm label plotvis gain_plot_prefix gain1_plot_prefix ifrgain_plot_prefix diffgain_plot_prefix plotfail");
   
   makedir(v.DESTDIR);
   
@@ -161,24 +163,27 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
   mqt.run(STEFCAL_SCRIPT,STEFCAL_JOBNAME,section=section,args=args0,options=opts);
   
   # copy gains
-  if not apply_only:
-    if os.path.exists(STEFCAL_GAIN):
-      std.copy(STEFCAL_GAIN,STEFCAL_GAIN_SAVE);
-      if gain_plot_prefix:
-        make_gain_plots(STEFCAL_GAIN_SAVE,prefix=gain_plot_prefix);
-    if os.path.exists(STEFCAL_GAIN1):
-      std.copy(STEFCAL_GAIN1,STEFCAL_GAIN1_SAVE);
-      if gain_plot_prefix:
-        make_gain_plots(STEFCAL_GAIN1_SAVE,prefix=gain_plot_prefix);
-    if os.path.exists(STEFCAL_DIFFGAIN):
-      std.copy(STEFCAL_DIFFGAIN,STEFCAL_DIFFGAIN_SAVE);
-      if diffgain_plot_prefix:
-        make_diffgain_plots(STEFCAL_DIFFGAIN_SAVE,prefix=diffgain_plot_prefix);
-    if os.path.exists(STEFCAL_IFRGAIN):
-      std.copy(STEFCAL_IFRGAIN,STEFCAL_IFRGAIN_SAVE);
-      if ifrgain_plot_prefix:
-        make_ifrgain_plots(STEFCAL_IFRGAIN_SAVE,prefix=ifrgain_plot_prefix);
-                  
+  try:
+    if not apply_only:
+      if os.path.exists(STEFCAL_GAIN):
+        std.copy(STEFCAL_GAIN,STEFCAL_GAIN_SAVE);
+        if gain_plot_prefix:
+          make_gain_plots(STEFCAL_GAIN_SAVE,prefix=gain_plot_prefix);
+      if os.path.exists(STEFCAL_GAIN1):
+        std.copy(STEFCAL_GAIN1,STEFCAL_GAIN1_SAVE);
+        if gain_plot_prefix:
+          make_gain_plots(STEFCAL_GAIN1_SAVE,prefix=gain_plot_prefix);
+      if os.path.exists(STEFCAL_DIFFGAIN):
+        std.copy(STEFCAL_DIFFGAIN,STEFCAL_DIFFGAIN_SAVE);
+        if diffgain_plot_prefix:
+          make_diffgain_plots(STEFCAL_DIFFGAIN_SAVE,prefix=diffgain_plot_prefix);
+      if os.path.exists(STEFCAL_IFRGAIN):
+        std.copy(STEFCAL_IFRGAIN,STEFCAL_IFRGAIN_SAVE);
+        if ifrgain_plot_prefix:
+          make_ifrgain_plots(STEFCAL_IFRGAIN_SAVE,prefix=ifrgain_plot_prefix);
+  except:
+    traceback.print_exc();
+    plotfail("plot routine failed, see exception above");                  
   # post-calibration flagging
   if flag_threshold:
     if isinstance(flag_threshold,(list,tuple)):
@@ -191,9 +196,13 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
 
   # plot residuals
   if plotvis:
-    info("Plotting visibilities ($plotvis)");
-    ms.PLOTVIS = plotvis;
-    ms.plotms("-o ${OUTFILE}_${output}${_s<STEP}${_<label}.png");
+    try:
+      info("Plotting visibilities ($plotvis)");
+      ms.PLOTVIS = plotvis;
+      ms.plotms("-o ${OUTFILE}_${output}${_s<STEP}${_<label}.png");
+    except:
+      traceback.print_exc();
+      plotfail("plot routine failed, see exception above");                  
     
   # make images
   imager.make_image(msname,column=STEFCAL_OUTPUT_COLUMN,dirty=dirty,restore=restore,restore_lsm=restore_lsm);
@@ -425,7 +434,7 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     # plot labels
     for l,x,y,c in zip(lab,bl,xx,col):
       pylab.text(x,y,l,horizontalalignment='center',verticalalignment='center',size=8,color=c)
-    pylab.xtitle("Baseline, m.");
+    pylab.xlabel("Baseline, m.");
     pylab.title(title)
 
   def plot_hist (content,title):
