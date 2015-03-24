@@ -1,3 +1,5 @@
+from memory_profiler import profile
+
 import sys
 import Kittens.utils
 import os.path
@@ -250,6 +252,7 @@ class GainOpts (object):
     GainOpts._outgoing_tables = {};
 
   @staticmethod
+  @profile
   def resolve_tilings (datashape,*opts):
     """Resolves a number of GainOpts into a common tiling"""
     lcm_tiling = [0]*len(datashape);

@@ -1,3 +1,5 @@
+from memory_profiler import profile
+
 
 from Timba import pynode
 from Timba.Meq import meq
@@ -74,6 +76,7 @@ class StefCalVisualizer (pynode.PyNode):
     mystate('index',[]);
     self.set_symdeps("Domain");
 
+  @profile
   def get_result (self,request,*children):
     vellsets = [];
     gainsets = global_gains.get(self.label);
