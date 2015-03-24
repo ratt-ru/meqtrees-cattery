@@ -600,11 +600,11 @@ _GAIN_PREFIX = "G"
 _GAIN_TYPE = "summary"
 
 define("GAIN_PLOT_Template","$OUTFILE.${_GAIN_PREFIX}-${_GAIN_TYPE}${-<SUFFIX}.png","filename for ifrgain plots")
-define("GAIN_PLOT_AMPL_YLIM",(0,2),"explicit Y axis limits for amplitude plot, as (y1,y2) tuple, or None for auto-scale")
-
+define("GAIN_PLOT_AMPL_YLIM",(0,2),"explicit Y axis limits for amplitude plot (diagonal terms) as (y1,y2) tuple, or None for auto-scale")
+define("GAIN_PLOT_AMPL_YLIM_OFFDIAG",(0,2),"explicit Y axis limits for amplitude plot (off-diagonal terms), as (y1,y2) tuple, or None for auto-scale")
 define("GAIN_PLOT_AMPL_STYLE",'dot',"amplitude plot style. Choose between 'fill' or 'dot'.")
 
-def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None):
+def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ylim_offdiag=None,ant=None):
   """Makes a set of gain plots from the specified saved file ('filename'). 
   'ylim' can be used to override GAIN_PLOT_AMPL_YLIM setting.
   'ant' can be set to a whitespace-separated list of antennas. Wildcard patterns are allowed."""
@@ -625,6 +625,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
   info("loaded solutions for %d antennas"%len(antennas));
    
   ylim = ylim or GAIN_PLOT_AMPL_YLIM;
+  ylim1 = ylim_offdiag or GAIN_PLOT_AMPL_YLIM_OFFDIAG;
 
   if ant:
     antpatts = str(ant).split();
@@ -697,7 +698,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ant=None
 #        xtlab = [ ("" if t%labstep else str(t)) for t in xtloc ];
 #        pylab.xticks(xtloc,xtlab);
         pylab.xlim(-1,nx)
-        pylab.ylim(*(ppminmax if j in (0,3) else xhminmax))
+        pylab.ylim(*((ylim or ppminmax) if j in (0,3) else (ylim1 or xhminmax)))
         
         ax = pylab.subplot(nrows,ncols,row*ncols+icol*2+2)
         ph0 = numpy.angle(gg)*180/math.pi;
