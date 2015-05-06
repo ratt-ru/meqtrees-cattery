@@ -1,6 +1,6 @@
 from Pyxis.ModSupport import *
 
-import std,ms,lsm,mqt,imager
+import std,ms,lsm,mqt,im
 
 # register ourselves with Pyxis, and define what superglobals we use (these come from ms)
 register_pyxis_module(superglobals="MS LSM DESTDIR OUTFILE STEP");
@@ -135,7 +135,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
     ms.plotms("-o ${OUTFILE}_${output}${_s<STEP}${_<label}.png");
     
   # make images
-  imager.make_image(msname,column=STEFCAL_OUTPUT_COLUMN,dirty=dirty,restore=restore,restore_lsm=restore_lsm);
+  im.make_image(msname,column=STEFCAL_OUTPUT_COLUMN,dirty=dirty,restore=restore,restore_lsm=restore_lsm);
 
 # document global options for stefcal()
 document_globals(stefcal,"MS LSM mqt.TDLCONFIG STEFCAL_* ms.DDID ms.CHANRANGE ms.IFRS ms.PLOTVIS STEP LABEL");
