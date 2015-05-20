@@ -130,21 +130,30 @@ class FITSAxes (object):
     self._delta[iaxis] = self._delta0[iaxis]*scale;
     self._setup_grid(iaxis);
 
-  def toPixel (self,axis,world):
+  def toPixel (self,axis,world,sign=1):
     """Converts array of world coordinates to pixel coordinates""";
-    return self._w2p[self.iaxis(axis)](world);
+    return self._w2p[self.iaxis(axis)](sign*world);
 
-  def toWorld (self,axis,pixel):
+  def toWorld (self,axis,pixel,sign=1):
     """Converts array of pixel coordinates to world coordinates""";
-    return self._p2w[self.iaxis(axis)](pixel);
+    return self._p2w[self.iaxis(axis)](pixel)*sign;
 
 
 class LMVoltageBeam (object):
   """This class implements a complex voltage beam as a function of LM."""
-  def __init__ (self,spline_order=2,l0=0,m0=0,
-    ampl_interpolation=False,verbose=None):
+  def __init__ (self,spline_order=2,l0=0,m0=0,l_axis="L",m_axis="M",
+                ampl_interpolation=False,verbose=None):
     self._spline_order = spline_order;
-    self.l0,self.m0 = l0,m0;
+    self.l0, self.m0 = l0, m0;
+    # figure out axis names, and whether they should be swapped
+    if l_axis[0] == '-':
+      self._l_axis_sign,self._l_axis = -1, l_axis[1:]
+    else:
+      self._l_axis_sign,self._l_axis = 1, l_axis
+    if m_axis[0] == '-':
+      self._m_axis_sign,self._m_axis = -1, m_axis[1:]
+    else:
+      self._m_axis_sign,self._m_axis = 1, m_axis
     self.ampl_interpolation = ampl_interpolation
     if verbose:
       _verbosity.set_verbose(verbose);
@@ -174,13 +183,13 @@ class LMVoltageBeam (object):
     # figure out axes
     self._axes = axes = FITSAxes(ff_re.header);
     # find L/M axes
-    laxis = axes.iaxis('L');
-    maxis = axes.iaxis('M');
+    laxis = axes.iaxis(self._l_axis);
+    maxis = axes.iaxis(self._m_axis);
     if laxis<0 or maxis<0:
       raise TypeError,"FITS file %s missing L or M axis"%filename_real;
     # setup conversion functions
-    self._lToPixel = Kittens.utils.curry(axes.toPixel,laxis);
-    self._mToPixel = Kittens.utils.curry(axes.toPixel,maxis);
+    self._lToPixel = Kittens.utils.curry(axes.toPixel,laxis,sign=self._l_axis_sign);
+    self._mToPixel = Kittens.utils.curry(axes.toPixel,maxis,sign=self._m_axis_sign);
     # find frequency grid. self._freqToPixel will be None if no frequency axis
     freqaxis = axes.iaxis('FREQ');
     if freqaxis >= 0 and axes.naxis(freqaxis) > 1:
@@ -434,6 +443,8 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     mystate('normalize',False);
     mystate('ampl_interpolation',False);
     mystate('verbose',0);
+    mystate('l_axis',"L")
+    mystate('m_axis',"M")
     mystate('l_beam_offset',0.0);
     mystate('m_beam_offset',0.0);
     mystate('missing_is_null',False);
@@ -472,6 +483,7 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
         if filename_real:
           vb = LMVoltageBeam(
                 l0=self.l_beam_offset,m0=self.m_beam_offset,
+                l_axis=self.l_axis,m_axis=self.m_axis,
                 ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,
                 verbose=self.verbose);
           vb.read(filename_real,filename_imag);

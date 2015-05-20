@@ -61,6 +61,14 @@ TDLCompileOption("spline_order","Spline order for interpolation",[1,2,3,4,5],def
 TDLCompileOption("normalize_gains","Normalize max beam gain to 1",False);
 TDLCompileOption("ampl_interpolation","Use amplitude interpolation for beams",False,doc="""<P>
 Check the box if you want beam interpolation done with amplitude. The default is to just do real and imaginary voltages separately.</P>""");
+TDLCompileOption("l_axis","CTYPE of L axis",["L", "X", "TARGETX", "-L", "-X", "-TARGETX"],more=str,
+    doc="""<P>CTYPE for L axis in beam file. Note that our internal L points East (increasing RA), if the
+    FITS beam axis points the opposite way, prefix the CTYPE with a "-" character.
+    </P>""");
+TDLCompileOption("m_axis","CTYPE of M axis",["M", "Y", "TARGETY", "-M", "-Y", "-TARGETY"],more=str,
+    doc="""<P>CTYPE for M axis in beam file. Note that our internal M points North (increasing Dec), if the
+    FITS beam axis points the opposite way, prefix the CTYPE with a "-" character.
+    </P>""");
 TDLCompileOption("l_beam_offset","Offset beam pattern in L (deg)",[0.0], more=float,
 doc="""<P>By default,the beam reference position (as given by the FITS header) is placed at l=m=0 on the sky, i.e. 
 at the phase centre. You can use this option to offset the beam pattern.</P>"""),
@@ -72,7 +80,6 @@ TDLCompileOption("sky_rotation","Include sky rotation",True,doc="""<P>
   </P>""");
 TDLCompileOption("verbose_level","Debugging message level",[None,1,2,3],more=int);
 
-CORRS = Context.correlations;
 REIM = "re","im";
 REALIMAG = dict(re="real",im="imag");
 
@@ -90,7 +97,7 @@ def make_beam_node (beam,pattern,*children):
   """Makes beam interpolator node for the given filename pattern.""";
   filename_real = [];
   filename_imag = [];
-  for corr in CORRS:
+  for corr in Context.correlations:
     # make FITS images or nulls for real and imaginary part
     filename_real.append(make_beam_filename(pattern,corr,'re'));
     filename_imag.append(make_beam_filename(pattern,corr,'im'));
@@ -111,6 +118,7 @@ def make_beam_node (beam,pattern,*children):
                      filename_real=filename_real,filename_imag=filename_imag,normalize=normalize_gains,
                      missing_is_null=missing_is_null,spline_order=spline_order,verbose=verbose_level or 0,
                      l_beam_offset=l_beam_offset*DEG,m_beam_offset=m_beam_offset*DEG, 
+                     l_axis=l_axis,m_axis=m_axis,
                      ampl_interpolation=ampl_interpolation,
                      children=children);
 
