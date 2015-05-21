@@ -70,6 +70,9 @@ class FITSAxes (object):
     self._type = ['']*naxis;
     self._rpix = [0]*naxis;
     self._rval = [0]*naxis;
+    self._grid = [None]*naxis;
+    self._w2p  = [None]*naxis;
+    self._p2w  = [None]*naxis;
     self._delta = [1]*naxis;
     self._delta0 = [1]*naxis;
     self._unit = [None]*naxis;
@@ -79,14 +82,29 @@ class FITSAxes (object):
       ax = str(i+1);
       nx = self._naxis[i] = hdr.get('NAXIS'+ax);
       # CTYPE is axis name
-      self._type[i] = hdr.get('CTYPE'+ax,None);
+      self._type[i] = ctype = hdr.get('CTYPE'+ax,None);
       if self._type[i] is not None:
         self._axis[self._type[i]] = i;
       # axis gridding
-      self._rval[i] = rval = hdr.get('CRVAL'+ax,0);
-      self._rpix[i] = rpix = hdr.get('CRPIX'+ax,1) - 1;
-      self._delta[i] = self._delta0[i] = delta = hdr.get('CDELT'+ax,1);
+      # use non-standard keywords GRtype1 .. GRtypeN to supply explicit grid values and ignore CRVAL/CRPIX/CDELT
+      grid = [ hdr.get('G%s%d'%(ctype,j),None) for j in range(1,nx+1) ];
+      if all([x is not None for x in grid]):
+        self._grid[i] = numpy.array(grid);
+        self._w2p[i] = interpolate.interp1d(grid,range(len(grid)),'linear');
+        self._p2w[i] = interpolate.interp1d(range(len(grid)),grid,'linear');
+      else:
+        self._rval[i] = rval = hdr.get('CRVAL'+ax,0);
+        self._rpix[i] = rpix = hdr.get('CRPIX'+ax,1) - 1;
+        self._delta[i] = self._delta0[i] = delta = hdr.get('CDELT'+ax,1);
+        self._setup_grid(i);
       self._unit[i] = hdr.get('CUNIT'+ax,'').strip().upper();
+
+  def _setup_grid (self,i):
+    """Internal helper to set up the grid based on rval/rpix/delta"""
+    nx,rpix,rval,delta = self._naxis[i],self._rpix[i],self._rval[i],self._delta[i];
+    self._grid[i] = (numpy.arange(0.,float(nx))-rpix)*delta+rval;
+    self._w2p[i] =  lambda world,rpix=rpix,rval=rval,delta=delta:rpix+(world-rval)/delta;
+    self._p2w[i] =  lambda pix,rpix=rpix,rval=rval,delta=delta:(pix-rpix)*delta+rval;
 
   def ndim (self):
     return len(self._naxis);
@@ -98,10 +116,7 @@ class FITSAxes (object):
     return axisname if isinstance(axisname,int) else self._axis.get(axisname,-1);
 
   def grid (self,axis):
-    iaxis = self.iaxis(axis);
-    if iaxis < 0:
-      raise TypeError,"missing axis '%s'"%axis;
-    return (numpy.arange(0.,float(self._naxis[iaxis])) - self._rpix[naxis])*self._delta[naxis] + self._rval[naxis];
+    return self._grid[self.iaxis(axis)];
 
   def type (self,axis):
     return self._type[self.iaxis(axis)];
@@ -113,27 +128,32 @@ class FITSAxes (object):
     iaxis = self.iaxis(axis);
     self._unit_scale[iaxis] = scale;
     self._delta[iaxis] = self._delta0[iaxis]*scale;
+    self._setup_grid(iaxis);
 
-  def toPixel (self,axis,world):
+  def toPixel (self,axis,world,sign=1):
     """Converts array of world coordinates to pixel coordinates""";
-    iaxis = self.iaxis(axis);
-    return self._rpix[iaxis] + (world - self._rval[iaxis])/self._delta[iaxis];
+    return self._w2p[self.iaxis(axis)](sign*world);
 
-  def toWorld (self,axis,pixel):
+  def toWorld (self,axis,pixel,sign=1):
     """Converts array of pixel coordinates to world coordinates""";
-    iaxis = self.iaxis(axis);
-    return (pixel - self._rpix[iaxis])*self._delta[iaxis] + self._rval[iaxis];
+    return self._p2w[self.iaxis(axis)](pixel)*sign;
 
-  def grid (self,axis):
-    iaxis = self.iaxis(axis);
-    return self.toWorld(iaxis,numpy.arange(0.,float(self._naxis[iaxis])));
 
 class LMVoltageBeam (object):
   """This class implements a complex voltage beam as a function of LM."""
-  def __init__ (self,spline_order=2,l0=0,m0=0,
-    ampl_interpolation=False,verbose=None):
+  def __init__ (self,spline_order=2,l0=0,m0=0,l_axis="L",m_axis="M",
+                ampl_interpolation=False,verbose=None):
     self._spline_order = spline_order;
-    self.l0,self.m0 = l0,m0;
+    self.l0, self.m0 = l0, m0;
+    # figure out axis names, and whether they should be swapped
+    if l_axis[0] == '-':
+      self._l_axis_sign,self._l_axis = -1, l_axis[1:]
+    else:
+      self._l_axis_sign,self._l_axis = 1, l_axis
+    if m_axis[0] == '-':
+      self._m_axis_sign,self._m_axis = -1, m_axis[1:]
+    else:
+      self._m_axis_sign,self._m_axis = 1, m_axis
     self.ampl_interpolation = ampl_interpolation
     if verbose:
       _verbosity.set_verbose(verbose);
@@ -163,13 +183,13 @@ class LMVoltageBeam (object):
     # figure out axes
     self._axes = axes = FITSAxes(ff_re.header);
     # find L/M axes
-    laxis = axes.iaxis('L');
-    maxis = axes.iaxis('M');
+    laxis = axes.iaxis(self._l_axis);
+    maxis = axes.iaxis(self._m_axis);
     if laxis<0 or maxis<0:
       raise TypeError,"FITS file %s missing L or M axis"%filename_real;
     # setup conversion functions
-    self._lToPixel = Kittens.utils.curry(axes.toPixel,laxis);
-    self._mToPixel = Kittens.utils.curry(axes.toPixel,maxis);
+    self._lToPixel = Kittens.utils.curry(axes.toPixel,laxis,sign=self._l_axis_sign);
+    self._mToPixel = Kittens.utils.curry(axes.toPixel,maxis,sign=self._m_axis_sign);
     # find frequency grid. self._freqToPixel will be None if no frequency axis
     freqaxis = axes.iaxis('FREQ');
     if freqaxis >= 0 and axes.naxis(freqaxis) > 1:
@@ -271,7 +291,9 @@ class LMVoltageBeam (object):
       freq = numpy.array(freq);
       if not freq.ndim:
         freq = freq.reshape(1);
+      dprint(3,"frequencies are",freq);
       freq = self._freqToPixel(freq);
+      dprint(3,"in frequency plane coordinates we have",freq);
       # case (A): reuse same frequency for every l/m point
       if len(freq) == 1:
         lm = numpy.vstack((l.ravel(),m.ravel(),[freq[0]]*l.size));
@@ -298,19 +320,18 @@ class LMVoltageBeam (object):
       output.resize(l.shape);
     dprint(3,"interpolating %d lm points"%(lm.size/2));
     output.real = interpolation.map_coordinates(self._beam_real,lm,order=self._spline_order,
-                  prefilter=(self._spline_order==1)).reshape(l.shape);
+                  prefilter=(self._spline_order==1),mode='nearest').reshape(l.shape);
     output.imag = interpolation.map_coordinates(self._beam_imag,lm,order=self._spline_order,
-                  prefilter=(self._spline_order==1)).reshape(l.shape);
+                  prefilter=(self._spline_order==1),mode='nearest').reshape(l.shape);
     if not self._beam_ampl is None:
       output_ampl = interpolation.map_coordinates(self._beam_ampl,lm,order=self._spline_order,
-                  prefilter=(self._spline_order==1)).reshape(l.shape);
+                  prefilter=(self._spline_order==1),mode='nearest').reshape(l.shape);
       phase_array = numpy.arctan2(output.imag,output.real)
       output.real = output_ampl * numpy.cos(phase_array)
       output.imag = output_ampl * numpy.sin(phase_array)
     dprint(3,"interpolated value [0] is",output.ravel()[0]);
     dprint(4,"interpolated value is",output);
     return output;
-
 
 class LMVoltageMultifreqBeam (LMVoltageBeam):
   """This class implements an LMVoltageBeam where the
@@ -422,6 +443,8 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     mystate('normalize',False);
     mystate('ampl_interpolation',False);
     mystate('verbose',0);
+    mystate('l_axis',"L")
+    mystate('m_axis',"M")
     mystate('l_beam_offset',0.0);
     mystate('m_beam_offset',0.0);
     mystate('missing_is_null',False);
@@ -460,6 +483,7 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
         if filename_real:
           vb = LMVoltageBeam(
                 l0=self.l_beam_offset,m0=self.m_beam_offset,
+                l_axis=self.l_axis,m_axis=self.m_axis,
                 ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,
                 verbose=self.verbose);
           vb.read(filename_real,filename_imag);

@@ -530,7 +530,7 @@ class StefCalNode (pynode.PyNode):
         self._expanded_size /= downsample_factor;
     
 ## -------------------- rescale data to model if asked to
-    if self.rescale:
+    if self.rescale and self.rescale != "no":
       scale = {};
       finite = {};
       # compute scales as s(p) = ||sum_q Mpq||/||sum_q Dpq||
@@ -670,6 +670,7 @@ class StefCalNode (pynode.PyNode):
     ## last check for NANs in the data and model
     self.check_finiteness(data,"data",bitflags);
     self.check_finiteness(model,"model",bitflags);
+#    cPickle.dump(model,file("dump-model.cp","w"),2);
 
 ## -------------------- start of major loop
     initdata,initmodel,initweight = data,model,weight;
@@ -743,6 +744,7 @@ class StefCalNode (pynode.PyNode):
           data = dict([ (pq,opt.solver.apply_inverse(data,pq,
               regularize=self.regularization_factor if self.regularize_intermediate or last_loop else 0))
               for pq in solvable_ifrs ]);
+          dprint(1,"done");
           ## check for NANs in the data
           self.check_finiteness(data,"corrected data",bitflags);
           
@@ -806,6 +808,7 @@ class StefCalNode (pynode.PyNode):
       #         model contains an up-to-date model with dEs applied
       # However, this is only the case for solvable_ifrs.
       # We still need to update both for non-solvable IFRs
+      dprint(1,"updating non-solvable IFRs");
       missing_ifrs = set(valid_ifrs) - set(solvable_ifrs);
       for pq in missing_ifrs:
         # fix up model
@@ -821,7 +824,7 @@ class StefCalNode (pynode.PyNode):
                       regularize=self.regularization_factor))
                     for pq in missing_ifrs ]);
       data.update(data1);
-              
+      dprint(1,"saving solutions");        
       for opt in self.gainopts+self.dgopts:
         opt.save_values();
       GainOpts.flush_tables();
@@ -843,7 +846,8 @@ class StefCalNode (pynode.PyNode):
     if self.init_from_previous:
       for opt in self.gainopts+self.dgopts:
         opt.update_initval();
-      
+    
+    dprint(1,"checking flagging");  
     # check for excessive flagging
     nfl = ndata = 0;
     for pq in data.iterkeys():
@@ -890,10 +894,16 @@ class StefCalNode (pynode.PyNode):
     # update IFR gain solutions, if asked to
     corrupt_model = None;
     if self.solve_ifr_gains:
+      dprint(1,"generating corrupt model for IFR gain update");
       # make corrupted model
       corrupt_model = model;
       for opt in self.gainopts[-1::-1]:
         corrupt_model = dict([ (pq,opt.solver.apply(corrupt_model,pq,tiler=opt.tiler)) for pq in valid_ifrs ]);
+#      dprint(1,"checking finiteness");
+#      self.check_finiteness(corrupt_model,"corrupt model",bitflags);
+#      self.check_finiteness(data,"data",bitflags);
+#      cPickle.dump((corrupt_model,model,data,bitflags,[ (o.solver._gmat,o.solver._ginv) for o in self.gainopts]),file("dump.cp","wb"),2);
+      dprint(1,"done, updating IFR gains");
       # now update IFR solutions
       for pq in self._ifrs:
         dd = data.get(pq);
@@ -921,8 +931,10 @@ class StefCalNode (pynode.PyNode):
           else:
             mdh = (m*dh).sum();
             ddh = (d*dh).sum();
+          dprint(3,"ifr gains: summed m.d* and d.d* for",pq,num);
           sri = self.ig_sum_reim[pq][num] = self.ig_sum_reim[pq][num] + mdh;
           ssq = self.ig_sum_sq[pq][num]   = self.ig_sum_sq[pq][num] + ddh;
+          dprint(3,"updated sums for",pq,num);
           if numpy.isscalar(ssq):
             if ssq != 0:
               self.ifr_gain_update[pq][num] = sri/ssq;
@@ -930,13 +942,16 @@ class StefCalNode (pynode.PyNode):
             if (ssq!=0).any():
               self.ifr_gain_update[pq][num] = sri/ssq;
               self.ifr_gain_update[pq][num][ssq==0] = 1; 
+          dprint(3,"updated ifr gain for",pq,num);
 #          if num == 0 and pq[0] == '0':
 #           print m[0,0],d[0,0],dh[0,0]
 #            print pq,(m*dh).sum(),(d*dh).sum(),sri/ssq;
+      dprint(1,"IFR gains updated");
 
     # work out result -- residual or corrected visibilities, depending on our state
     variance = {};
     nvells = 0;
+    dprint(1,"computing result");
     for pq in self._ifrs:
       dd = corrdata.get(pq);
       mm = model.get(pq);
@@ -952,14 +967,18 @@ class StefCalNode (pynode.PyNode):
         continue;
       else:
         if self.residuals:
+          dprint(3,"computing residuals",pq);
           out = [ d-m for d,m in zip(dd,mm) ];
+          dprint(3,"done");
         else:
           out = dd;
           # subtract dE'd sources, if so specified
           if self.subtract_dgsrc:
+            dprint(3,"subtracting dE sources",pq);
             for idg,dgcorr in enumerate(dgmodel_corr):
               for d,m in zip(out,dgcorr[pq]):
                 d -= m;
+            dprint(3,"done");
         # get flagmask, clear prior flags
         flagmask = bitflags.get(pq);
         # clear prior flags
@@ -996,12 +1015,22 @@ class StefCalNode (pynode.PyNode):
               fl[newflags if expanded_dataslice is None else newflags[expanded_dataslice]] |=  self.output_flag_bit;
           # compute stats
           nvells += 1;
+    dprint(1,"computing result: done");
 
     # if last domain, then write ifr gains to file
     if self.solve_ifr_gains and time1 >= numtime:
+      dprint(1,"saving IFR gains");
+      # get freq slicing (to go back from expanded shape to true data shape)
+      if self.per_chan_ifr_gains and self._expanded_dataslice:
+        slc = self._expanded_dataslice[1];
+      else:
+        slc = None;
+#      dprint(0,"slice is",slc);
       # apply updates
       for pq in self._ifrs:
-        self.ifr_gain[pq] = [ g*g1 for g,g1 in zip(self.ifr_gain.get(pq,[1,1,1,1]),self.ifr_gain_update[pq]) ];
+        self.ifr_gain[pq] = [ g*(g1 if numpy.isscalar(g1) or not slc else g1[slc]) 
+            for g,g1 in zip(self.ifr_gain.get(pq,[1,1,1,1]),self.ifr_gain_update[pq]) ];
+#        dprint(0,pq,"shape is",getattr(self.ifr_gain[pq][0],'shape',[1]));
       dprint(2,"IFR gain solutions update: ",", ".join(
             ["%s%s:%s%s %s"%(p,self.corr_names[i],q,self.corr_names[j],
             self.ifr_gain_update[(p,q),i,j])
@@ -1013,7 +1042,7 @@ class StefCalNode (pynode.PyNode):
       # save
       if self.save_ifr_gains:
         try:
-          cPickle.dump(self.ifr_gain,file(self.ifr_gain_table,'w'));
+          cPickle.dump(self.ifr_gain,file(self.ifr_gain_table,'w'),2);
           dprint(1,"saved %d ifr gains to %s"%(len(self.ifr_gain),self.ifr_gain_table));
         except:
           traceback.print_exc();
@@ -1328,7 +1357,7 @@ class StefCalNode (pynode.PyNode):
         b1 = chisq_histbins[min(imaxbin+1,len(chisq_histbins)-1)]
         mm = chisq_arr[(chisq_arr>=b0)&(chisq_arr<=b1)].mean();
         dprint(3,"M (mean chisq value in bin range %g:%g) = %g"%(b0,b1,mm));
-        cPickle.dump((chisq_hist,chisq_histbins),file("stefcal.chisq.dump","w"));
+        cPickle.dump((chisq_hist,chisq_histbins),file("stefcal.chisq.dump","w"),2);
       else:
         chisq_masked = numpy.ma.masked_array(chisq_arr,chisq_arr==0,fill_value=0);
         mode = getattr(gopt,"flag_chisq_loop%d"%looptype);

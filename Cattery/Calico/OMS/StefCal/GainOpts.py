@@ -6,6 +6,7 @@ import os.path
 import os
 import cPickle
 import numpy
+import traceback
 
 MODE_SOLVE_SAVE = "solve-save";
 MODE_SOLVE_NOSAVE = "solve-nosave"
@@ -63,7 +64,7 @@ class GainOpts (object):
               TDLOption("flag_ampl_low","Lower threshold (0 disables)",[0,.5],more=float,default=0,namespace=self),
               TDLOption("flag_ampl_high","Upper threshold (0 disables)",[0,1.5],more=float,default=0,namespace=self),
             toggle='flag_ampl',namespace=self),
-          TDLOption("implementation","Jones matrix type",["GainDiag","Gain2x2","GainDiagCommon","GainDiagPhase" ] ,namespace=self),
+          TDLOption("implementation","Jones matrix type",["GainDiag","Gain2x2","Gain2x2a","GainDiagCommon","GainDiagPhase" ] ,namespace=self),
           TDLOption("mode","Solution mode",
             {MODE_SOLVE_SAVE:"solve and save",MODE_SOLVE_NOSAVE:"solve, do not save",MODE_SOLVE_APPLY:"load and apply"},
             default=MODE_SOLVE_SAVE,namespace=self),
@@ -244,7 +245,7 @@ class GainOpts (object):
       if initval:
         struct = dict(description="stefcal gain solutions table",version=2,gains=initval);
         try:
-          cPickle.dump(struct,file(table,'w'));
+          cPickle.dump(struct,file(table,'w'),2);
           dprint(1,"saved %d gain set(s) to %s"%(len(initval),table));
         except:
           traceback.print_exc();
