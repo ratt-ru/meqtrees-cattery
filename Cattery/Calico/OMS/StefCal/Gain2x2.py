@@ -4,6 +4,7 @@ import cmath
 import operator
 import scipy.ndimage.filters
 import Kittens.utils
+from memory_profiler import profile
 
 from MatrixOps import *
 
@@ -111,6 +112,7 @@ class Gain2x2 (DataTiler):
     else:
       return None;
 
+  @profile
   def iterate (self,lhs,rhs,bitflags,bounds=None,verbose=0,niter=0,weight=None):
     self._reset();
     # iterates G*lhs*G^H -> rhs

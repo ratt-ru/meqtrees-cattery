@@ -12,6 +12,7 @@ import time
 import cPickle
 import os.path
 import traceback
+import gc
 import scipy.ndimage.measurements
 
 from MatrixOps import *
@@ -248,6 +249,7 @@ class StefCalNode (pynode.PyNode):
     self._init_value_gain = self._init_value_bgain = self.init_value;
     self._init_value_dg = {};
 
+  @profile
   def get_result (self,request,*children):
     timestamp0 = time.time();
     # get dataset ID from request
@@ -425,7 +427,7 @@ class StefCalNode (pynode.PyNode):
                   m1[flags] = 0;
                 dgm = dgmodel[k].setdefault(pq,[0,0,0,0]);
                 dgm[num] = m1;
-                dgmodel_corr[k][pq] = dgm;
+                ##dgm dgmodel_corr[k][pq] = dgm;
                 m0 += m1;
         # ok, done looping over the 2x2 visibility matrix elements. 
         # If we have found anything valid at all, finalize flagmasks etc.
@@ -663,7 +665,8 @@ class StefCalNode (pynode.PyNode):
       for pq,mod0 in model0.iteritems():
         mm = model[pq] = matrix_copy(model0[pq]);
         for idg,dg in enumerate(self.dgopts):
-          dgcorr = dgmodel_corr[idg][pq] = dg.solver.apply(dgmodel[idg],pq,cache=True);
+          ##dgm dgcorr = dgmodel_corr[idg][pq] = dg.solver.apply(dgmodel[idg],pq,cache=True);
+          dgcorr = dg.solver.apply(dgmodel[idg],pq,cache=True);
           for i,c in enumerate(dgcorr):
             mm[i] += c;
             
@@ -771,6 +774,7 @@ class StefCalNode (pynode.PyNode):
             model[pq] = matrix_copy(model0[pq]);
           # now loop over all diffgains and iterate each set once
           for idg,dgopt in enumerate(self.dgopts):
+            gc.collect()
             # we want to solve for dE1 minimizing D=G.(M0+dE1.M1.dE1^H+dE2.M2.dE2^H+...).G^H
             # which is the same as G^{-1}.D.G^{-H} = M0 + dE1.M1.dE1^H + dE2.M2.dE2^H + ...
             # which is the same as D_corr - (M0 + dE1.M1.dE1^H + dE2.M2.dE2^H + ...) + dE1.M1.dE1^H = dE1.M1.dE1^H
@@ -779,7 +783,8 @@ class StefCalNode (pynode.PyNode):
             # so, add model1_old to data, so data is D_corr - model + model1_old, and fit model1 to it
             # dgmodel_corr always contains the modelN_old valus
             for pq in solvable_ifrs:
-              corr = dgmodel_corr[idg][pq];
+              corr = dgopt.solver.apply(dgmodel[idg],pq);
+              ##dgm: corr = dgmodel_corr[idg][pq];
               for (c,dd) in zip(corr,data[pq]):
                 dd += c;
             if ( idg == self.dump_diffgain or self.dump_diffgain == -1 ) and \
@@ -790,7 +795,8 @@ class StefCalNode (pynode.PyNode):
             flagged = self.run_gain_solution(dgopt,dgmodel[idg],data,weight,bitflags,flag_null_gains=False,looptype=looptype);
             # now, add to model1 to model, and subtract back from data if needed
             for pq in solvable_ifrs:
-              corr = dgmodel_corr[idg][pq] = dgopt.solver.apply(dgmodel[idg],pq,cache=True);
+              corr = dgopt.solver.apply(dgmodel[idg],pq);
+              #dgm: corr = dgmodel_corr[idg][pq] = dgopt.solver.apply(dgmodel[idg],pq,cache=True);
               for i,(c,mm,dd) in enumerate(zip(corr,model[pq],data[pq])):
                 if is_null(mm):
                   model[i] = c;
@@ -811,7 +817,8 @@ class StefCalNode (pynode.PyNode):
         # fix up model
         mm = model[pq] = model0[pq];
         for idg,dg in enumerate(self.dgopts):
-          corr = dgmodel_corr[idg][pq] = dg.solver.apply(dgmodel[idg],pq,cache=True);
+          #dgm: corr = dgmodel_corr[idg][pq] = dg.solver.apply(dgmodel[idg],pq,cache=True);
+          corr = dg.solver.apply(dgmodel[idg],pq);
           for i,c in enumerate(corr):
             mm[i] += c;
       # apply corrections to missing baselines in data
@@ -957,9 +964,13 @@ class StefCalNode (pynode.PyNode):
           out = dd;
           # subtract dE'd sources, if so specified
           if self.subtract_dgsrc:
-            for idg,dgcorr in enumerate(dgmodel_corr):
-              for d,m in zip(out,dgcorr[pq]):
+            for idg,dg in enumerate(self.dgopts):
+              corr = dg.solver.apply(dgmodel[idg],pq);
+              for d,m in zip(out,corr[pq]):
                 d -= m;
+            #dgm: for idg,dgcorr in enumerate(dgmodel_corr):
+            #dgm:   for d,m in zip(out,dgcorr[pq]):
+            #dgm:     d -= m;
         # get flagmask, clear prior flags
         flagmask = bitflags.get(pq);
         # clear prior flags
