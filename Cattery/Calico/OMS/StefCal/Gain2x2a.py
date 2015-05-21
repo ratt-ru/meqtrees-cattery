@@ -4,7 +4,6 @@ import cmath
 import operator
 import scipy.ndimage.filters
 import Kittens.utils
-from memory_profiler import profile
 
 from MatrixOps import *
 
@@ -24,8 +23,9 @@ verbose_stations_corr = (); # set([p[0] for p in verbose_baselines_corr]+[p[1] f
 
 from DataTiler import DataTiler    
 
-class Gain2x2 (DataTiler):
+class Gain2x2a (DataTiler):
   """Support class to handle a set of subtiled gains in the form of 2x2 G matrices.
+  Version 2x2a: add proper flag accounting during smoothing.
   """;
   polarized = True;
   nparm = 4;
@@ -112,7 +112,6 @@ class Gain2x2 (DataTiler):
     else:
       return None;
 
-  @profile
   def iterate (self,lhs,rhs,bitflags,bounds=None,verbose=0,niter=0,weight=None):
     self._reset();
     # iterates G*lhs*G^H -> rhs
