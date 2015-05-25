@@ -666,7 +666,7 @@ class StefCalNode (pynode.PyNode):
         mm = model[pq] = matrix_copy(model0[pq]);
         for idg,dg in enumerate(self.dgopts):
           ##dgm dgcorr = dgmodel_corr[idg][pq] = dg.solver.apply(dgmodel[idg],pq,cache=True);
-          dgcorr = dg.solver.apply(dgmodel[idg],pq,cache=True);
+          dgcorr = dg.solver.apply(dgmodel[idg],pq,cache=False);
           for i,c in enumerate(dgcorr):
             mm[i] += c;
             
