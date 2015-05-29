@@ -31,7 +31,7 @@ class Gain2x2 (DataTiler):
   nparm = 4;
 
   def __init__ (self,original_datashape,datashape,subtiling,solve_ifrs,opts,
-                init_value=1,verbose=0,
+                use_float=False,init_value=1,verbose=0,
                 force_subtiling=False,**kw):
     """original_datashape gives the unpadded datashape. This is the one that ought to be used to estimate
     convergence quotas. datashape is the real, padded, datashape. subtiling gives the subtiling."""
@@ -45,8 +45,10 @@ class Gain2x2 (DataTiler):
     self._antennas = set();
     for ifr in self._solve_ifrs:
       self._antennas.update(ifr);
-    self._zero  = numpy.zeros(self.subshape,dtype=complex);
-    self._unity = numpy.ones(self.subshape,dtype=complex);
+    self._float = opts.use_float
+    self._dtype = numpy.complex64 if float else numpy.complex128
+    self._zero  = numpy.zeros(self.subshape, dtype=self._dtype)
+    self._unity = numpy.ones(self.subshape, dtype=self._dtype)
     self._nullflag =  numpy.zeros(self.subshape,dtype=bool);
     self.gainflags = {};
     # init_value=1: init each parm with a unity Jones term
@@ -96,26 +98,27 @@ class Gain2x2 (DataTiler):
     self._reset();
     self.gain = gain;
 
+  def _tile_complex_data (self, x):
+    return self.tile_data(x, dtype=self._dtype)
+
   def _get_matrix (self,p,q,data):
     if (p,q) in data:
-      return map(self.tile_data,data[p,q]);
+      return map(self._tile_complex_data,data[p,q]);
     elif (q,p) in data:
-      return matrix_conj(map(self.tile_data,data[q,p]));
+      return matrix_conj(map(self._tile_complex_data,data[q,p]));
     else:
       return None;
 
   def _get_conj_matrix (self,p,q,data):
     if (p,q) in data:
-      return matrix_conj(map(self.tile_data,data[p,q]));
+      return matrix_conj(map(self._tile_complex_data,data[p,q]));
     elif (q,p) in data:
-      return map(self.tile_data,data[q,p]);
+      return map(self._tile_complex_data,data[q,p]);
     else:
       return None;
 
-  @profile
   def iterate (self,lhs,rhs,bitflags,bounds=None,verbose=0,niter=0,weight=None):
     self._reset();
-    # iterates G*lhs*G^H -> rhs
     # G updates from step 0 and 1 go here
     gain0dict = {};
     gain1dict = {};
