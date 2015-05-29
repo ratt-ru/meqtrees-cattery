@@ -1,3 +1,5 @@
+from memory_profiler import profile
+
 
 from Timba import pynode
 from Timba.Meq import meq
@@ -10,6 +12,7 @@ import time
 import cPickle
 import os.path
 import traceback
+import gc
 import scipy.ndimage.measurements
 
 from MatrixOps import *
@@ -74,6 +77,7 @@ class StefCalVisualizer (pynode.PyNode):
     mystate('index',[]);
     self.set_symdeps("Domain");
 
+#  @profile
   def get_result (self,request,*children):
     vellsets = [];
     gainsets = global_gains.get(self.label);
@@ -179,6 +183,9 @@ class StefCalNode (pynode.PyNode):
       dg.update_state(self,option_suffix=label);
       if dg.enable:
         self.dgopts.append(dg);
+    self.use_float_di = all([gg.use_float for gg in self.gainopts])
+    self.use_float_dd = all([dg.use_float for dg in self.dgopts])
+    dprintf(2,"using float di %s dd %s\n",self.use_float_di,self.use_float_dd)
     # we're polarized if at least one gain is polarized
     self.polarized = any([ opt.polarized for opt in self.gainopts+self.dgopts ]);
     # roll back solutions if final chisq exceeds initial chi-sq
@@ -245,7 +252,9 @@ class StefCalNode (pynode.PyNode):
     self._init_value_gain = self._init_value_bgain = self.init_value;
     self._init_value_dg = {};
 
+#  @profile
   def get_result (self,request,*children):
+    dprint(1,"get_result entry");
     timestamp0 = time.time();
     # get dataset ID from request
     dataset_id,domain_id = meq.split_request_id(request.request_id);
@@ -345,10 +354,17 @@ class StefCalNode (pynode.PyNode):
         for num,(i,j) in enumerate(IJ2x2):
           # increment vells count upfront (this is why we start at -1)
           nvells += 1;
-          # get data, and apply ifr gains if we have them
+          # get data
           d = getattr(datares.vellsets[nvells],'value',0);
+          # apply ifr gains if we have them
           if not is_null(d):
-            d *= ifrgain[num];
+            # convert if needed
+            if self.use_float_di:
+              d = d.astype(numpy.complex64)
+            if d.flags['WRITEABLE']:
+              d *= ifrgain[num]
+            else:
+              d = d*ifrgain[num]
           # get model
           m = getattr(modelres.vellsets[nvells],'value',0);
           if hasattr(datares.vellsets[nvells],'flags'):
@@ -360,6 +376,11 @@ class StefCalNode (pynode.PyNode):
             # if this is the first datum, then check shape, and prepare subtilings etc.
             # for the first valid result, setup shapes and stuff
             if not model0:
+              def get_dtype (dd):
+                if dd:
+                  return numpy.complex64 if self.use_float_dd else numpy.complex128
+                else:
+                  return numpy.complex64 if self.use_float_di else numpy.complex128
               # this is the basic time-frequency shape
               self._datashape = datashape = tuple(d.shape);
               self._datasize = reduce(operator.mul,datashape);
@@ -369,10 +390,10 @@ class StefCalNode (pynode.PyNode):
               # Define pad_array() as a function for this: it will set to be identity if no expansion is needed
               if datashape != expanded_datashape:
                 self._expanded_dataslice = expanded_dataslice = tuple([ slice(0,nd) for nd in datashape ]);
-                def pad_array (x,initval=0):
+                def pad_array (x,initval=0,dd=False):
                   if is_null(x):
                     return 0;
-                  x1 = numpy.empty(expanded_datashape,dtype=x.dtype);
+                  x1 = numpy.empty(expanded_datashape, dtype=bool if type(initval) is bool else get_dtype(dd))
                   x1[...] = initval;
                   x1[expanded_dataslice] = x;
                   return x1;
@@ -386,7 +407,13 @@ class StefCalNode (pynode.PyNode):
                 self._expansion_ratio = 1;
                 self._expanded_dataslice = expanded_dataslice = None;
                 self._expansion_mask = numpy.ones(datashape,bool);
-                pad_array = lambda x,initval=0:x;
+                def pad_array (x,initval=0,dd=False):
+                  if is_null(x):
+                    return x
+                  elif type(initval) is bool:
+                    return x
+                  else:
+                    return x.astype(get_dtype(dd),copy=False)
               # this counts how many valid visibilities we have per each antenna, per each time/freq slot
               vis_per_antenna = dict([(p,numpy.zeros(expanded_datashape,dtype=int)) for p in antennas ]);
             # now check inputs and add them to data and model dicts
@@ -417,12 +444,12 @@ class StefCalNode (pynode.PyNode):
               m0 = model.setdefault(pq,[0,0,0,0])[num] = 0 if is_null(m0) else m0.copy();
               for k in range(num_diffgains):
                 m1 = children[2+k].vellsets[nvells].value
-                m1 = pad_array(m1);
+                m1 = pad_array(m1,dd=True);
                 if flags is not None and not is_null(m1):
                   m1[flags] = 0;
                 dgm = dgmodel[k].setdefault(pq,[0,0,0,0]);
                 dgm[num] = m1;
-                dgmodel_corr[k][pq] = dgm;
+                ##dgm dgmodel_corr[k][pq] = dgm;
                 m0 += m1;
         # ok, done looping over the 2x2 visibility matrix elements. 
         # If we have found anything valid at all, finalize flagmasks etc.
@@ -456,6 +483,14 @@ class StefCalNode (pynode.PyNode):
     else:
       # in principle could also handle [N], but let's not bother for now
       raise TypeError,"data and model must be of rank Nx2x2";
+
+    # hang onto datares record since we'll be putting the results into it
+    # release modelres and all the other child results (they're already held in model and dgmodel)
+    # use resize to explicitly release the memory since we KNOW nobody else is using it
+    dprint(1,"constructed internal arrays, trying to release array memory");
+    modelres = children = None
+    gc.collect()
+    dprint(1,"released memory");
     
     valid_ifrs = data.keys();
     solvable_ifrs = set(self._solvable_ifrs)&set(valid_ifrs);
@@ -660,7 +695,8 @@ class StefCalNode (pynode.PyNode):
       for pq,mod0 in model0.iteritems():
         mm = model[pq] = matrix_copy(model0[pq]);
         for idg,dg in enumerate(self.dgopts):
-          dgcorr = dgmodel_corr[idg][pq] = dg.solver.apply(dgmodel[idg],pq,cache=True);
+          ##dgm dgcorr = dgmodel_corr[idg][pq] = dg.solver.apply(dgmodel[idg],pq,cache=True);
+          dgcorr = dg.solver.apply(dgmodel[idg],pq,cache=False);
           for i,c in enumerate(dgcorr):
             mm[i] += c;
             
@@ -704,6 +740,9 @@ class StefCalNode (pynode.PyNode):
         # reset data and weight to initial values
         data,weight = initdata,initweight;
         flagged = False;  # will be True if new flags arise in DI terms
+        pq0 = sorted(solvable_ifrs)[0]
+        dprintf(2,"%s data type of data is %s\n",pq0,data[pq0][0].dtype)
+        dprintf(2,"%s data type of model is %s\n",pq0,model[pq0][0].dtype)
         
         # at beginning of major loop 1, reset flags raised in loop 0.
         # This means that loop-0 flags are treated as preliminary-only
@@ -773,12 +812,19 @@ class StefCalNode (pynode.PyNode):
             # we want to solve for dE1 minimizing D=G.(M0+dE1.M1.dE1^H+dE2.M2.dE2^H+...).G^H
             # which is the same as G^{-1}.D.G^{-H} = M0 + dE1.M1.dE1^H + dE2.M2.dE2^H + ...
             # which is the same as D_corr - (M0 + dE1.M1.dE1^H + dE2.M2.dE2^H + ...) + dE1.M1.dE1^H = dE1.M1.dE1^H
-            # which is the same as D_corr - model + model1_old = model1
-            # at this point, data is D_corr - model
-            # so, add model1_old to data, so data is D_corr - model + model1_old, and fit model1 to it
-            # dgmodel_corr always contains the modelN_old valus
+            # which is the same as D_corr - full_model_old                           + model1_old   = model1
+            # at this point, data is D_corr - full_model_old
+            # so, add model1_old to data, and fit model1 to it
+            # dgmodel_corr always contains the modelN_old values
+            report_prec = False
             for pq in solvable_ifrs:
-              corr = dgmodel_corr[idg][pq];
+              if not report_prec:
+                dprintf(2,"%s %s data type of dgmodel is %s\n",dgopt.label,pq,dgmodel[idg][pq][0].dtype)
+              corr = dgopt.solver.apply(dgmodel[idg],pq);
+              ##dgm: corr = dgmodel_corr[idg][pq];
+              if not report_prec:
+                dprintf(2,"%s %s data type of corrected is %s\n",dgopt.label,pq,corr[0].dtype)
+                report_prec = True
               for (c,dd) in zip(corr,data[pq]):
                 dd += c;
             if ( idg == self.dump_diffgain or self.dump_diffgain == -1 ) and \
@@ -789,7 +835,8 @@ class StefCalNode (pynode.PyNode):
             flagged = self.run_gain_solution(dgopt,dgmodel[idg],data,weight,bitflags,flag_null_gains=False,looptype=looptype);
             # now, add to model1 to model, and subtract back from data if needed
             for pq in solvable_ifrs:
-              corr = dgmodel_corr[idg][pq] = dgopt.solver.apply(dgmodel[idg],pq,cache=True);
+              corr = dgopt.solver.apply(dgmodel[idg],pq);
+              #dgm: corr = dgmodel_corr[idg][pq] = dgopt.solver.apply(dgmodel[idg],pq,cache=True);
               for i,(c,mm,dd) in enumerate(zip(corr,model[pq],data[pq])):
                 if is_null(mm):
                   model[i] = c;
@@ -811,7 +858,8 @@ class StefCalNode (pynode.PyNode):
         # fix up model
         mm = model[pq] = model0[pq];
         for idg,dg in enumerate(self.dgopts):
-          corr = dgmodel_corr[idg][pq] = dg.solver.apply(dgmodel[idg],pq,cache=True);
+          #dgm: corr = dgmodel_corr[idg][pq] = dg.solver.apply(dgmodel[idg],pq,cache=True);
+          corr = dg.solver.apply(dgmodel[idg],pq);
           for i,c in enumerate(corr):
             mm[i] += c;
       # apply corrections to missing baselines in data
@@ -928,10 +976,10 @@ class StefCalNode (pynode.PyNode):
           else:
             mdh = (m*dh).sum();
             ddh = (d*dh).sum();
-          dprint(3,"ifr gains: summed m.d* and d.d* for",pq,num);
+          dprint(4,"ifr gains: summed m.d* and d.d* for",pq,num);
           sri = self.ig_sum_reim[pq][num] = self.ig_sum_reim[pq][num] + mdh;
           ssq = self.ig_sum_sq[pq][num]   = self.ig_sum_sq[pq][num] + ddh;
-          dprint(3,"updated sums for",pq,num);
+          dprint(4,"updated sums for",pq,num);
           if numpy.isscalar(ssq):
             if ssq != 0:
               self.ifr_gain_update[pq][num] = sri/ssq;
@@ -939,9 +987,9 @@ class StefCalNode (pynode.PyNode):
             if (ssq!=0).any():
               self.ifr_gain_update[pq][num] = sri/ssq;
               self.ifr_gain_update[pq][num][ssq==0] = 1; 
-          dprint(3,"updated ifr gain for",pq,num);
+          dprint(4,"updated ifr gain for",pq,num);
 #          if num == 0 and pq[0] == '0':
-#           print m[0,0],d[0,0],dh[0,0]
+#           printm[0,0],d[0,0],dh[0,0]
 #            print pq,(m*dh).sum(),(d*dh).sum(),sri/ssq;
       dprint(1,"IFR gains updated");
 
@@ -959,6 +1007,8 @@ class StefCalNode (pynode.PyNode):
             fl = getattr(vs,'flags',None);
             if fl is None:
               fl = vs.flags = meq.flags(datashape);
+            else:
+              fl = vs.flags = fl.copy()
             fl[...] |= self.output_flag_bit;
           nvells += 1;
         continue;
@@ -971,11 +1021,13 @@ class StefCalNode (pynode.PyNode):
           out = dd;
           # subtract dE'd sources, if so specified
           if self.subtract_dgsrc:
-            dprint(3,"subtracting dE sources",pq);
-            for idg,dgcorr in enumerate(dgmodel_corr):
-              for d,m in zip(out,dgcorr[pq]):
+            for idg,dg in enumerate(self.dgopts):
+              corr = dg.solver.apply(dgmodel[idg],pq);
+              for d,m in zip(out,corr[pq]):
                 d -= m;
-            dprint(3,"done");
+            #dgm: for idg,dgcorr in enumerate(dgmodel_corr):
+            #dgm:   for d,m in zip(out,dgcorr[pq]):
+            #dgm:     d -= m;
         # get flagmask, clear prior flags
         flagmask = bitflags.get(pq);
         # clear prior flags
@@ -991,6 +1043,7 @@ class StefCalNode (pynode.PyNode):
           vs = datares.vellsets[nvells];
           val = getattr(vs,'value',None);
           if val is not None:
+            vs.value = val = val.copy()
             try:
               val[...] = x[expanded_dataslice] if expanded_dataslice \
                 and not is_null(x) else x;
@@ -1009,6 +1062,8 @@ class StefCalNode (pynode.PyNode):
               fl = getattr(vs,'flags',None);
               if fl is None:
                 fl = vs.flags = meq.flags(datashape);
+              else:
+                fl = vs.flags = fl.copy()
               fl[newflags if expanded_dataslice is None else newflags[expanded_dataslice]] |=  self.output_flag_bit;
           # compute stats
           nvells += 1;
