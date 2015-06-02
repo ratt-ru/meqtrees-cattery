@@ -1,5 +1,4 @@
-from memory_profiler import profile
-
+#from memory_profiler import profile
 
 from Timba import pynode
 from Timba.Meq import meq
