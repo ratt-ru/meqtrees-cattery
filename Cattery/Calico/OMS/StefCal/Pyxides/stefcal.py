@@ -15,7 +15,6 @@ define("STEFCAL_OUTPUT_COLUMN","CORRECTED_DATA","default output column")
 define("STEFCAL_GAIN_Template","$MS/gain${SUFFIX}.cp","current file for gain solutions")
 define("STEFCAL_GAIN1_Template","$MS/gain1${SUFFIX}.cp","current file for gain1 solutions")
 define("STEFCAL_IFRGAIN_Template","$MS/ifrgain${SUFFIX}.cp","current file for IFR gain solutions")
-define("STEFCAL_DIFFGAIN_Template","$MS/diffgain${SUFFIX}.cp","current file for diffgain solutions")
 define("STEFCAL_DIFFGAIN1_Template","$MS/diffgain${SUFFIX}.cp","current file for diffgain solutions")
 define("STEFCAL_GAIN_SAVE_Template","$OUTFILE.gain${SUFFIX}.cp","archive destination for gain solutions")
 define("STEFCAL_GAIN1_SAVE_Template","$OUTFILE.gain1${SUFFIX}.cp","archive destination for gain1 solutions")
@@ -78,7 +77,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
               plotvis="${ms.PLOTVIS}",
               dirty=True,restore=False,restore_lsm=True,
               label=None,
-              plotfail="$STEFCAL_PLOT_FAIL",
+              plotfail=None,
               args=[],options={},
               **kws):
   """Generic function to run a stefcal job.
@@ -102,7 +101,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
   'restore_lsm'     image output visibilities (passed to imager.make_image above as is)
   'args','options'  passed to the stefcal job as is (as a list of arguments and kw=value pairs), 
                     can be used to supply extra TDL options
-  'plotfail'        plotting failure reported via warn or abort. 
+  'plotfail'        plotting failure reported via warn or abort. Default is warn, set to abort to abort. 
   extra keywords:   passed to the stefcal job as kw=value, can be used to supply extra TDL options, thus
                     overriding settings in the TDL config file. Useful arguments of this kind are e.g.:
                     stefcal_reset_all=True to remove prior gains solutions.
@@ -110,6 +109,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
   msname,section,lsm,label,plotvis,gain_plot_prefix,gain1_plot_prefix,ifrgain_plot_prefix,diffgain_plot_prefix,plotfail = \
     interpolate_locals("msname section lsm label plotvis gain_plot_prefix gain1_plot_prefix ifrgain_plot_prefix diffgain_plot_prefix plotfail");
   
+  plotfail = plotfail or warn
   makedir(v.DESTDIR);
   
   # increment step counter and assign global label
