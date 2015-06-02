@@ -1,6 +1,6 @@
 from Pyxis.ModSupport import *
 
-import std,ms,lsm,mqt,imager
+import std,ms,lsm,mqt,im
 
 import os.path,glob,traceback
 
@@ -205,7 +205,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
       plotfail("plot routine failed, see exception above");                  
     
   # make images
-  imager.make_image(msname,column=STEFCAL_OUTPUT_COLUMN,dirty=dirty,restore=restore,restore_lsm=restore_lsm);
+  im.make_image(msname,column=STEFCAL_OUTPUT_COLUMN,dirty=dirty,restore=restore,restore_lsm=restore_lsm);
 
 # document global options for stefcal()
 document_globals(stefcal,"MS LSM mqt.TDLCONFIG STEFCAL_* ms.DDID ms.CHANRANGE ms.IFRS ms.PLOTVIS STEP LABEL");
