@@ -159,7 +159,7 @@ class RandomPolc (ErrorGenerator):
     self._offset_opt.set_custom_value(t0/(24*3600));
     self._scale_opt.set_custom_value((t1-t0)/3600);
     
-  def make_node (self,node,station,axis,**kw):
+  def make_node (self,node,station,**kw):
     ns = node.Subscope();
     coeff = [random.uniform(self.min0,self.max0)*random.choice([-1,1])]
     for i in range(1,4):
@@ -172,7 +172,7 @@ class RandomPolc (ErrorGenerator):
     ns.offset << Meq.Parm(polc);
     node << ns.offset*self.factor;
     if self.dump:
-      file(self.dump,'a').write("%s %s %f %f %s\n"%(station,axis,offset,scale,
+      file(self.dump,'a').write("%s %s %f %f %s\n"%(station,offset,scale,
           " ".join(["%f"%c for c in coeff])));
     return node;
 
