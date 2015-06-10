@@ -412,7 +412,7 @@ class StefCalNode (pynode.PyNode):
                   elif type(initval) is bool:
                     return x
                   else:
-                    return x.astype(get_dtype(dd),copy=False)
+                    return x.astype(get_dtype(dd),copy=True)
               # this counts how many valid visibilities we have per each antenna, per each time/freq slot
               vis_per_antenna = dict([(p,numpy.zeros(expanded_datashape,dtype=int)) for p in antennas ]);
             # now check inputs and add them to data and model dicts
