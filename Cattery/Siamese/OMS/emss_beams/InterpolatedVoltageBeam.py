@@ -6,6 +6,7 @@ from scipy.ndimage import interpolation
 import Kittens.utils
 
 _verbosity = Kittens.utils.verbosity(name="vb");
+#_verbosity.set_verbose(3)
 dprint = _verbosity.dprint;
 dprintf = _verbosity.dprintf;
 
@@ -233,6 +234,7 @@ class InterpolatedVoltageBeam (object):
     dprint(3,"transforming coordinates");
     coords,output_shape,mask = self.transformCoordinates(l,m,thetaphi=thetaphi,
                                rotate=rotate,time=time,freq=freq,freqaxis=freqaxis,extra_axes=extra_axes,mask=mask);
+    print "pixel coords",coords
     # prepare output array
     if output is None:
       output = numpy.zeros(output_shape,complex);

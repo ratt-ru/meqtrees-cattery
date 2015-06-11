@@ -8,6 +8,7 @@ from scipy import interpolate
 
 import Kittens.utils
 _verbosity = Kittens.utils.verbosity(name="vb");
+#_verbosity.set_verbose(5)
 dprint = _verbosity.dprint;
 dprintf = _verbosity.dprintf;
 
@@ -70,6 +71,7 @@ class FITSAxes (object):
     self._type = ['']*naxis;
     self._rpix = [0]*naxis;
     self._rval = [0]*naxis;
+    self._rval0 = [0]*naxis;
     self._grid = [None]*naxis;
     self._w2p  = [None]*naxis;
     self._p2w  = [None]*naxis;
@@ -93,7 +95,7 @@ class FITSAxes (object):
         self._w2p[i] = interpolate.interp1d(grid,range(len(grid)),'linear');
         self._p2w[i] = interpolate.interp1d(range(len(grid)),grid,'linear');
       else:
-        self._rval[i] = rval = hdr.get('CRVAL'+ax,0);
+        self._rval[i] = self._rval0[i] = rval = hdr.get('CRVAL'+ax,0);
         self._rpix[i] = rpix = hdr.get('CRPIX'+ax,1) - 1;
         self._delta[i] = self._delta0[i] = delta = hdr.get('CDELT'+ax,1);
         self._setup_grid(i);
@@ -127,6 +129,7 @@ class FITSAxes (object):
   def setUnitScale (self,axis,scale):
     iaxis = self.iaxis(axis);
     self._unit_scale[iaxis] = scale;
+    self._rval[iaxis] = self._rval0[iaxis]*scale;
     self._delta[iaxis] = self._delta0[iaxis]*scale;
     self._setup_grid(iaxis);
 
