@@ -359,7 +359,7 @@ class StefCalNode (pynode.PyNode):
           if not is_null(d):
             # convert if needed
             if self.use_float_di:
-              d = d.astype(numpy.complex64)
+              d = d.astype(numpy.complex64)  # make copy by default
             if d.flags['WRITEABLE']:
               d *= ifrgain[num]
             else:
@@ -412,7 +412,7 @@ class StefCalNode (pynode.PyNode):
                   elif type(initval) is bool:
                     return x
                   else:
-                    return x.astype(get_dtype(dd),copy=True)
+                    return x.astype(get_dtype(dd))  # copy=True implicitly
               # this counts how many valid visibilities we have per each antenna, per each time/freq slot
               vis_per_antenna = dict([(p,numpy.zeros(expanded_datashape,dtype=int)) for p in antennas ]);
             # now check inputs and add them to data and model dicts
@@ -1013,9 +1013,7 @@ class StefCalNode (pynode.PyNode):
         continue;
       else:
         if self.residuals:
-          dprint(3,"computing residuals",pq);
           out = [ d-m for d,m in zip(dd,mm) ];
-          dprint(3,"done");
         else:
           out = dd;
           # subtract dE'd sources, if so specified

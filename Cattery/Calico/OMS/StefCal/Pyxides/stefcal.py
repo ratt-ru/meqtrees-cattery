@@ -39,7 +39,7 @@ def preload_solutions (msname="$MS",gain=None,gain1=None,diffgain=None,diffgain1
   'missing' set to abort (default) to abort if not found, or warn to issue warning and continue
   """
   gain,gain1,diffgain,diffgain1,ifrgain = interpolate_locals("gain gain1 diffgain diffgain1 ifrgain");
-
+  info("stefcal_preload: $gain $gain1 $diffgain $diffgain1 $ifrgain")
   def _copyfile (filename,dest,missing=abort):
     if not exists(filename):
       candidates = sorted([ (os.path.getmtime(f),f) for f in glob.glob(filename) ]);
@@ -167,19 +167,19 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
   # copy gains
   try:
     if not apply_only:
-      if os.path.exists(STEFCAL_GAIN):
+      if os.path.exists(STEFCAL_GAIN) and not gain_apply_only:
         std.copy(STEFCAL_GAIN,STEFCAL_GAIN_SAVE);
         if gain_plot_prefix:
           make_gain_plots(STEFCAL_GAIN_SAVE,prefix=gain_plot_prefix);
-      if os.path.exists(STEFCAL_GAIN1):
+      if os.path.exists(STEFCAL_GAIN1) and not gain_apply_only:
         std.copy(STEFCAL_GAIN1,STEFCAL_GAIN1_SAVE);
         if gain_plot_prefix:
           make_gain_plots(STEFCAL_GAIN1_SAVE,prefix=gain_plot_prefix);
-      if os.path.exists(STEFCAL_DIFFGAIN):
+      if os.path.exists(STEFCAL_DIFFGAIN) and not diffgain_apply_only:
         std.copy(STEFCAL_DIFFGAIN,STEFCAL_DIFFGAIN_SAVE);
         if diffgain_plot_prefix:
           make_diffgain_plots(STEFCAL_DIFFGAIN_SAVE,prefix=diffgain_plot_prefix);
-      if os.path.exists(STEFCAL_IFRGAIN):
+      if os.path.exists(STEFCAL_IFRGAIN) and not ifrgain_apply_only:
         std.copy(STEFCAL_IFRGAIN,STEFCAL_IFRGAIN_SAVE);
         if ifrgain_plot_prefix:
           make_ifrgain_plots(STEFCAL_IFRGAIN_SAVE,prefix=ifrgain_plot_prefix);
