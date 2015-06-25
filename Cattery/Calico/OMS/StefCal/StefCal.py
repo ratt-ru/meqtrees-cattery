@@ -28,6 +28,7 @@ FNOCONV = 4;  # no convergence
 FCHISQ  = 8;  # chisq too high
 FSOLOOB = 16; # solution out of bounds
 
+DEBUG_SLICE = (slice(0,10), 0)
 
 def print_variance (variance):
   """Given a dictionary of per-baseline variances, computes per-station and mean overall variance""";
@@ -417,9 +418,11 @@ class StefCalNode (pynode.PyNode):
               vis_per_antenna = dict([(p,numpy.zeros(expanded_datashape,dtype=int)) for p in antennas ]);
             # now check inputs and add them to data and model dicts
             if d.shape != datashape:
-              raise TypeError,"data shape mismatch at %s:%s:%s:%s"%(pq[0],pq[1],self.corr_names[i],self.corr_names[j]);
+              raise TypeError,"data shape mismatch at %s:%s:%s:%s, %s vs %s" % (pq[0], pq[1],
+                self.corr_names[i], self.corr_names[j], d.shape, datashape )
             if not is_null(m) and m.shape != datashape:
-              raise TypeError,"model shape mismatch at %s:%s:%s:%s"%(pq[0],pq[1],self.corr_names[i],self.corr_names[j]);
+              raise TypeError,"model shape mismatch at %s:%s:%s:%s, %s vs %s" % (pq[0], pq[1],
+                self.corr_names[i], self.corr_names[j], m.shape, datashape )
             # add to data/model matrices, applying the padding function defined above
             m0 = model0.setdefault(pq,[0,0,0,0])[num] = pad_array(m);
             d0 = data.setdefault(pq,[0,0,0,0])[num] = pad_array(d);
@@ -437,25 +440,17 @@ class StefCalNode (pynode.PyNode):
               if pq in self._solvable_ifrs:
                 solvable_antennas.update(pq);
   #              print pq,validmask[pq];
-            # also accumulate initial model, as M0+M1+M2
-            # if num_major_loops==0, then we don't solve for diff
+            # get models for dE-subjected terms
             if num_diffgains:
-              m0 = model.setdefault(pq,[0,0,0,0])[num] = 0 if is_null(m0) else m0.copy();
               for k in range(num_diffgains):
                 m1 = children[2+k].vellsets[nvells].value
                 m1 = pad_array(m1,dd=True);
                 if flags is not None and not is_null(m1):
                   m1[flags] = 0;
-                dgm = dgmodel[k].setdefault(pq,[0,0,0,0]);
-                dgm[num] = m1;
-                ##dgm dgmodel_corr[k][pq] = dgm;
-                m0 += m1;
+                dgmodel[k].setdefault(pq,[0,0,0,0])[num] = m1;
         # ok, done looping over the 2x2 visibility matrix elements. 
         # If we have found anything valid at all, finalize flagmasks etc.
         if pq in model0:
-          # copy M0 to model, if no diffgains were present
-          if not num_diffgains:
-            model[pq] = model0[pq];
           # look at bitflags to see how many valid correlations we have, and zero the flagged ones
           fmask = bitflags.get(pq);
           if fmask is not None:
@@ -463,7 +458,7 @@ class StefCalNode (pynode.PyNode):
             valid = self._expanded_size - fmask.sum();
             if valid > 0:
               dprint(4,"%s-%s"%pq,"has %d of %d unflagged correlation matrices"%(valid,self._datasize));
-              for dataset in [data,model,model0] + dgmodel:
+              for dataset in [data,model0] + dgmodel:
                 for x in dataset.get(pq,[]):
                   if not is_null(x):
                     x[fmask] = 0;
@@ -473,7 +468,7 @@ class StefCalNode (pynode.PyNode):
             else:
               # if nothing is valid, remove baseline from dicts
               dprint(4,"%s-%s"%pq,"is completely flagged, skipping");
-              for dataset in [data,model,model0] + dgmodel:
+              for dataset in [data,model0] + dgmodel:
                 del dataset[pq];
           else:
             dprint(4,"%s-%s"%pq,"has no flagged correlation matrices, all data is valid");
@@ -499,10 +494,11 @@ class StefCalNode (pynode.PyNode):
     dprint(1,"Found %d solvable antennas"%len(solvable_antennas));
     dprint(2,"  valid ifrs outside the solvable set:"," ".join(["%s-%s"%pq for pq in set(valid_ifrs)-set(self._solvable_ifrs)]));
     dprint(2,"  ifrs with no data:"," ".join(["%s-%s"%pq for pq in set(self._ifrs)-set(valid_ifrs)]));
-    min_baselines_for_solution = len(solvable_antennas)*2;
+    min_baselines_for_solution = len(solvable_antennas)+1;
     
-#    for pq,mm in model.iteritems():
-#      print pq,[m.shape for m in mm];
+    # pq00 set for debugging purposes, first valid IFR
+    pq00 = sorted(valid_ifrs)[0]
+
 
 ## -------------------- downsample data and model, if needed
     downsample_subtiling = self.downsample_subtiling;
@@ -544,7 +540,7 @@ class StefCalNode (pynode.PyNode):
           else:
             norm = 1./downsample_factor;
           # resample data
-          for vissets in [data,model,model0] + dgmodel:
+          for vissets in [data,model0] + dgmodel:
             dd = vissets.get(pq);
             if dd is not None:
               vissets[pq] = [ downsampler.reduce_tiles(downsampler.tile_data(d))*norm if 
@@ -570,9 +566,9 @@ class StefCalNode (pynode.PyNode):
         for q in antennas:
           d = m = None;
           if (p,q) in data:
-            d,m = data.get((p,q)),model.get((p,q));
+            d,m = data.get((p,q)),model0.get((p,q));
           elif (q,p) in data:
-            d,m = data.get((q,p)),model.get((q,p));
+            d,m = data.get((q,p)),model0.get((q,p));
           if d is None or m is None:
             continue;
           dsum += sum([x*numpy.conj(x) for x in d]);
@@ -637,8 +633,6 @@ class StefCalNode (pynode.PyNode):
       
     skip_solve = False;
     
-#    for pq,mm in model.iteritems():
-#      print pq,[m.shape for m in mm];
   
 ## ----------------------- if solving for gains, check for required number of baselines per each t/f slot
 ## ----------------------- flag those that are missing
@@ -650,7 +644,7 @@ class StefCalNode (pynode.PyNode):
       ## sum([0 if is_null(d) else ((d!=0)|(m!=0)).astype(int) for d,m in zip(data[pq],model[pq])])
       # this gives us the number of valid visibilities (in the solvable IFR set) per each time/freq slot
       nel_pq = dict([(pq,sum([0 if is_null(d) else ((d!=0)|(m!=0)).astype(int)
-                      for d,m in zip(data[pq],model[pq])])) for pq in data.iterkeys() ]);
+                      for d,m in zip(data[pq],model0[pq])])) for pq in data.iterkeys() ]);
       # this is how many valid visibility matrices we have total per slot
       num_valid_vis = sum([ int(n>1) if numpy.isscalar(n) else (n>1).astype(int) for pq,n in nel_pq.iteritems() ]);
       # we need as many as there are parameters per antenna, times ~4, to constrain the problem fully
@@ -663,7 +657,7 @@ class StefCalNode (pynode.PyNode):
         dprintf(1,"   %d of %d slots flagged due to insufficient visibilities\n",nfl,self._expanded_size);
         for pq in data.iterkeys():
           self.add_flags(bitflags,pq,invalid_slots*FINSUFF);
-        for dataset in [data,model,model0] + dgmodel:
+        for dataset in [data,model0] + dgmodel:
           for dd in dataset.itervalues():
             for d in dd:
               if not is_null(d):
@@ -675,8 +669,6 @@ class StefCalNode (pynode.PyNode):
       skip_solve = True;
       nflagged_due_to_insufficient = 0;
       
-#    for pq,mm in model.iteritems():
-#      print pq,[m.shape for m in mm];
         
 ## -------------------- init gain solvers
     if not skip_solve:
@@ -687,17 +679,33 @@ class StefCalNode (pynode.PyNode):
 
     if self.print_variance:
       print_variance(variance);
-      
-    # if diffgains were initialized, recompute the initial model
-    if any([opt.has_init_value for opt in self.dgopts]):
-      dprint(1,"recomputing model to take prior diffgains into account");
+
+    dprint(2,"***DEBUG*** data",pq00,data[pq00][0][DEBUG_SLICE])
+    dprint(2,"***DEBUG*** model0",pq00,model0[pq00][0][DEBUG_SLICE])
+    if dgmodel:
+      x = 0
+      for dgm in dgmodel:
+        x = x + dgm[pq00][0][DEBUG_SLICE] 
+      dprint(2,"***DEBUG*** dgms",pq00,x)
+
+    # now compute model is M0+M1+M2... 
+    # where terms M1 etc. have dE's on them, if already initialized
+    if len(self.dgopts):
+      dprint(1,"adding dE-enabled terms into model");
       for pq,mod0 in model0.iteritems():
-        mm = model[pq] = matrix_copy(model0[pq]);
-        for idg,dg in enumerate(self.dgopts):
-          ##dgm dgcorr = dgmodel_corr[idg][pq] = dg.solver.apply(dgmodel[idg],pq,cache=True);
-          dgcorr = dg.solver.apply(dgmodel[idg],pq,cache=False);
-          for i,c in enumerate(dgcorr):
+        mm = model[pq] = matrix_copy(mod0);
+        for dg,dgm in zip(self.dgopts, dgmodel):
+          if opt.has_init_value:
+            cc = dg.solver.apply(dgm,pq,cache=False);
+          else:
+            cc = dgm[pq]
+          for i,c in enumerate(cc):
             mm[i] += c;
+    else:
+      model = model0
+
+    dprint(0,"***DEBUG*** model",pq00,model[pq00][0][DEBUG_SLICE])
+    dprint(0,"***DEBUG*** model0",pq00,model0[pq00][0][DEBUG_SLICE])
             
     ## last check for NANs in the data and model
     self.check_finiteness(data,"data",bitflags);
@@ -710,8 +718,8 @@ class StefCalNode (pynode.PyNode):
       # at beginning of each major loop, for an equation of the form D = G.B.(M0+dE1.M1+dE1^H+...)B^H.G^H
       #
       # initdata: contains the original data D
-      # initmodel0: contains the original M0
-      # initmodel: contains M = M0+M1+M2+... i.e. without dE values
+      # model0: contains the original M0
+      # initmodel: contains M = M0+M1+M2+... i.e. without dE values, or with initial guess for dE values
       
       dprint(1,"resetting data and model to initial values");
       
@@ -880,6 +888,9 @@ class StefCalNode (pynode.PyNode):
         data = dict([ (pq,opt.solver.apply_inverse(data,pq,
                       regularize=self.regularization_factor))
                       for pq in data.iterkeys() ]);
+
+    dprint(0,"***DEBUG*** data",pq00,data[pq00][0][DEBUG_SLICE])
+    dprint(0,"***DEBUG*** model",pq00,model[pq00][0][DEBUG_SLICE])
     
     # corrdata will contain the corrected data (with all DI terms applied)
     # data will contain the original data
@@ -1014,6 +1025,9 @@ class StefCalNode (pynode.PyNode):
       else:
         if self.residuals:
           out = [ d-m for d,m in zip(dd,mm) ];
+#          out = mm  ### write model!
+          if pq == pq00:
+            dprint(0,"***DEBUG*** residuals:",pq00,out[0][DEBUG_SLICE])
         else:
           out = dd;
           # subtract dE'd sources, if so specified

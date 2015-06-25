@@ -30,6 +30,7 @@ define("STEFCAL_IFRGAIN_PLOT_PREFIX","IG","automatically IFR gain solutions. Set
 define("STEFCAL_DIFFGAIN_PLOT_PREFIX","dE","automatically plot diffgain solutions. Set to empty string to disable.")
 define("STEFCAL_STEP_INCR",1,"automatically increment v.STEP with each call to stefcal");
 define("STEFCAL_PLOT_FAIL",warn,"how to report plotting errors. Default is warn to warn and continue. Can also set to abort");
+define("STEFCAL_SAVE_CONFIG","$OUTFILE.stefcal.tdlconf","saves effective TDL config to file[:section]")
 
 def preload_solutions (msname="$MS",gain=None,gain1=None,diffgain=None,diffgain1=None,ifrgain=None,missing=abort):
   """Preloads gain/diffgain/ifrgain solutions prior to running stefcal
@@ -79,6 +80,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
               plotvis="${ms.PLOTVIS}",
               dirty=True,restore=False,restore_lsm=True,
               label=None,
+              saveconfig="$STEFCAL_SAVE_CONFIG",
               plotfail=None,
               args=[],options={},
               **kws):
@@ -101,15 +103,16 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
   'plotvis'         if not empty, specifies which output visibilities to plot using plot-ms (see plot.ms.py --help) 
   'dirty','restore' 
   'restore_lsm'     image output visibilities (passed to imager.make_image above as is)
+  'plotfail'        plotting failure reported via warn or abort. Default is warn, set to abort to abort. 
+  'saveconfig'      saves the effective TDL config to file[:section]
   'args','options'  passed to the stefcal job as is (as a list of arguments and kw=value pairs), 
                     can be used to supply extra TDL options
-  'plotfail'        plotting failure reported via warn or abort. Default is warn, set to abort to abort. 
   extra keywords:   passed to the stefcal job as kw=value, can be used to supply extra TDL options, thus
                     overriding settings in the TDL config file. Useful arguments of this kind are e.g.:
                     stefcal_reset_all=True to remove prior gains solutions.
   """
-  msname,section,lsm,label,plotvis,gain_plot_prefix,gain1_plot_prefix,ifrgain_plot_prefix,diffgain_plot_prefix,plotfail = \
-    interpolate_locals("msname section lsm label plotvis gain_plot_prefix gain1_plot_prefix ifrgain_plot_prefix diffgain_plot_prefix plotfail");
+  msname,section,lsm,label,plotvis,gain_plot_prefix,gain1_plot_prefix,ifrgain_plot_prefix,diffgain_plot_prefix,saveconfig,plotfail = \
+    interpolate_locals("msname section lsm label plotvis gain_plot_prefix gain1_plot_prefix ifrgain_plot_prefix diffgain_plot_prefix saveconfig plotfail");
   
   plotfail = plotfail or warn
   makedir(v.DESTDIR);
@@ -162,7 +165,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
   opts.update(options);
   opts.update(kws);
   # run the job
-  mqt.run(STEFCAL_SCRIPT,STEFCAL_JOBNAME,section=section,args=args0,options=opts);
+  mqt.run(STEFCAL_SCRIPT,STEFCAL_JOBNAME,section=section,saveconfig=saveconfig,args=args0,options=opts);
   
   # copy gains
   try:

@@ -169,9 +169,10 @@ def compute_jones_tensor (Jones,sources,stations,lmn=None,pointing_offsets=None,
     lmn = None;
 
   # see if sources have a "beam_lm" or "_lm_ncp" attribute
-  lmsrc = [ src.get_attr("beam_lm",None) or src.get_attr("_lm_ncp",None) for src in sources ];
+  # NB OMS 18/6/2015 _lm_ncp is an old evil WSRT hack for compatibility with full NEWSTAR models, disabling 
+  lmsrc = [ src.get_attr("beam_lm",None) for src in sources ];
   
-  # if all source have the attribute, create lmn tensor node (and override the lmn argument)
+  # if all sources have the attribute, create lmn tensor node (and override the lmn argument)
   if all([lm is not None for lm in lmsrc]):
     lmn = ns.lmT << Meq.Constant(lmsrc);
   

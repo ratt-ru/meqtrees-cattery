@@ -258,8 +258,10 @@ def _define_forest(ns,parent=None,**kw):
     diffgain_labels = [];
     num_diffgains = 0;
     predict = meqmaker.make_predict_tree(ns);
-    ns.MT << Meq.Composer(dims=[0],mt_polling=True,*[ predict(p,q) for p,q in array.ifrs() ]);
-    models.append(ns.MT);
+    MT = ns.MT("all") << Meq.Composer(dims=[0],mt_polling=True,*[ predict(p,q) for p,q in array.ifrs() ]);
+    if read_ms_model:
+      MT = ns.MT << Meq.Add(MT,mtuv)
+    models.append(MT)
     
   solve_ifrs  = array.subset(calibrate_ifrs,strict=False).ifrs();
   downsample_subtiling = [ stefcal_downsample_timeint,stefcal_downsample_freqint ] if stefcal_downsample else [1,1];
