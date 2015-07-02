@@ -47,7 +47,7 @@ class KolmogorovNode (pynode.PyNode):
  
         if not initialized:
             # divide gridsize by 2 here, phasescreen produces twice the number of pixels
-            PhaseScreen.init_phasescreen(self.grid_size/2,self.beta,self.seed_nr);
+            PhaseScreen.init_phasescreen(self.grid_size,self.beta,self.seed_nr);
             initialized=True;
         
     def get_result (self,request,*children):
@@ -111,7 +111,7 @@ class KolmogorovNode (pynode.PyNode):
 
             val.append(PhaseScreen.phasescreen[xn][yn]*self.amp_scale + self.tec0);
         #fill result
-        res = meq.result(0,cells);
+        res = meq.result(None,cells);
         # print startt,endt,seg,val;
         val2=meq.vells(shape=meq.shape(endt+1,));
         val2[:]=val;

@@ -9,6 +9,7 @@ import Meow
 
 
 def compile_options():
+    """TODO: include options to set the default values of the parms (See TIDMIM how). The number of Parms depend on the rank, so in total N_long*N_lat parameters. Typical values for the 01 and 10 parameter depend on the choice of use_lonlat. If False, typically use 1*e-5, otherwise 1*e-3."""
     return [
         TDLCompileOption("N_long","Rank of Polynomial in X/Long direction",[1,2,3],more=int,
                          doc="""TIC"""),

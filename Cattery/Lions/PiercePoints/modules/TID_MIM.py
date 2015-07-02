@@ -3,7 +3,7 @@ from Timba.Meq import meq
 from Lions.PiercePoints import PiercePoints
 import Meow
 import math
-
+import numpy
 
 #Include 2 wave TID, giving for each wave the wavelength, direction, speed
 #and relative amplitude. The phase offset for both waves is set to 0.
@@ -19,7 +19,7 @@ def compile_options():
  propagation, counter clock-wise from East"""),
             TDLCompileOption("Theta_2","Direction second wave (degrees)",[15.,30.,45.,60.,75.,90.],more=float,doc="""Angle o
 f propagation, counter clock-wise from East"""),
-            TDLCompileOption("Amp_1","Relative amplitude first wave",[0.0,0.01,0.02,0.05,0.1],more=float),
+            TDLCompileOption("Amp_1","Relative amplitude first wave",[0.1,0.01,0.02,0.05,0.1],more=float),
             TDLCompileOption("Amp_2","Relative amplitude second wave",[0.0,0.01,0.02,0.05,0.1],more=float),
             TDLCompileOption("use_lonlat","Use Longitude/Lattitude of PP instead of projected (x,y)",False)]
 ##def compile_options():
@@ -79,6 +79,22 @@ class MIM(PiercePoints.PiercePoints):
         self._add_parm(name="Speed_2",value=Meow.Parm(Sp2),tags=tags)
         self._add_parm(name="Theta_1",value=Meow.Parm(Theta_1),tags=tags)
         self._add_parm(name="Theta_2",value=Meow.Parm(Theta_2),tags=tags)
+        self.make_display_grid(W1,W2,Theta_1,Theta_2,Amp_1,Amp_2,TEC0)
+
+    def make_display_grid(self,W1,W2,Theta_1,Theta_2,Amp_1,Amp_2,TEC0):
+	
+        T0=TEC0
+        A1=Amp_1
+        A2=Amp_2
+        TH1=Theta_1
+        TH2=Theta_2
+	PP=numpy.meshgrid(numpy.arange(0,10000e3,100e3),numpy.arange(0,10000e3,100e3))
+        data=A1*T0*numpy.cos((2*math.pi/(W1))*(numpy.cos(TH1)*PP[0]))+\
+            	 A1*T0*numpy.cos((2*math.pi/(W1))*(numpy.sin(TH1)*PP[1]))+\
+                 A2*T0*numpy.cos((2*math.pi/(W2))*(numpy.cos(TH2)*PP[0]))+\
+                 A2*T0*numpy.cos((2*math.pi/(W2))*(numpy.sin(TH2)*PP[1]))
+	numpy.save("phase_screen_display_TID",data)
+
 
     def make_time(self):
         if not self.ns['time'].initialized():

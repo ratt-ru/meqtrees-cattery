@@ -5,6 +5,7 @@ from Lions.PiercePoints.modules.KL import KLNode
 import Meow
 
 def compile_options():
+    """KL Model is only used for solving!!! Use Kolmogorov_MIM for equivalent Simulation"""
     return [TDLCompileOption("rank","Rank",[1,5,10],more=int,doc="""Cut off"""),
             TDLCompileOption("height","Altitude",[200.,300.,400.],more=float,doc="""Altitude of the ionospheric layer""")]
 

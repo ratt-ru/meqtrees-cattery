@@ -24,7 +24,7 @@ def init_phasescreen(N=10,beta=5.,seed_nr=None):
     
     # Shape white noise by multiplying it by Q^(-2-beta)
     Q[N,N] = 1
-    S = numpy.multiply(W, numpy.power(Q, -2-beta))
+    S = numpy.multiply(W, numpy.sqrt(numpy.power(Q, -2-beta)))
     S[N,N] = 0
      
     # Compute the inverse real ffts in both directions
@@ -42,4 +42,4 @@ def init_phasescreen(N=10,beta=5.,seed_nr=None):
     #phasescreen = screen / maxscreen;
     # get values between -1 and 1
     phasescreen = (screen / maxscreen)
-
+    numpy.save('phase_screen_display', phasescreen)

@@ -33,7 +33,7 @@ class KLNode (pynode.PyNode):
       if len(children)<2:
           raise TypeError,"this is NOT a leaf node, At least 2  children expected!";
       cells=request.cells;
-      res = meq.result(0,cells);
+      res = meq.result(None,cells);
 
       Xp_table=[0,0,0];
       # if necessary loop over time and other axis
