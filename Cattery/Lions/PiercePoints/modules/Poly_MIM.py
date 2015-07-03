@@ -32,7 +32,7 @@ class MIM(PiercePoints.PiercePoints):
             for nla in range(N_lat):
                 name="N:"+str(nlo)+":"+str(nla);
                 self._add_parm(name=name,value=Meow.Parm(0.),tags=tags);
- 
+
 
 
     def make_tec(self):
@@ -44,17 +44,17 @@ class MIM(PiercePoints.PiercePoints):
         else:
             lon = ns['pp']('x');
             lat = ns['pp']('y');
-            
+
         N=[];
         for nlo in range(N_long):
             N.append([]);
             for nla in range(N_lat):
                 name="N:"+str(nlo)+":"+str(nla);
-                
+
                 N[nlo].append(self._parm(name));
-        
-                
-                
+
+
+
         for station in self.stations:
             for src in self.src:
                 tec = ns['tec'](src,station);
@@ -73,5 +73,5 @@ class MIM(PiercePoints.PiercePoints):
                         if nlo> 0:
                             Mim = Mim*lon(src,station);
                     tec << Mim * sec;
-                
+
         return ns['tec'];

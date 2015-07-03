@@ -52,7 +52,7 @@ class MIM(PiercePoints.PiercePoints):
 ##        self._add_parm(name="Speed_x",value=Meow.Parm(Speed_x),tags=tags)
 ##        self._add_parm(name="Speed_y",value=Meow.Parm(Speed_y),tags=tags)
 
-    def __init__(self,ns,name,sources,stations=None,ref_station=None,tags="iono",make_log=False):        
+    def __init__(self,ns,name,sources,stations=None,ref_station=None,tags="iono",make_log=False):
         PiercePoints.PiercePoints.__init__(self,ns,name,sources,stations,height,make_log);
 
         if use_lonlat:
@@ -82,18 +82,18 @@ class MIM(PiercePoints.PiercePoints):
         self.make_display_grid(W1,W2,Theta_1,Theta_2,Amp_1,Amp_2,TEC0)
 
     def make_display_grid(self,W1,W2,Theta_1,Theta_2,Amp_1,Amp_2,TEC0):
-	
+
         T0=TEC0
         A1=Amp_1
         A2=Amp_2
         TH1=Theta_1
         TH2=Theta_2
-	PP=numpy.meshgrid(numpy.arange(0,10000e3,100e3),numpy.arange(0,10000e3,100e3))
+        PP=numpy.meshgrid(numpy.arange(0,10000e3,100e3),numpy.arange(0,10000e3,100e3))
         data=A1*T0*numpy.cos((2*math.pi/(W1))*(numpy.cos(TH1)*PP[0]))+\
-            	 A1*T0*numpy.cos((2*math.pi/(W1))*(numpy.sin(TH1)*PP[1]))+\
+                 A1*T0*numpy.cos((2*math.pi/(W1))*(numpy.sin(TH1)*PP[1]))+\
                  A2*T0*numpy.cos((2*math.pi/(W2))*(numpy.cos(TH2)*PP[0]))+\
                  A2*T0*numpy.cos((2*math.pi/(W2))*(numpy.sin(TH2)*PP[1]))
-	numpy.save("phase_screen_display_TID",data)
+        numpy.save("phase_screen_display_TID",data)
 
 
     def make_time(self):
@@ -114,7 +114,7 @@ class MIM(PiercePoints.PiercePoints):
             PP_x = ns['pp']('x');
             PP_y = ns['pp']('y');
 
-        
+
 ##        T0= self._parm("TEC0");
 ##        Ax= self._parm("Amp_x");
 ##        Ay= self._parm("Amp_y");
@@ -147,5 +147,5 @@ class MIM(PiercePoints.PiercePoints):
                   A1*T0*Meq.Cos((2*math.pi/(W1))*(Meq.Sin(TH1)*PP_y(src,station)-V1*time))+
                   A2*T0*Meq.Cos((2*math.pi/(W2))*(Meq.Cos(TH2)*PP_x(src,station)-V2*time))+\
                   A2*T0*Meq.Cos((2*math.pi/(W2))*(Meq.Sin(TH2)*PP_y(src,station)-V2*time)))
-                        
+
         return  ns['tec'];

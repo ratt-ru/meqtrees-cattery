@@ -13,8 +13,8 @@ class MIM_model(Parameterization):
 
     def __init__(self,ns,name,sources,array=None):
         Parameterization.__init__(self,ns,name);
-        
-    
+
+
         if isinstance(sources,Meow.SkyComponent) or isinstance(sources,xyzComponent):
             self.src = [sources];
 
@@ -45,7 +45,7 @@ class MIM_model(Parameterization):
                     self.ns['mim_phase'](src,station)<<(75e8/freq)*tec(src,station);
 
         return self.ns['mim_phase'];
-    
+
     def make_freq(self):
         if not self.ns['freq'].initialized():
             self.ns['freq'] << Meq.Freq();
@@ -58,32 +58,32 @@ class MIM_model(Parameterization):
     def get_el(self):
         self.make_azel();
         return self.ns['el'];
-    
+
     def get_azel(self):
         return self.make_azel();
 
     def make_azel(self):
         # create azel nodes for all stat src combinations
-	xyz = self.array.xyz();
+        xyz = self.array.xyz();
         for station in self.array.stations():
             for src in self.src:
                 if not self.ns['azel'](src,station).initialized():
                     # if meow.skycomponent get from there
                     if isinstance(src,Meow.SkyComponent):
-                        azel = self.ns['azel'](src,station)<<Meq.AzEl(src.radec(),xyz(station)); 
+                        azel = self.ns['azel'](src,station)<<Meq.AzEl(src.radec(),xyz(station));
 
                     self.ns['el'](src,station) << Meq.Selector(azel,index=1);
                     self.ns['az'](src,station) << Meq.Selector(azel,index=0);
 
 
         return self.ns['azel'];
-                    
+
     def compute_jones(self,Jones,**kw):
         phase=self.make_phase_error();
         for src in self.src:
             for station in self.stations:
                 if not Jones(src,station).initialized():
-                         Jones(src,station)<< Meq.Matrix22(Meq.Polar(1,-phase(src,station)),0,0,Meq.Polar(1,-phase(src,station)));
+                    Jones(src,station)<< Meq.Matrix22(Meq.Polar(1,-phase(src,station)),0,0,Meq.Polar(1,-phase(src,station)));
 
         return Jones;
 

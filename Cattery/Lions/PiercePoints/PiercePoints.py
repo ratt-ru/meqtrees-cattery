@@ -9,14 +9,14 @@ class PiercePoints(MIM_model):
 
     def __init__(self,ns,name,sources,stations=None,height=None,make_log=False):
         MIM_model.__init__(self,ns,name,sources,stations);
-        if isinstance(height,Meow.Parm): 
+        if isinstance(height,Meow.Parm):
             self._height = height;
         else:
             self._height = Meow.Parm(height);
 
-	self.ns.h << self._height .make()
+        self.ns.h << self._height .make()
         self._make_log=make_log;
-        
+
     def make_rot_matrix(self,ref_station=1):
         ns=self.ns;
         xyz = self.array.xyz();
@@ -29,10 +29,10 @@ class PiercePoints(MIM_model):
                 lon = ns['lon'](ref_station)<< Meq.Selector(longlat,index=0)
                 lat = ns['lat'](ref_station)<< Meq.Selector(longlat,index=1)
                 h_stat = ns['h_stat'](ref_station)<< Meq.Selector(longlat,index=2) ## hm..not sure of we can use this if below earth surface!!Maybe find another way to find the earth_radius
-                cosl= ns['coslon'](ref_station) <<Meq.Cos(lon); 
-                sinl= ns['sinlon'](ref_station) <<Meq.Sin(lon); 
-                cosphi= ns['coslat'](ref_station) <<Meq.Cos(lat); 
-                sinphi= ns['sinlat'](ref_station) <<Meq.Sin(lat); 
+                cosl= ns['coslon'](ref_station) <<Meq.Cos(lon);
+                sinl= ns['sinlon'](ref_station) <<Meq.Sin(lon);
+                cosphi= ns['coslat'](ref_station) <<Meq.Cos(lat);
+                sinphi= ns['sinlat'](ref_station) <<Meq.Sin(lat);
                 # create rotation matrix to convert to/from ENU coordinates
                 rot_matrix <<Meq.Composer(-1*sinl,cosl,0,
                                           -1*sinphi*cosl,-1*sinphi*sinl,cosphi,
@@ -44,8 +44,8 @@ class PiercePoints(MIM_model):
         #returns xyz position of pierce point, assumes spherical earth, if elliptical some other method should be chosen. azel seems to be related to spherical earth plus alpha_prime and the last formula calculating the scale.
         ns=self.ns;
         if not ns.pi.initialized():
-             ns.pi<< Meq.Constant(math.pi);
-             
+            ns.pi<< Meq.Constant(math.pi);
+
         xyz = self.array.xyz();
         for station in self.stations:
             rot_matrix = ns['rot'](station);
@@ -53,7 +53,7 @@ class PiercePoints(MIM_model):
                 self.make_rot_matrix(station);
         if ref_station:
             ref_rot_matrix=ns['rot'](ref_station);
-                
+
 
         for station in self.stations:
             norm_xyz = create_inproduct(ns,xyz(station),xyz(station));
@@ -68,34 +68,34 @@ class PiercePoints(MIM_model):
                 sin_el = Meq.Sin(el);
                 diff = ns['diff'](src,station);
                 diff_vector = diff;
-		if  not diff.initialized():
+                if  not diff.initialized():
                     diff_vector = diff << Meq.Composer(Meq.MatrixMultiply(Meq.Composer(cos_el*sin_az,
                                                                           cos_el*cos_az,
                                                                           sin_el,dims=[1,3]),
                                                              rot_matrix));
-                    
-                    
+
+
                 alpha_prime = Meq.Asin(cos_el*norm_xyz/(earth_radius+ns.h*1000.));
                 # correct. draw triangle from piercepoint to center earth, and along the line connecting pp and antenna with 90 degree angle between center earth and that line.
                 sec = ns.sec(src,station)<<1./Meq.Cos(alpha_prime);
                 sin_beta = ns.sin_beta(src,station)  << Meq.Sin((0.5*ns.pi - el) - alpha_prime); #angle at center earth
                 scale = ns.scale(src,station)<<(earth_radius+ns.h*1000.)*sin_beta/cos_el;
                 # correct. draw triangle from center earth to pierce point and along vector a (=xyz_station), with a 90 degree angle between that line and piercepoint
-                
+
                 if ref_station:
                     ns['pp'](src,station) << Meq.MatrixMultiply(ref_rot_matrix,xyz(station) + diff_vector*scale);
                 else:
                     ns['pp'](src,station) << xyz(station) + diff_vector*scale;
-                        
+
         return ns['pp'];
-                    
-        
- 
+
+
+
     def make_longlat_pp(self,ref_station=None):
         '''make longitude and lattitude of piercepoints'''
         pp = self.make_xyz_pp(ref_station=ref_station);
         for station in self.stations:
-            for src in self.src:                
+            for src in self.src:
                 x = pp('x',src,station);
                 y = pp('y',src,station);
                 z = pp('z',src,station);
@@ -112,7 +112,7 @@ class PiercePoints(MIM_model):
                 if not longlatvector.initialized():
                     longlatvector << Meq.Composer(pp('lon',src,station),pp('lat',src,station));
         return pp;
-        
+
     def make_xy_pp(self,ref_station=None):
         '''make xy of piercepoints'''
         pp = self.make_pp(ref_station=ref_station);
@@ -138,7 +138,7 @@ class PiercePoints(MIM_model):
 
         return pp;
 
-    def create_log_nodes(self,xy=False): # create nodes to log phase per x,y (or long/lat if xy=False) 
+    def create_log_nodes(self,xy=False): # create nodes to log phase per x,y (or long/lat if xy=False)
         if xy:
             pp = self.make_xy_pp();
         else:
@@ -158,7 +158,7 @@ class PiercePoints(MIM_model):
                                          class_name="PrintPyNode",module_name="Lions.PrintPyNode",filename=filename);
         return pp('log');
 
-    def create_station_log_nodes(self): # create nodes to log phase of all stations per source 
+    def create_station_log_nodes(self): # create nodes to log phase of all stations per source
         phases = self.make_phase_error();
         ns=self.ns;
         for src in self.src:
@@ -185,7 +185,7 @@ class PiercePoints(MIM_model):
             inspectors.append(ip);
         print "INSPECTORS:::::",inspectors;
         return inspectors;
-    
+
 def create_inproduct ( ns,a, b,length=0):
     """Computes the dot product of two vectors of arbitrary length""";
     # Definition of dot product: multiply vector elements separately?
@@ -197,7 +197,7 @@ def create_inproduct ( ns,a, b,length=0):
     #we can try to get length from the number of children but this only works if you dotproduct composers...
     if ns.dot(a.name,b.name).initialized():
         return ns.dot(a.name,b.name);
-    
+
     if length ==0 :
         length = a.num_children();
         length_b = b.num_children();

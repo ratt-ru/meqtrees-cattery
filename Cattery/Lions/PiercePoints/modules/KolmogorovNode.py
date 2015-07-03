@@ -18,8 +18,8 @@ initialized=False;
 # This class is meant to illustrate the pynode interface. All pynodes
 # need to be derived from the Timba.pynode.PyNode class.
 class KolmogorovNode (pynode.PyNode):
-    # An __init__ method is not necessary at all. If you do define your 
-    # own for some reason, make sure you call pynode.PyNode.__init__() 
+    # An __init__ method is not necessary at all. If you do define your
+    # own for some reason, make sure you call pynode.PyNode.__init__()
     def __init__ (self,*args):
         pynode.PyNode.__init__(self,*args);
         self.set_symdeps('domain');
@@ -28,7 +28,7 @@ class KolmogorovNode (pynode.PyNode):
         global initialized;
         # mystate is a magic "state helper" object is used both to set up
         # initial/default state, and to update state on the fly later.
-        
+
         # This does the following:
         #  - checks the incoming state record for field 'a'
         #  - if present, sets self.a = staterec.a
@@ -44,12 +44,12 @@ class KolmogorovNode (pynode.PyNode):
         mystate('amp_scale',1e-5); #scale of amplitude.
         mystate('seed_nr',None); #scale of amplitude.
         mystate('starttime',0.0); #scale of amplitude.
- 
+
         if not initialized:
             # divide gridsize by 2 here, phasescreen produces twice the number of pixels
             PhaseScreen.init_phasescreen(self.grid_size,self.beta,self.seed_nr);
             initialized=True;
-        
+
     def get_result (self,request,*children):
         if len(children)<1:
             raise TypeError,"this is NOT a leaf node, At least 1  child with piercepoints expected!";
@@ -70,7 +70,7 @@ class KolmogorovNode (pynode.PyNode):
             shapey=vs1[1].shape;
         else:
             shapey=(1,);
-        
+
         cells=request.cells;
         seg=cells.segments.time;
 #        print '************************************************************'
@@ -80,11 +80,11 @@ class KolmogorovNode (pynode.PyNode):
 #        print '************************************************************'
         # the startt and endt are the timeslots when tiling is set > 1
         if type(seg.start_index) == type(1):
-          startt  = seg.start_index;
-          endt    = seg.end_index;
+            startt  = seg.start_index;
+            endt    = seg.end_index;
         else:
-          startt  = seg.start_index[0];
-          endt    = seg.end_index[-1];
+            startt  = seg.start_index[0];
+            endt    = seg.end_index[-1];
 #        print '************************************************************'
 #        print startt, endt
 #        print '************************************************************'
@@ -97,9 +97,9 @@ class KolmogorovNode (pynode.PyNode):
             time=[time,];
         val=[];
         for it in range(startt,endt+1):
-            if shapex[0]>1:   
+            if shapex[0]>1:
                 xv=vs1[0].value[it];
-            if shapey[0]>1:   
+            if shapey[0]>1:
                 yv=vs1[1].value[it];
 
             xshift=(time[it])*self.speedx;

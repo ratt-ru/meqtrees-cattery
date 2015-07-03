@@ -54,7 +54,7 @@ class MIM(PiercePoints):
                 n=n+1;
 
         return self.ns['tec'];
-       
+
 
     def combine_parms(self):
         parms=self.ns['parms']();
@@ -91,4 +91,3 @@ class MIM(PiercePoints):
         kl=self.ns['KL_node']()  <<  Meq.PyNode(children=(parms,pps),class_name="KLNode",module_name="Lions.PiercePoints.modules.KL.KLNode",
                                            rank=rank);
         return kl;
-                

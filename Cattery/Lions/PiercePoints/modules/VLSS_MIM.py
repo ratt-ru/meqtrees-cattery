@@ -10,7 +10,7 @@ def compile_options():
 
 class MIM(PiercePoints):
     """Create MIM_model with Kolmogorov phase screen, default settings from VLSS observations"""
-    def __init__(self,ns,name,sources,stations=None,ref_station=None,tags="iono",make_log=False):        
+    def __init__(self,ns,name,sources,stations=None,ref_station=None,tags="iono",make_log=False):
         global beta
         global N
         global speedx
@@ -43,12 +43,12 @@ class MIM(PiercePoints):
             height = 300.
             seed_nr = 3418
             use_lonlat = True
-            
+
         PiercePoints.__init__(self,ns,name,sources,stations,height,make_log);
 
         self.ref_station=ref_station;
         global starttime
-        starttime = 4453401230.76 # hardcode for now to make time run from ~0, get from MS later 
+        starttime = 4453401230.76 # hardcode for now to make time run from ~0, get from MS later
         #        init_phasescreen(N,beta);
 
         # convert velocity and size to sensible values if PP in lonlat
@@ -59,7 +59,7 @@ class MIM(PiercePoints):
             print 'Using longlat'
             R = height + 6365.0 # hardcoded Earth radius to same value as other MIM
             # convert velocity in [km/h] to angular velocity
-            vx = ((speedx/3600) / R) + 7.272205E-05 # correct for PP velocity in longitude 
+            vx = ((speedx/3600) / R) + 7.272205E-05 # correct for PP velocity in longitude
             vy = (speedy/3600) / R
             # convert size in [km] to angular size in radians
             pixscale = scale / R
@@ -74,7 +74,7 @@ class MIM(PiercePoints):
         print 'V_y =',vy
         print 'Scale = ',pixscale
 
-        
+
     def make_tec(self):
         # fit a virtual TEC value, this makes life easier (eg. include freq. and sec dependence)
         if use_lonlat:
@@ -88,12 +88,12 @@ class MIM(PiercePoints):
                 Kol_node=self.create_Kol_node(pp,src,station);
                 sec = self.ns['sec'](src,station);
                 if not self.ns['tec'](src,station).initialized():
-                      self.ns['tec'](src,station)<<Kol_node*sec;
+                    self.ns['tec'](src,station)<<Kol_node*sec;
                 n=n+1;
- 
-      
+
+
         return self.ns['tec'];
-       
+
 
 
     def create_Kol_node(self,pp,src,station):
@@ -102,4 +102,3 @@ class MIM(PiercePoints):
             return Kol_node;
         kl=self.ns['Kol_node'](src,station)  <<  Meq.PyNode(children=(pp(src,station),),class_name="KolmogorovNode",module_name="Lions.PiercePoints.modules.KolmogorovNode",grid_size=N,beta=beta,scale=pixscale,speedx=vx,speedy=vy,amp_scale=amp_scale,seed_nr=seed_nr,tec0=TEC0,starttime=starttime);
         return kl;
-                

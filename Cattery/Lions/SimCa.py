@@ -66,7 +66,7 @@ meqmaker = MeqMaker.MeqMaker(solvable=do_solve and run_option=='calibrate');
 
 # specify available sky models
 # these will show up in the menu automatically
-from Siamese.OMS import fitsimage_sky 
+from Siamese.OMS import fitsimage_sky
 from Lions import gridded_sky
 import Meow.LSM
 lsm = Meow.LSM.MeowLSM(include_options=False);
@@ -122,7 +122,7 @@ def _define_forest(ns):
     if do_not_simulate:
         spigots = spigots0 = outputs = array.spigots();
         # make nodes to compute residuals
-        
+
 
         # make nodes to compute residuals
         if do_subtract:
@@ -140,7 +140,7 @@ def _define_forest(ns):
                     srcs = meqmaker.get_source_list(ns);
                     sky_correct = srcs and srcs[0];
 
-                
+
             else:
                 sky_correct = None;
             outputs = meqmaker.correct_uv_data(ns,outputs,sky_correct=sky_correct);
@@ -192,7 +192,7 @@ def _define_forest(ns):
     if do_not_simulate and not do_solve:
         #add subtract or correct job
         TDLRuntimeJob(job_subtract,"Subtract or Correct the data");
-         
+
     if do_not_simulate and do_solve:
         pg_iono = ParmGroup.ParmGroup("Z_iono",
                                       outputs.search(tags="solvable Z"),
@@ -208,7 +208,7 @@ def _define_forest(ns):
     imsel = mssel.imaging_selector(npix=512,arcmin=meqmaker.estimate_image_size());
     TDLRuntimeMenu("Imaging options",*imsel.option_list());
 
-    
+
 def job_simulate(mqs,parent,wait=False):
     mqs.execute('VisDataMux',mssel.create_io_request(),wait=wait);
 
@@ -220,49 +220,49 @@ def job_subtract(mqs,parent,wait=False):
 
 
 if __name__ == '__main__':
- # You can run the script in headless / batch mode from the
- # command line by saying something like
- #  python demo_script.py -run
- #
- # If you want to keep track of what's happening, use
- #
- #  python demo_script.py -run -dmeqserver=3
- #
- # This dumps various messages to stdout, which let you keep
- # track of how the script is progressing.
- #
- # Here's the code required to handle the '-run' flag
- if '-run' in sys.argv:
-   from Timba.Apps import meqserver
-   from Timba.TDL import Compile
+    # You can run the script in headless / batch mode from the
+    # command line by saying something like
+    #  python demo_script.py -run
+    #
+    # If you want to keep track of what's happening, use
+    #
+    #  python demo_script.py -run -dmeqserver=3
+    #
+    # This dumps various messages to stdout, which let you keep
+    # track of how the script is progressing.
+    #
+    # Here's the code required to handle the '-run' flag
+    if '-run' in sys.argv:
+        from Timba.Apps import meqserver
+        from Timba.TDL import Compile
 
-   # you may need the following line for more complicated scripts 
-   # that use TDL options
-   # from Timba.TDL import TDLOptions
+        # you may need the following line for more complicated scripts
+        # that use TDL options
+        # from Timba.TDL import TDLOptions
 
-   # this starts a kernel.
-   mqs = meqserver.default_mqs(wait_init=10);
+        # this starts a kernel.
+        mqs = meqserver.default_mqs(wait_init=10);
 
-   # more complicated scripts might want to invoke TDLOptions here ...
-   # e.g. the next line of (commented out) python code loads a tdl.conf file.
-   # Note that it may be better to use a separate config file, rather
-   # than the default .tdl.conf that the browser creates.
-   TDLOptions.config.read(".tdl.conf");
+        # more complicated scripts might want to invoke TDLOptions here ...
+        # e.g. the next line of (commented out) python code loads a tdl.conf file.
+        # Note that it may be better to use a separate config file, rather
+        # than the default .tdl.conf that the browser creates.
+        TDLOptions.config.read(".tdl.conf");
 
-   # Now compile a script as a TDL module. Any errors will be thrown as
-   # an exception, so this always returns successfully. We pass in
-   # __file__ so as to compile ourselves.
-   (mod,ns,msg) = Compile.compile_file(mqs,__file__);
+        # Now compile a script as a TDL module. Any errors will be thrown as
+        # an exception, so this always returns successfully. We pass in
+        # __file__ so as to compile ourselves.
+        (mod,ns,msg) = Compile.compile_file(mqs,__file__);
 
-   # This next call runs the _test_forest job.
-   # Note that wait should be set to True for batch processing
-   # so that in _test_forest the request is executed with wait=True.
-   # This makes sure that commands are executed in order.
-   mod.job_simulate(mqs,None,wait=True);
+        # This next call runs the _test_forest job.
+        # Note that wait should be set to True for batch processing
+        # so that in _test_forest the request is executed with wait=True.
+        # This makes sure that commands are executed in order.
+        mod.job_simulate(mqs,None,wait=True);
 
- else:
-   Timba.TDL._dbg.set_verbose(5);
-   ns = NodeScope();
-   _define_forest(ns);
-   # resolves nodes
-   ns.Resolve();
+    else:
+        Timba.TDL._dbg.set_verbose(5);
+        ns = NodeScope();
+        _define_forest(ns);
+        # resolves nodes
+        ns.Resolve();

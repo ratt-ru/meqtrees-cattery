@@ -18,19 +18,19 @@ def init_phasescreen(N=10,beta=5.,seed_nr=None):
     if seed_nr is not None:
         # print "seeding with",seed_nr;
         seed(seed_nr);
-    
+
     # W is complex white noise
     W = (standard_normal((2*N,2*N))) * numpy.exp(1j*uniform(-math.pi,math.pi,(2*N,2*N)))
-    
+
     # Shape white noise by multiplying it by Q^(-2-beta)
     Q[N,N] = 1
     S = numpy.multiply(W, numpy.sqrt(numpy.power(Q, -2-beta)))
     S[N,N] = 0
-     
+
     # Compute the inverse real ffts in both directions
     screen = numpy.real(ifft2(fftshift(S)));
 
-    # Normalize phasescreen 
+    # Normalize phasescreen
     # print "in PhaseScreen",len(screen);
     minscreen = numpy.min(screen)
     maxscreen = numpy.max(screen);
