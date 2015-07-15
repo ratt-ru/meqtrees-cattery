@@ -85,6 +85,9 @@ class PointSource(SkyComponent):
     self._constant_flux = not self._has_rm and not \
                           [ flux for flux in STOKES if not self._is_constant(flux) ];
 
+  def is_polarized(self):
+    return self._polarized
+
   def stokes (self,st):
     """Returns flux node for this source. 'st' must be one of 'I','Q','U','V'.
     (This is the flux after RM has been applied, but without spi).
@@ -190,17 +193,19 @@ class PointSource(SkyComponent):
     xx,xy,yx,yy = self.coherency_elements(observation);
     return [[xx,xy],[yx,yy]];
 
-  def brightness (self,observation=None,nodes=None):
+  def brightness (self,observation=None,nodes=None,always_matrix=False):
     """Returns the brightness matrix for a point source.
     'observation' argument is used to select a linear or circular basis;
-    if not supplied, the global context is used.""";
+    if not supplied, the global context is used.
+    If always_matrix=True, returns matrix even if source is unpolarized.
+    """;
     observation = observation or Context.observation;
     if not observation:
       raise ValueError,"observation not specified in global Meow.Context, or in this function call";
     coh = nodes or self.ns.brightness;
     if not coh.initialized():
       # if not polarized, just return I
-      if not self._polarized:
+      if not always_matrix and not self._polarized:
         if self._has_spi:
           if self._constant_flux:
             coh << Context.unitCoherency(self.stokes("I"))*self.norm_spectrum();

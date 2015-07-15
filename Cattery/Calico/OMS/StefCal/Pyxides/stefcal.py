@@ -22,6 +22,8 @@ define("STEFCAL_GAIN1_SAVE_Template","$OUTFILE.gain1${SUFFIX}.cp","archive desti
 define("STEFCAL_DIFFGAIN_SAVE_Template","$OUTFILE.diffgain${SUFFIX}.cp","archive destination for diffgain solutions")
 define("STEFCAL_DIFFGAIN1_SAVE_Template","$OUTFILE.diffgain${SUFFIX}.cp","archive destination for diffgain solutions")
 define("STEFCAL_IFRGAIN_SAVE_Template","$OUTFILE.ifrgain${SUFFIX}.cp","archive destination for IFR gain solutions")
+define("STEFCAL_GAIN_SMOOTHING","","smoothing kernel (time,freq) for gains, overrides TDL config file")
+define("STEFCAL_GAIN_INTERVALS","","solution intervals (time,freq) for gains, overrides TDL config file")
 define("STEFCAL_DIFFGAIN_SMOOTHING","","smoothing kernel (time,freq) for diffgains, overrides TDL config file")
 define("STEFCAL_DIFFGAIN_INTERVALS","","solution intervals (time,freq) for diffgains, overrides TDL config file")
 define("STEFCAL_GAIN_PLOT_PREFIX","G","automatically plot gain (G) solutions. Set to empty string to disable.")
@@ -74,6 +76,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
               diffgain_plot_prefix="$STEFCAL_DIFFGAIN_PLOT_PREFIX",
               ifrgain_apply_only=False,
               ifrgain_reset=False,
+              gain_intervals=None,gain_smoothing=None,
               diffgain_intervals=None,diffgain_smoothing=None,
               flag_threshold=None,
               output="CORR_RES",
@@ -153,12 +156,22 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
     'stefcal_ifr_gain_table': STEFCAL_IFRGAIN,
     'stefcal_visualize': False
   }
-  timesmooth,freqsmooth = diffgain_smoothing or STEFCAL_DIFFGAIN_SMOOTHING or (0,0);
-  timeint,freqint = diffgain_intervals or STEFCAL_DIFFGAIN_INTERVALS or (0,0);
-  opts['stefcal_diffgain.timeint'] = 0 if timesmooth else timeint;
-  opts['stefcal_diffgain.freqint'] = 0 if freqsmooth else freqint;
-  opts['stefcal_diffgain.timesmooth'] = timesmooth;
-  opts['stefcal_diffgain.freqsmooth'] = freqsmooth;
+  # set gain parameters
+  if gain_smoothing or STEFCAL_GAIN_SMOOTHING or gain_intervals or STEFCAL_GAIN_INTERVALS:
+      timesmooth,freqsmooth = gain_smoothing or STEFCAL_GAIN_SMOOTHING or (0,0);
+      timeint,freqint = gain_intervals or STEFCAL_GAIN_INTERVALS or (0,0);
+      opts['stefcal_gain.timeint'] = 0 if timesmooth else timeint;
+      opts['stefcal_gain.freqint'] = 0 if freqsmooth else freqint;
+      opts['stefcal_gain.timesmooth'] = timesmooth;
+      opts['stefcal_gain.freqsmooth'] = freqsmooth;
+  # set diffgain parameters
+  if diffgain_smoothing or STEFCAL_DIFFGAIN_SMOOTHING or diffgain_intervals or STEFCAL_DIFFGAIN_INTERVALS:
+      timesmooth,freqsmooth = diffgain_smoothing or STEFCAL_DIFFGAIN_SMOOTHING or (0,0);
+      timeint,freqint = diffgain_intervals or STEFCAL_DIFFGAIN_INTERVALS or (0,0);
+      opts['stefcal_diffgain.timeint'] = 0 if timesmooth else timeint;
+      opts['stefcal_diffgain.freqint'] = 0 if freqsmooth else freqint;
+      opts['stefcal_diffgain.timesmooth'] = timesmooth;
+      opts['stefcal_diffgain.freqsmooth'] = freqsmooth;
 
   # add user-defined args
   args0 += list(args);

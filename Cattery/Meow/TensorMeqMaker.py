@@ -230,13 +230,14 @@ class TensorMeqMaker (MeqMaker):
         psv_kwargs['fixed_freq_smearing_interval'] = self.fix_freq_smearing;
       for igrp,(sources,lmnT) in enumerate(source_groups):
         ### create brightness tensor
+        any_pol = any([src.is_polarized() for src in sources])
         # see if we have constant brightnesses
         B_static = [ src.brightness_static() for src in sources ];
         if all([ b is not None for b in B_static ]):
           BT = ns["BT%d"%igrp] << Meq.Constant(B_static);
         else:
-          BT = ns["BT%d"%igrp] << Meq.Composer(dims=[0],*[src.brightness() for src in sources]);
-        ### create shape tensor
+          BT = ns["BT%d"%igrp] << Meq.Composer(dims=[0],*[ src.brightness(always_matrix=any_pol) for src in sources ]);
+        ### create shape tensor 
         shape_static = [ src.shape_static() if hasattr(src,'shape_static') else [0,0,0] for src in sources ];
         if all([ s is not None for s in shape_static ]):
           shapeT = ns["shapeT%d"%igrp] << Meq.Constant(shape_static);

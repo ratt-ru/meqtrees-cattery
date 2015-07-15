@@ -54,6 +54,9 @@ class SkyComponent (Parameterization):
   def enable_smearing (self,smearing=True):
     self.smearing = smearing;
 
+  def is_polarized(self):
+    return True
+
   def is_smeared (self):
     return self.smearing;
 
