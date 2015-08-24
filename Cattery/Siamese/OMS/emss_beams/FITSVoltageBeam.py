@@ -72,7 +72,7 @@ class FITSAxes (object):
     """Converts array of world coordinates to pixel coordinates""";
     iaxis = self.iaxis(axis);
     pix = self._rpix[iaxis] + (world - self._rval[iaxis])/self._delta[iaxis];
-    print "toPixel",axis,world,pix;
+#    print "toPixel",axis,world,pix;
     return pix
 
   def toWorld (self,axis,pixel):

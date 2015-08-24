@@ -12,6 +12,7 @@ define("STEFCAL_SECTION","stefcal","default TDL config section")
 define("STEFCAL_JOBNAME","stefcal","default TDL job name")
 define("STEFCAL_TDLOPTS","","extra TDL options for stefcal")
 define("STEFCAL_OUTPUT_COLUMN","CORRECTED_DATA","default output column")
+define("STEFCAL_CALIBRATE_IFRS","all","subset of baselines used for calibration")
 define("STEFCAL_GAIN_Template","$MS/gain${SUFFIX}.cp","current file for gain solutions")
 define("STEFCAL_GAIN1_Template","$MS/gain1${SUFFIX}.cp","current file for gain1 solutions")
 define("STEFCAL_IFRGAIN_Template","$MS/ifrgain${SUFFIX}.cp","current file for IFR gain solutions")
@@ -33,6 +34,7 @@ define("STEFCAL_DIFFGAIN_PLOT_PREFIX","dE","automatically plot diffgain solution
 define("STEFCAL_STEP_INCR",1,"automatically increment v.STEP with each call to stefcal");
 define("STEFCAL_PLOT_FAIL",warn,"how to report plotting errors. Default is warn to warn and continue. Can also set to abort");
 define("STEFCAL_SAVE_CONFIG","$OUTFILE.stefcal.tdlconf","saves effective TDL config to file[:section]")
+
 
 def preload_solutions (msname="$MS",gain=None,gain1=None,diffgain=None,diffgain1=None,ifrgain=None,missing=abort):
   """Preloads gain/diffgain/ifrgain solutions prior to running stefcal
@@ -79,6 +81,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
               gain_intervals=None,gain_smoothing=None,
               diffgain_intervals=None,diffgain_smoothing=None,
               flag_threshold=None,
+              calibrate_ifrs="$STEFCAL_CALIBRATE_IFRS",
               output="CORR_RES",
               plotvis="${ms.PLOTVIS}",
               dirty=True,restore=False,restore_lsm=True,
@@ -114,8 +117,9 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
                     overriding settings in the TDL config file. Useful arguments of this kind are e.g.:
                     stefcal_reset_all=True to remove prior gains solutions.
   """
-  msname,section,lsm,label,plotvis,gain_plot_prefix,gain1_plot_prefix,ifrgain_plot_prefix,diffgain_plot_prefix,saveconfig,plotfail = \
-    interpolate_locals("msname section lsm label plotvis gain_plot_prefix gain1_plot_prefix ifrgain_plot_prefix diffgain_plot_prefix saveconfig plotfail");
+  msname,section,lsm,label,plotvis,calibrate_ifrs, \
+    gain_plot_prefix,gain1_plot_prefix,ifrgain_plot_prefix,diffgain_plot_prefix,saveconfig,plotfail = \
+    interpolate_locals("msname section lsm label plotvis calibrate_ifrs gain_plot_prefix gain1_plot_prefix ifrgain_plot_prefix diffgain_plot_prefix saveconfig plotfail");
   
   plotfail = plotfail or warn
   makedir(v.DESTDIR);
@@ -140,6 +144,7 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
     args0.append("de_subset.subset_enabled=1 de_subset.source_subset=$diffgains"); 
   opts = {
     'do_output': output,
+    'calibrate_ifrs': calibrate_ifrs,
     'stefcal_gain.mode': "apply" if apply_only or gain_apply_only else "solve-save",
     'stefcal_gain1.mode': "apply" if apply_only  or gain_apply_only else "solve-save",
     'stefcal_gain.reset': int(reset or gain_reset),
@@ -367,17 +372,17 @@ import cmath
 def _normifrgain (rr):
   """Converts gains to offsets with std""";
   if type(rr) in (float,complex):
-    return abs(rr-1),0;
+    return abs(rr),0;
   else:
-    offset = abs(rr[rr!=1]-1);
+    offset = abs(rr[rr!=1]);
     return float(offset.mean()),float(offset.std());
 
 def _complexifrgain (rr):
   """Converts gains to complex offsets with std""";
   if type(rr) in (float,complex):
-    return rr-1,0;
+    return rr,0;
   else:
-    vals = rr[rr!=1]-1;
+    vals = rr[rr!=1];
     offset = float(abs(vals).mean());
     mean = vals.mean().ravel()[0];
     mean = cmath.rect(offset,cmath.phase(mean));
@@ -448,6 +453,7 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
         xx += [x,y];
         xxe += [xe,ye];
         bl += [b,b];
+    pylab.axhline(1,color='lightgrey')
     pylab.errorbar(bl,xx,yerr=xxe,fmt=None,ecolor="lightgrey");
     # plot labels
     for l,x,y,c in zip(lab,bl,xx,col):
@@ -465,6 +471,8 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
   def plot_complex (content,title):
     """Plots x vs y""";
     # plot errors bars, if available
+    pylab.axhline(0,color='lightgrey')
+    pylab.axvline(1,color='lightgrey')
     pylab.errorbar(
       [x.real for l1,l2,(x,xe),(y,ye) in content],[x.imag for l1,l2,(x,xe),(y,ye) in content],
       [xe for l1,l2,(x,xe),(y,ye) in content],[xe for l1,l2,(x,xe),(y,ye) in content],
@@ -477,17 +485,24 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     );
     # max plot amplitude -- max point plus 1/4th of the error bar
     maxa = max([ max(abs(x),abs(y)) for l1,l2,(x,xe),(y,ye) in content ]);
-    plotlim = max([ abs(numpy.array([ 
-                     getattr(v,attr)+sign*e/4 for v,e in (x,xe),(y,ye) for attr in 'real','imag' for sign in 1,-1 
-                   ])).max() 
-      for l1,l2,(x,xe),(y,ye) in content ]);
-    
+    # plotlim = max([ abs(numpy.array([ 
+    #                  getattr(v,attr)+sign*e/4 for v,e in (x,xe),(y,ye) for attr in 'real','imag' for sign in 1,-1 
+    #                ])).max() 
+    #   for l1,l2,(x,xe),(y,ye) in content ]);
+    minre, maxre, minim, maxim = 2, -2, 2, -2
+    for l1,l2,(x,xe),(y,ye) in content:
+        offs = numpy.array([ getattr(v,attr)+sign*e/4 for v,e in (x,xe),(y,ye) 
+                  for attr in 'real','imag' for sign in 1,-1 ])
+        minre, maxre = min(x.real-xe/4, y.real-ye/4, minre), max(x.real+xe/4, y.real+ye/4, maxre)
+        minim, maxim = min(x.imag-xe/4, y.imag-ye/4, minim), max(x.imag+xe/4, y.imag+ye/4, maxim)
     # plot labels
     for l1,l2,(x,xe),(y,ye) in content:
       pylab.text(x.real,x.imag,l1,horizontalalignment='center',verticalalignment='center',color='blue',size=8)
       pylab.text(y.real,y.imag,l2,horizontalalignment='center',verticalalignment='center',color='red',size=8)
-    pylab.xlim(-plotlim,plotlim);
-    pylab.ylim(-plotlim,plotlim);
+    # pylab.xlim(-plotlim,plotlim);
+    # pylab.ylim(-plotlim,plotlim);
+    pylab.xlim(minre,maxre);
+    pylab.ylim(minim,maxim);
     pylab.title(title+" (max %.5g)"%maxa)
 
   def plot_ants (content,title):
@@ -521,13 +536,13 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
   if have_diag:
     pylab.figure(figsize=FS);
     pylab.subplot(NR,NC,3);
-    plot_xy(crl_diag,"IFR offset amplitude (%s vs. %s)"%feeds[:2]);
+    plot_xy(crl_diag,"IFR gain amplitude (%s vs. %s)"%feeds[:2]);
     pylab.subplot(NR,NC,4);
-    plot_hist(crl_diag,"IFR offset histogram for %s and %s"%feeds[:2]);
+    plot_hist(crl_diag,"IFR gain histogram for %s and %s"%feeds[:2]);
     crl = [ ("%s-%s:%s"%(p,q,feeds[0].upper()),"%s-%s:%s"%(p,q,feeds[1].upper()),_complexifrgain(rr),_complexifrgain(ll)) 
       for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rr,ll) ];
     pylab.subplot(NR,NC,1);
-    plot_complex(crl,"IFR complex %s %s offsets"%feeds[:2]);
+    plot_complex(crl,"IFR complex %s %s gains"%feeds[:2]);
     igpa = {}
     igpa0 = {}
     igpa0_means = [];
@@ -549,10 +564,10 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[1]),'red',ll));
     content = [ (p,igpa[p]) for p in sorted(igpa.keys(),cmp=_cmp_antenna) ];
     pylab.subplot(NR,NC,2);
-    plot_ants(content,"IFR %s %s offset amplitudes per antenna"%feeds[:2]);
+    plot_ants(content,"IFR %s %s gain amplitudes per antenna"%feeds[:2]);
     if baseline:
       pylab.subplot(NR,NC,5);
-      plot_baseline(crl_diag,baseline,"IFR offset amplitude vs. baseline length",feeds[:2]);
+      plot_baseline(crl_diag,baseline,"IFR gain amplitude vs. baseline length",feeds[:2]);
     _IFRGAIN_TYPE = "".join(feeds[:2]);
     pylab.savefig(II("$IFRGAIN_PLOT"),dpi=75)
     info("generated plot $IFRGAIN_PLOT")

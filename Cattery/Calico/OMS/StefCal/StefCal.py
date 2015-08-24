@@ -889,8 +889,8 @@ class StefCalNode (pynode.PyNode):
                       regularize=self.regularization_factor))
                       for pq in data.iterkeys() ]);
 
-    dprint(0,"***DEBUG*** data",pq00,data[pq00][0][DEBUG_SLICE])
-    dprint(0,"***DEBUG*** model",pq00,model[pq00][0][DEBUG_SLICE])
+#    dprint(0,"***DEBUG*** data",pq00,data[pq00][0][DEBUG_SLICE])
+#    dprint(0,"***DEBUG*** model",pq00,model[pq00][0][DEBUG_SLICE])
     
     # corrdata will contain the corrected data (with all DI terms applied)
     # data will contain the original data
@@ -1026,8 +1026,8 @@ class StefCalNode (pynode.PyNode):
         if self.residuals:
           out = [ d-m for d,m in zip(dd,mm) ];
 #          out = mm  ### write model!
-          if pq == pq00:
-            dprint(0,"***DEBUG*** residuals:",pq00,out[0][DEBUG_SLICE])
+#          if pq == pq00:
+#            dprint(0,"***DEBUG*** residuals:",pq00,out[0][DEBUG_SLICE])
         else:
           out = dd;
           # subtract dE'd sources, if so specified
