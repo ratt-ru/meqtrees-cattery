@@ -478,9 +478,12 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
       vbs = [];
       for filename_real,filename_imag in self._vb_key:
         # if files do not exist, replace with blanks
+        dprint(0,"loading beam files",filename_real,filename_imag)
         if not os.path.exists(filename_real) and self.missing_is_null:
+          dprint(0,"beam pattern",filename_real,"not found, using null instead")
           filename_real = None;
         if not os.path.exists(filename_imag) and self.missing_is_null:
+          dprint(0,"beam pattern",filename_imag,"not found, using null instead")
           filename_real = None;
         # now, create VoltageBeam if at least the real part still exists
         if filename_real:
@@ -494,6 +497,8 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
           vb = None;
         # work out norm of beam
         vbs.append(vb);
+      if not any(vbs):
+        raise RuntimeError,"no beam patterns have been loaded. Please check your filename pattern"
       if len(vbs) == 1:
         beam_max = abs(vbs[0].beam()).max();
       elif len(vbs) == 4:
