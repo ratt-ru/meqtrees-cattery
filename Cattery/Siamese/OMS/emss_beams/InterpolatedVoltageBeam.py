@@ -103,7 +103,10 @@ class InterpolatedVoltageBeam (object):
     self._freq_grid = freqs;
     
   def freqToBeam (self,freq):
-    """Maps frequencies (could be a list or an array) to "natural" coordinate system of the beam""";
+    """Maps frequencies (could be a list or an array) to "natural" coordinate system of the beam.
+    Returns array of coordinates. Negative values such as indicate extrapolation. 
+    For a value of -X, X<1 indicates extrapolation to lower freqs, X>1 to higher freqs
+    """;
     raise TypeError,"frequency interpolation not available with this beam gridder";
     
   def lmToBeam (self,l,m,rotate=None):
@@ -202,7 +205,8 @@ class InterpolatedVoltageBeam (object):
         dprint(4,"in beam coordinates this is",freq);
       # case (A): reuse same frequency for every l/m point
       if len(freq) == 1:
-        lm = numpy.vstack((l.ravel(),m.ravel(),[freq[0]]*l.size));
+        freq = [freq[0]]*l.size
+        lm = numpy.vstack((l.ravel(),m.ravel(),freq));
       # case B/C:
       else:
         # first turn freq vector into an array of the proper shape
@@ -215,7 +219,16 @@ class InterpolatedVoltageBeam (object):
         # now promote freq to same shape as l,m. This takes care of cases B and C.
         # (the freq axis of l/m will be expanded, and other axes of freq will be expanded)
         l,m,mask,rotate,freq = unite_multiple_shapes(l,m,mask,rotate,freq);
-        lm = numpy.vstack((l.ravel(),m.ravel(),freq.ravel()));
+        freq = freq.ravel()
+        lm = numpy.vstack((l.ravel(),m.ravel(),freq));
+      # now extrapolate: freq entries<0 mean frequency is out of range, With -1<X<0 meaning
+      # frequency is X*lowest, and X<-1 meaning frequency is X*highest. In either case lm needs to be multiplied
+      # by X to achieve extrapolation, and the frequency coordinate needs to be set to the first or last.
+      wlo = (freq<0)&(freq>=-1)
+      whi = (freq<-1)
+      lm[:2,wlo|whi] *= -freq[wlo|whi]
+      freq[wlo] = 0
+      freq[whi] = len(self._freq_grid)-1
     # case (D): no frequency dependence in the beam
     else:
       lm = numpy.vstack((l.ravel(),m.ravel(),[0]*l.size));
@@ -354,14 +367,20 @@ class InterpolatedVoltageBeam (object):
     reduced_slice[freqaxis] = 0; 
     for ifreq,freq in enumerate(freqcoord):
       freqslice[freqaxis] = ifreq;
-      if freq <= 0:
-        output[freqslice] = self._interpolate_freqplane(0,coords)[0][reduced_slice];
+      if freq < -1:
+        coords *= - freq
+        output[freqslice] = self._interpolate_freqplane(len(self._freq_grid)-1,coords)[0][reduced_slice]
+      elif freq < 0:
+        coords *= - freq
+        output[freqslice] = self._interpolate_freqplane(0,coords)[0][reduced_slice]
+      elif freq == 0:
+        output[freqslice] = self._interpolate_freqplane(0,coords)[0][reduced_slice]
       elif freq >= len(self._freq_grid)-1:
-        output[freqslice] = self._interpolate_freqplane(len(self._freq_grid)-1,coords,)[0][reduced_slice];
+        output[freqslice] = self._interpolate_freqplane(len(self._freq_grid)-1,coords)[0][reduced_slice]
       else:
         f0,f1 = int(freq),int(freq)+1;
         (c0,abs0),(c1,abs1) = self._interpolate_freqplane(f0,coords,
-                  verbose and not ifreq),self._interpolate_freqplane(f1,coords,verbose and not ifreq);
+                  verbose and not ifreq),self._interpolate_freqplane(f1,coords,verbose and not ifreq)
         if verbose>1 and not ifreq:
           dprint(0,"per-plane weights",f0,f1);
           dprint(0,"per-plane amplitudes",abs0[0],abs1[0]);
