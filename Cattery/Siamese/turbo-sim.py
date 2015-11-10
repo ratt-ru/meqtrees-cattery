@@ -144,7 +144,7 @@ TDLCompileMenu("Add noise",
   
 def _recompute_noise (dum):
   if noise_from_sefd:
-    _noise_option.set_value(noise_sefd/math.sqrt(2*noise_sefd_bw_khz*1e+3*noise_sefd_integration));
+    _noise_option.set_value(noise_sefd/math.sqrt(noise_sefd_bw_khz*1e+3*noise_sefd_integration));
 
 for opt in _sefd_options + [_sefd_menu]:
   opt.when_changed(_recompute_noise);
