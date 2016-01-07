@@ -654,8 +654,15 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ylim_off
   G0 = cPickle.load(file(filename))
 
   G = G0['gains'][prefix]['solutions'];
-  antennas = antennas0 = sorted(G.keys(),_cmp_antenna);
-  info("loaded solutions for %d antennas"%len(antennas));
+  solkeys = G.keys()
+  # solutions are stored either as [antenna,{0,1}] for diagonal Jones, or [antenna][{0,1,2,3}] for 2x2 Jones
+  diagonal = all([ type(k) is tuple and len(k)==2 and k[1] in (0,1) for k in solkeys ])
+  if diagonal:
+      antennas = antennas0 = sorted(set([k[0] for k in solkeys]),_cmp_antenna)
+  else:
+      antennas = antennas0 = sorted(solkeys,_cmp_antenna)
+  
+  info("loaded solutions for %d antennas, diagonal=$diagonal"%len(antennas));
    
   ylim = ylim or GAIN_PLOT_AMPL_YLIM;
   ylim1 = ylim_offdiag or GAIN_PLOT_AMPL_YLIM_OFFDIAG;
@@ -672,20 +679,25 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ylim_off
   # feed labels
   feeds = ("RR","RL","LR","LL") if FEED_TYPE.upper() == "RL" else ("XX","XY","YX","YY");  
 
-  ncols = 8
+  ncols = 4 if diagonal else 8
   nrows = len(antennas)
 
   # find amplitude axis ranges for parallel and cross-hand plots
   ppminmax = 1e+99,-1e+99
   xhminmax = 1e+99,-1e+99
   for ant in antennas: 
-    for j in range(4):
-      gg = G[ant][j];
+    for j in ( (0,1) if diagonal else range(4) ):
+      if diagonal:
+        gg = G[ant,j]
+        xhand = False
+      else:
+        gg = G[ant][j]
+        xhand = j in (1,2) 
       valid = (gg!=0)&(gg!=1);  # mask trivial or unfilled solutions
       if valid.any():
         a = abs(gg);
         amin,amax = a[valid].min(),a[valid].max();
-        if j in (0,3):
+        if not xhand:
           ppminmax = (min(ppminmax[0],amin),max(ppminmax[1],amax));
         else:
           xhminmax = (min(xhminmax[0],amin),max(xhminmax[1],amax));
@@ -693,10 +705,10 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ylim_off
   for xaxis,yaxis,label in (0,1,"timeslot"),(1,0,"chan"):
     pylab.figure(figsize=(5*ncols,3*nrows))
     for row,ant in enumerate(antennas):
-      sols = G[ant]
-      for icol,j in enumerate([0,3,1,2]):
-        feed = feeds[j];
-        gg = numpy.transpose(sols[j],(xaxis,yaxis));
+      for icol,j in enumerate([0,1] if diagonal else [0,3,1,2]):
+        jonesterm = [0,3][j] if diagonal else j
+        feed = feeds[j]
+        gg = numpy.transpose(G[ant,j] if diagonal else G[ant][j],(xaxis,yaxis));
         # get plot axis and averaging axis
         nx,ny = gg.shape;
         x = numpy.zeros((nx,ny));
@@ -731,7 +743,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ylim_off
 #        xtlab = [ ("" if t%labstep else str(t)) for t in xtloc ];
 #        pylab.xticks(xtloc,xtlab);
         pylab.xlim(-1,nx)
-        pylab.ylim(*((ylim or ppminmax) if j in (0,3) else (ylim1 or xhminmax)))
+        pylab.ylim(*((ylim or ppminmax) if jonesterm in (0,3) else (ylim1 or xhminmax)))
         
         ax = pylab.subplot(nrows,ncols,row*ncols+icol*2+2)
         ph0 = numpy.angle(gg)*180/math.pi;
