@@ -6,6 +6,7 @@ from scipy.ndimage import interpolation
 import Kittens.utils
 
 _verbosity = Kittens.utils.verbosity(name="vb");
+#_verbosity.set_verbose(3)
 dprint = _verbosity.dprint;
 dprintf = _verbosity.dprintf;
 

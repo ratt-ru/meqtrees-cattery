@@ -46,7 +46,8 @@ class PointSource(SkyComponent):
           are supplied, an unpolarized source representation is used.
       'spi' and 'freq0' are constants, nodes or Meow.Parms. If both are
           supplied, a spectral index is added, otherwise the fluxes are
-          constant in frequency.
+          constant in frequency. 'spi' may be a list of such, in which case
+          higher-order indices are used.
       'RM' is rotation measure (constants, nodes or Meow.Parms). If None,
           no intrinsic rotation measure is used.
     """;
@@ -65,7 +66,13 @@ class PointSource(SkyComponent):
     # see if a spectral index is present (freq0!=0 then), create polc
     self._has_spi = spi != 0 and spi is not None;
     if self._has_spi:
-      self._add_parm('spi',spi or 0.,tags="spectrum");
+      if isinstance(spi,(list,tuple)):
+        self._nspi = len(spi);
+        for i,x in enumerate(spi):
+          self._add_parm('spi' if not i else 'spi_%d'%(i+1),x,tags="spectrum");
+      else:  
+        self._nspi = 1;
+        self._add_parm('spi',spi or 0.,tags="spectrum");
     if self._has_spi or self._has_rm:
       # for freq0, use placeholder node for first MS frequency,
       # unless something else is specified
@@ -77,6 +84,9 @@ class PointSource(SkyComponent):
     # we can still have a spectral index on top of this
     self._constant_flux = not self._has_rm and not \
                           [ flux for flux in STOKES if not self._is_constant(flux) ];
+
+  def is_polarized(self):
+    return self._polarized
 
   def stokes (self,st):
     """Returns flux node for this source. 'st' must be one of 'I','Q','U','V'.
@@ -133,7 +143,14 @@ class PointSource(SkyComponent):
     nsp = self.ns.norm_spectrum;
     if not nsp.initialized():
       freq = self.ns0.freq ** Meq.Freq;
-      nsp << Meq.Pow(freq/self._parm('spi_fq0'),self._parm('spi'));
+      fr = self.ns.freqratio << freq/self._parm('spi_fq0');  
+      if self._nspi == 1:
+        nsp << Meq.Pow(fr,self._parm('spi'));
+      else:
+        # multi-term spectral index
+        logfr = self.ns.logfreqratio << Meq.Log(fr);
+        nsp << Meq.Pow(fr,Meq.Add(self._parm('spi'),self._parm('spi_2')*logfr,
+          *[ self._parm('spi_%d'%(i+1))*Meq.Pow(logfr,i) for i in range(2,self._nspi)] ));
     return nsp;
 
   def coherency_elements (self,observation):
@@ -176,17 +193,19 @@ class PointSource(SkyComponent):
     xx,xy,yx,yy = self.coherency_elements(observation);
     return [[xx,xy],[yx,yy]];
 
-  def brightness (self,observation=None,nodes=None):
+  def brightness (self,observation=None,nodes=None,always_matrix=False):
     """Returns the brightness matrix for a point source.
     'observation' argument is used to select a linear or circular basis;
-    if not supplied, the global context is used.""";
+    if not supplied, the global context is used.
+    If always_matrix=True, returns matrix even if source is unpolarized.
+    """;
     observation = observation or Context.observation;
     if not observation:
       raise ValueError,"observation not specified in global Meow.Context, or in this function call";
     coh = nodes or self.ns.brightness;
     if not coh.initialized():
       # if not polarized, just return I
-      if not self._polarized:
+      if not always_matrix and not self._polarized:
         if self._has_spi:
           if self._constant_flux:
             coh << Context.unitCoherency(self.stokes("I"))*self.norm_spectrum();

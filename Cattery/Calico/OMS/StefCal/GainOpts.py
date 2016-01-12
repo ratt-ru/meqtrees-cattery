@@ -1,9 +1,12 @@
+#from memory_profiler import profile
+
 import sys
 import Kittens.utils
 import os.path
 import os
 import cPickle
 import numpy
+import traceback
 
 MODE_SOLVE_SAVE = "solve-save";
 MODE_SOLVE_NOSAVE = "solve-nosave"
@@ -49,7 +52,9 @@ class GainOpts (object):
       labelopt = TDLOption("label","Jones matrix label",[label],more=str,default=label,validator=bool,namespace=self);
       meddict = { TIMEMED:"per timeslot",FREQMED:"per channel",TOTMED:"overall" };
       menuopts = pre_opts + [
-          labelopt,timeint,freqint,timesmooth,freqsmooth,
+          labelopt,
+          TDLOption("use_float","Use single precision",False,namespace=self),
+          timeint,freqint,timesmooth,freqsmooth,
           TDLOption("flag_nonconv","Flag non-converging bins",False,namespace=self),
           TDLMenu("Flag using chi-square",
               TDLOption('flag_chisq_threshold',"Threshold, in N*median",[0,3,5,10],more=int,default=5,namespace=self),
@@ -61,7 +66,7 @@ class GainOpts (object):
               TDLOption("flag_ampl_low","Lower threshold (0 disables)",[0,.5],more=float,default=0,namespace=self),
               TDLOption("flag_ampl_high","Upper threshold (0 disables)",[0,1.5],more=float,default=0,namespace=self),
             toggle='flag_ampl',namespace=self),
-          TDLOption("implementation","Jones matrix type",["GainDiag","Gain2x2","GainDiagCommon","GainDiagPhase" ] ,namespace=self),
+          TDLOption("implementation","Jones matrix type",["GainDiag","Gain2x2","Gain2x2a","GainDiagCommon","GainDiagPhase" ] ,namespace=self),
           TDLOption("mode","Solution mode",
             {MODE_SOLVE_SAVE:"solve and save",MODE_SOLVE_NOSAVE:"solve, do not save",MODE_SOLVE_APPLY:"load and apply"},
             default=MODE_SOLVE_SAVE,namespace=self),
@@ -102,6 +107,7 @@ class GainOpts (object):
     for option,default in [
             ('label','J'),
             ('enable',False),
+            ('use_float',False),
             ('chisq_flag',5),
             ('epsilon',1e-5),            # when the update is ||G-G'||<epsilon, we are converged
             ('delta',1e-6),              # when chisq changes by less than delta, we are converged
@@ -160,6 +166,7 @@ class GainOpts (object):
     name = self.name;
     kw['%s_enable'%name]     = self.enabled;
     kw['%s_label'%name]      = self.label;
+    kw['%s_use_float'%name]  = self.use_float;
     kw['%s_flag_non_converged'%name] = self.flag_nonconv;
     kw['%s_flag_chisq'%name] = self.flag_chisq;
     kw['%s_flag_chisq_threshold'%name] = self.flag_chisq_threshold;
@@ -242,7 +249,7 @@ class GainOpts (object):
       if initval:
         struct = dict(description="stefcal gain solutions table",version=2,gains=initval);
         try:
-          cPickle.dump(struct,file(table,'w'));
+          cPickle.dump(struct,file(table,'w'),2);
           dprint(1,"saved %d gain set(s) to %s"%(len(initval),table));
         except:
           traceback.print_exc();
@@ -250,6 +257,7 @@ class GainOpts (object):
     GainOpts._outgoing_tables = {};
 
   @staticmethod
+#  @profile
   def resolve_tilings (datashape,*opts):
     """Resolves a number of GainOpts into a common tiling"""
     lcm_tiling = [0]*len(datashape);

@@ -36,6 +36,7 @@ import sys
 import os
 import os.path
 import math
+import fnmatch
 
 _addImagingColumns = None;
 # figure out which table implementation to use -- try pyrap/casacore first
@@ -378,35 +379,75 @@ class MSReadFlagSelector (MSFlagSelector):
     else:
       self.read_legacy_flags = False;
       self.read_legacy_flag_opt = None;
+    self.read_flagset_opt = TDLOption('read_flagsets',
+          "Select flagsets by name",[None],more=str,namespace=self,
+          doc="""Select flagsets by name or pattern. For example, "foo,bar" will
+          read flagsets foo and bar. "*" will read all flagsets. "*,-bar" will
+          read all except bar. Select None to enable individual checkbox-style 
+          selectors instead.""")
+    self._opts.append(self.read_flagset_opt);
     self.read_bitflag_opts = [
         TDLOption('read_bitflag_%d'%bit,
                   "MS bitflag %d"%bit,True,namespace=self,
                   doc=doc)
       for bit in FLAGBITS ];
+    self.read_flagset_opt.hide();
+    self.read_flagset_opt.when_changed(self.update);
     for opt in self.read_bitflag_opts:
       opt.hide();
     self._opts += self.read_bitflag_opts;
 
-  def update (self):
+  def update (self,*args):
+    if not self.flagsets:
+        self.read_flagset_opt.hide()
+        return
+    self.read_flagset_opt.show()
     self.bitflag_labels = self.flagsets.names() or [];
     self.bitflag_bits   = [ self.flagsets.flagmask(name) for name in self.bitflag_labels ];
     nlab = min(len(self.read_bitflag_opts),len(self.bitflag_labels));
+    # hide/show bitflag selectors based on availability of labels. Also, hide all if
+    # read_flagsets is set
     for opt,label in zip(self.read_bitflag_opts,self.bitflag_labels):
       opt.set_name(self._label%label);
-      opt.show();
+      opt.show(self.read_flagsets is None);
     for opt in self.read_bitflag_opts[len(self.bitflag_labels):]:
       opt.hide();
 
+  def _selected_by_name (self):
+    """Returns a list of flagsets selected by the "read_flagsets" option, or None if this is disabled"""
+    if self.read_flagsets is None:
+        return None
+    flagsets = set()
+    for i, patt in enumerate(self.read_flagsets.strip().split(',')):
+        patt = patt.strip()
+        if patt[0] == '-':
+            if not i:
+                flagsets = set(self.bitflag_labels)
+            flagsets = flagsets.difference(fnmatch.filter(flagsets,patt[1:]))
+        else:
+            flagsets = flagsets.union(fnmatch.filter(self.bitflag_labels,patt))
+    return list(flagsets)
+
   def get_flagmask (self):
     flagmask = 0;
-    for bit in range(len(self.bitflag_bits)):
-      if getattr(self,'read_bitflag_%d'%bit,True):
-        flagmask |= self.bitflag_bits[bit];
+    # select by name
+    if self.read_flagsets:
+        selected_flagsets = self._selected_by_name();
+        for bit in range(len(self.bitflag_bits)):
+          if self.bitflag_labels[bit] in selected_flagsets:
+            flagmask |= self.bitflag_bits[bit];
+    # select by number
+    else:
+        for bit in range(len(self.bitflag_bits)):
+          if getattr(self,'read_bitflag_%d'%bit,True):
+            flagmask |= self.bitflag_bits[bit];
+    Meow.dprint("input flagmask is",flagmask)
     return flagmask;
 
   def selected_flagsets (self):
-    return [ fs for i,fs in enumerate(self.bitflag_labels)
-              if getattr(self,'read_bitflag_%d'%i,True) ];
+    return self._selected_by_name() if self.read_flagsets else [ fs 
+                for i,fs in enumerate(self.bitflag_labels)
+                if getattr(self,'read_bitflag_%d'%i,True) ];
 
 
 class MSWriteFlagSelector (MSFlagSelector):

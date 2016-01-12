@@ -246,7 +246,7 @@ def inspector (outnode,nodes,bookmark=True):
   return outnode;
 
 
-def vis_inspector (outnode,visnodes,ifrs=None,array=None,bookmark=True):
+def vis_inspector (outnode,visnodes,ifrs=None,array=None,bookmark=True,**kw):
   """Makes an inspector for visibility nodes.
   'outnode' is an output node to which the inspector is assigned.
   'visnodes' will be qualified with the ifrs pairs from the given array.
@@ -264,7 +264,7 @@ def vis_inspector (outnode,visnodes,ifrs=None,array=None,bookmark=True):
       plot_label=[ "%s-%s"%(p,q) for p,q in ifrs ],
       mt_polling=True,
       *[ outnode(p,q) << Meq.Mean(visnodes(p,q),reduction_axes="freq")
-         for p,q in ifrs ]
+         for p,q in ifrs ],**kw
     );
   if bookmark is True:
     bookmark = outnode.name.replace("_"," ");

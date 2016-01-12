@@ -75,12 +75,25 @@ except:
 
 meqmaker.add_sky_models(models);
 
+read_ms_model_opt = TDLCompileOption("read_ms_model","Read additional uv-model visibilities from MS",False,doc="""
+  <P>If enabled, then an extra set of <i>model</i> visibilities will be read from a second column
+  of the MS (in addition to the input data.) These can either be added to whatever is predicted by the
+  sky model <i>in the uv-plane</i> (i.e. subject to uv-Jones but not sky-Jones corruptions), or directly
+  subtracted from the input data. See also the "Equation type" option below.
+
+  <P>If you are repeatedly running a large sky model, and are not solving for any image-plane effects, then this
+  feature lets you compute your sky model (or a part of it) just once, save the result to the uv-model column,
+  and reuse it in subsequent steps. This can save a lot of processing time.</P>
+  """);
+
+
 # E - beam
 # add a fixed primary beam first
 from Calico.OMS import wsrt_beams  #,wsrt_beams_zernike
 from Siamese.OMS import pybeams_fits
+from Siamese.OMS.emss_beams import emss_polar_beams
 
-meqmaker.add_sky_jones('E','primary beam',[wsrt_beams,pybeams_fits]); # ,wsrt_beams_zernike]);
+meqmaker.add_sky_jones('E','primary beam',[wsrt_beams,pybeams_fits,emss_polar_beams]); # ,wsrt_beams_zernike]);
 
 # P - feed angle
 from Siamese.OMS import feed_angle
@@ -204,6 +217,14 @@ def _define_forest(ns,parent=None,**kw):
 
   # data tensor
   ns.DT << Meq.Composer(dims=[0],mt_polling=True,*[ spigots(p,q) for p,q in array.ifrs() ]);
+  # list of model tensors
+  models = [];
+
+  if read_ms_model:
+    mssel.enable_model_column(True);
+    model_spigots = array.spigots(column="PREDICT",corr=mssel.get_corr_index());
+    meqmaker.make_per_ifr_bookmarks(model_spigots,"UV-model visibilities");
+    mtuv = ns.MT("uv") << Meq.Composer(dims=[0],mt_polling=True,*[ model_spigots(p,q) for p,q in array.ifrs() ]);
 
   # predict tree using the MeqMaker
   all_sources = meqmaker.get_source_list(ns);
@@ -223,19 +244,24 @@ def _define_forest(ns,parent=None,**kw):
     groups += [ dgg[1] for flux,dgg in flux_dgg ];
     num_diffgains = len(flux_dgg);
     # now make predict trees
-    models = [];
     for i,group in enumerate(groups):
-      MT = ns.MT(i);
+      MT = ns.MT(group[0].name if i else "all");
+      # first tensor is "MT", rest qualified by source names
       predict = meqmaker.make_predict_tree(MT.Subscope(),sources=group);
-      ns.MT(i) << Meq.Composer(dims=[0],mt_polling=True,*[ predict(p,q) for p,q in array.ifrs() ]);
-      models.append(ns.MT(i));
+      MT << Meq.Composer(dims=[0],mt_polling=True,*[ predict(p,q) for p,q in array.ifrs() ]);
+      # if reading an extra uv-model, add to first term
+      if not i and read_ms_model:
+        MT = ns.MT << Meq.Add(MT,mtuv)
+      models.append(MT);
     print "Number of diffgain predict groups:",len(groups);
   else:
     diffgain_labels = [];
     num_diffgains = 0;
     predict = meqmaker.make_predict_tree(ns);
-    ns.MT << Meq.Composer(dims=[0],mt_polling=True,*[ predict(p,q) for p,q in array.ifrs() ]);
-    models = [ ns.MT ];
+    MT = ns.MT("all") << Meq.Composer(dims=[0],mt_polling=True,*[ predict(p,q) for p,q in array.ifrs() ]);
+    if read_ms_model:
+      MT = ns.MT << Meq.Add(MT,mtuv)
+    models.append(MT)
     
   solve_ifrs  = array.subset(calibrate_ifrs,strict=False).ifrs();
   downsample_subtiling = [ stefcal_downsample_timeint,stefcal_downsample_freqint ] if stefcal_downsample else [1,1];
