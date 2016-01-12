@@ -1,19 +1,29 @@
 language: generic
 sudo: required
 dist: trusty
-before_install: 
- - sudo apt-get update
- - sudo apt-get install -yq software-properties-common python-software-properties
- - sudo add-apt-repository "deb http://us-central1.gce.clouds.archive.ubuntu.com/ubuntu $(lsb_release -sc) main universe restricted multiverse"
- - sudo add-apt-repository -y ppa:radio-astro/main
- - sudo apt-get update
- - sudo apt-get install -yq cmake libblitz0-dev python-dev libcasacore2-dev libblas-dev liblapack-dev libgdbm-dev wcslib-dev libfftw3-dev python-numpy libcfitsio3-dev casacore-data casarest makems python-astlib python-kittens python-meqtrees-timba python-owlcat python-purr python-pyxis python-tigger meqtrees-timba
-install: 
- - cd ${TRAVIS_BUILD_DIR}
- - sudo python setup.py install
+before_install:
+- sudo apt-get update
+- sudo apt-get install -yq software-properties-common python-software-properties
+- sudo add-apt-repository "deb http://us-central1.gce.clouds.archive.ubuntu.com/ubuntu
+  $(lsb_release -sc) main universe restricted multiverse"
+- sudo add-apt-repository -y ppa:radio-astro/main
+- sudo apt-get update
+- sudo apt-get install -yq cmake libblitz0-dev python-dev libcasacore2-dev libblas-dev
+  liblapack-dev libgdbm-dev wcslib-dev libfftw3-dev python-numpy libcfitsio3-dev casacore-data
+  casarest makems python-astlib python-kittens python-meqtrees-timba python-owlcat
+  python-purr python-pyxis python-tigger meqtrees-timba
+install:
+- cd ${TRAVIS_BUILD_DIR}
+- sudo python setup.py install
 env:
- - MEQTREES_CATTERY_PATH=/usr/local/lib/python2.7/dist-packages/Cattery
-script: 
- - cd test/Batchtest
- - /usr/bin/python batch_test.py
-
+- MEQTREES_CATTERY_PATH=/usr/local/lib/python2.7/dist-packages/Cattery
+script:
+- cd test/Batchtest
+- /usr/bin/python batch_test.py
+deploy:
+  provider: pypi
+  user: gijzelaerr
+  password:
+    secure: XlGz3/FEHT+e2B1JSFSiW+UPcZ+mGHHEb94a+f+b/UYxgfW/JiLw3EZOSnr6NBbrpA6aNQhPDxMVlMaqtTuOTWOt9sOly9RXfYe8Wem1WzEMbVj9n4P/f8BtJHE/op2aFVhlVGh5aSwt+H6uC7rHlYinQAGN76d+DdUTNwjh3CE=
+  on:
+    tags: true

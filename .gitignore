@@ -15,5 +15,5 @@ test/Batchtest/WSRT.MS_p0.vds
 *.pyc
 *~
 *.bck
-
-
+MANIFEST
+dist/
