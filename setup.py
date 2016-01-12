@@ -41,11 +41,12 @@ for dirpath, dirnames, filenames in os.walk('Cattery'):
 
 
 setup(name='meqtrees_cattery',
-      version='1.3.0',
+      version='1.4.0',
       description='MeqTrees-based frameworks for simulation and calibration of radio interferometers ',
       author='Oleg Smirnov',
       author_email='Oleg Smirnov <osmirnov@gmail.com>',
       url='https://github.com/ska-sa/meqtrees-cattery',
       packages=packages,
-      data_files=data_files
+      data_files=data_files,
+      requires=['numpy', 'Purr', 'pyfits', 'python_casacore', 'scipy', 'Timba'],
      )
