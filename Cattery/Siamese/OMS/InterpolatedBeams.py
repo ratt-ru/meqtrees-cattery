@@ -283,9 +283,6 @@ class LMVoltageBeam (object):
     # promote l,m to the same shape
     l,m = unite_shapes(l,m);
     dprint(3,"input l/m [0] is",l.ravel()[0],m.ravel()[0],"and shapes are",l.shape);
-    l = self._lToPixel(l);
-    m = self._mToPixel(m);
-    dprint(3,"in pixel coordinates this is [0]",l.ravel()[0],m.ravel()[0]);
     # now we make a 2xN coordinate array for map_coordinates
     # lm[0,:] will be flattened L array, lm[1,:] will be flattened M array
     # lm[2,:] will be flattened freq array (if we have a freq dependence)
@@ -334,10 +331,15 @@ class LMVoltageBeam (object):
       if above.any() or below.any():
         lm[0,:] *= scale
         lm[1,:] *= scale
-        dprint(3,"some points were extrapolated for OOB frequencies using scale factors",scale[above|below])
+        dprint(3,"some points were extrapolated for OOB frequencies using scale factors",
+          scale if numpy.isscalar(scale) else scale[above|below])
     # case (D): no frequency dependence in the beam
     else:
       lm = numpy.vstack((l.ravel(),m.ravel()));
+    # now convert lm to pixel coordinates
+    lm[0,:] = self._lToPixel(lm[0,:])
+    lm[1,:] = self._mToPixel(lm[1,:])
+    dprint(3,"xy pixel coordinates are [0]",lm[0,0],lm[1,0]);
     # interpolate and reshape back to shape of L
     if output is None:
       output = numpy.zeros(l.shape,complex);
