@@ -84,7 +84,8 @@ class ListOfValues (ErrorGenerator):
   
   def make_node (self,node,**kw):
     if self.values is None:
-      self.values = map(float,self.values_str.split(" "));
+      print "values: \"%s\""%self.values_str
+      self.values = map(float,self.values_str.strip().split());
     if self.ngen >= len(self.values):
       node << self.values[-1]*self.factor;
     else:
