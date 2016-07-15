@@ -189,7 +189,7 @@ class LMVoltageBeam (object):
     laxis = axes.iaxis(self._l_axis);
     maxis = axes.iaxis(self._m_axis);
     if laxis<0 or maxis<0:
-      raise TypeError,"FITS file %s missing L or M axis"%filename_real;
+      raise TypeError,"FITS file %s missing %s or %s axis"%(filename_real,self._l_axis,self._m_axis);
     # setup conversion functions
     self._lToPixel = Kittens.utils.curry(axes.toPixel,laxis,sign=self._l_axis_sign);
     self._mToPixel = Kittens.utils.curry(axes.toPixel,maxis,sign=self._m_axis_sign);

@@ -47,7 +47,7 @@ class DataTiler (object):
     # if subtiling is 1,1,... then override methods with identity relations
     if max(subtiling) == 1 and not force_subtiling:
       self.tiled_shape = self.datashape;
-      self.tile_data = lambda x, dtype=None: x.astype(dtype) if ( dtype and dtype != x.dtype ) else x
+      self.tile_data = lambda x, dtype=None: x.astype(dtype) if ( not numpy.isscalar(x) and dtype and dtype != x.dtype ) else x
       self.untile_data = self.tile_tiling = self.reduce_tiles = identity_function;
       self.expand_tiling = self._expand_trivial_subshape;
       self.subtiled_axes = ();
