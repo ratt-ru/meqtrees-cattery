@@ -90,6 +90,7 @@ class GainOpts (object):
               TDLOption("average","Averaging mode",[0,1,2],default=2,namespace=self),
               TDLOption("ff","Enable feed-forward averaging",True,namespace=self),
               TDLOption("table","Filename for solution table",["%s.cp"%name],more=str,namespace=self),
+              TDLOption("intermediate_table","Filename for intermediate values table",[None,"intermediate-%s.cp"%name],more=str,namespace=self),
             )
         ] + post_opts;
       self._menuopt = TDLMenu("Use '%s' %s"%(label,desc),toggle='enabled',namespace=self,*menuopts)
@@ -136,6 +137,7 @@ class GainOpts (object):
             ('visualize',True),
             ('bounds',[]),
             ('table','%s.cp'%self.name),
+            ('intermediate_table',None),
             ('implementation','GainDiag'),
           ]:
       # for each OPTION, init node state field NAME_OPTION,
@@ -185,6 +187,7 @@ class GainOpts (object):
     kw['%s_average'%name]    = self.average;
     kw['%s_feed_forward'%name] = self.ff;
     kw['%s_table'%name]      = self.table;
+    kw['%s_intermediate_table'%name] = self.intermediate_table;
     kw['%s_solve'%name]      = (self.mode != MODE_SOLVE_APPLY);
     kw['%s_save'%name]       = (self.mode == MODE_SOLVE_SAVE);
     kw['%s_implementation'%name] = self.implementation;
@@ -241,7 +244,12 @@ class GainOpts (object):
     if self.save:
       GainOpts._outgoing_tables.setdefault(self.table,{})[self.label] = \
         dict(solutions=self.solver.gain,implementation=self.implementation);
-  
+
+  def save_intermediate_values (self,niter):
+    if self.intermediate_table:
+      GainOpts._outgoing_tables.setdefault(self.intermediate_table,{})[self.label,niter] = \
+        dict(solutions=self.solver.gain,implementation=self.implementation);
+
   @staticmethod 
   def flush_tables ():
     GainOpts._incoming_tables = {};

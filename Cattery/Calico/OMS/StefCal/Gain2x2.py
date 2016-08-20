@@ -274,6 +274,7 @@ class Gain2x2 (DataTiler):
     self.num_converged = self.converged_mask.sum() - self.padded_slots;
     self.delta_max = math.sqrt(self.delta_sq.max());
     self.gain = gain1dict;
+    self.save_intermediate_values(niter);
     return (self.num_converged >= self.convergence_target),self.delta_max,self.delta_sq,nflag;
     
   def get_converged_mask (self):
