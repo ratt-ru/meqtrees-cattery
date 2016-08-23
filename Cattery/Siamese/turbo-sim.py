@@ -116,7 +116,9 @@ meqmaker.add_sky_jones('E','beam',[analytic_beams,pybeams_fits,emss_polar_beams,
                           pointing=oms_pointing_errors);
 
 # P - Parallactic angle
-meqmaker.add_uv_jones('P','feed angle',Rotation('P'));
+from Siamese.OMS import feed_angle
+meqmaker.add_uv_jones('P','feed orientation',[feed_angle]);
+# meqmaker.add_uv_jones('P','feed angle',Rotation('P'));
 
 # G - gains
 from Siamese.OMS import oms_gain_models
