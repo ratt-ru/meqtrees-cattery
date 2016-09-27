@@ -145,8 +145,8 @@ class GainOpts (object):
       # if mystate is given, call it to init the node field
       if mystate:
         mystate(optname,default);
-      value = getattr(node,optname,None);
-      if value is not None:
+      if hasattr(node,optname):
+        value = getattr(node,optname);
         # ...and copy its value into our OPTION attribute
         setattr(self,option,value);
         # and print
