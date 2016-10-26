@@ -118,9 +118,17 @@ meqmaker.add_sky_jones('E','beam',[analytic_beams,pybeams_fits,emss_polar_beams,
 # P - Parallactic angle
 meqmaker.add_uv_jones('P','feed angle',Rotation('P'));
 
+# D - direction-independent leakage
+from Siamese.OMS.leakage import Leakage
+meqmaker.add_uv_jones('D','leakage',Leakage('D'));
+
 # G - gains
 from Siamese.OMS import oms_gain_models
 meqmaker.add_uv_jones('G','gains/phases',oms_gain_models);
+
+# P - Parallactic angle
+meqmaker.add_uv_jones('iP','feed angle correction',Rotation('iP'));
+
 
 # very important -- insert meqmaker's options properly
 TDLCompileOptions(*meqmaker.compile_options());
@@ -215,14 +223,15 @@ def _define_forest (ns):
   # very important -- insert meqmaker's options properly
   TDLRuntimeOptions(*meqmaker.runtime_options());
 
-  TDLRuntimeJob(_tdl_job_1_simulate_MS,"Run simulation",job_id="simulate");
+  TDLRuntimeJob(_simulate_MS,"Run simulation",job_id="simulate");
 
   # close the meqmaker. This produces annotations, etc.
   meqmaker.close();
 
-def _tdl_job_1_simulate_MS (mqs,parent,wait=False):
+def _simulate_MS (mqs,parent,wait=False):
   mqs.clearcache('VisDataMux');
   mqs.execute('VisDataMux',mssel.create_io_request(),wait=wait);
+  
 
 # this is a useful thing to have at the bottom of the script, it allows us to check the tree for consistency
 # simply by running 'python script.tdl'
