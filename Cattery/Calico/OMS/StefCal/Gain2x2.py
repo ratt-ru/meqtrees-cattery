@@ -46,7 +46,7 @@ class Gain2x2 (DataTiler):
     for ifr in self._solve_ifrs:
       self._antennas.update(ifr);
     self._float = opts.use_float
-    self._dtype = numpy.complex64 if float else numpy.complex128
+    self._dtype = numpy.complex64 if self._float else numpy.complex128
     self._zero  = numpy.zeros(self.subshape, dtype=self._dtype)
     self._unity = numpy.ones(self.subshape, dtype=self._dtype)
     self._nullflag =  numpy.zeros(self.subshape,dtype=bool);
