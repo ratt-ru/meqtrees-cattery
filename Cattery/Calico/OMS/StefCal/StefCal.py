@@ -1034,7 +1034,7 @@ class StefCalNode (pynode.PyNode):
           if self.subtract_dgsrc:
             for idg,dg in enumerate(self.dgopts):
               corr = dg.solver.apply(dgmodel[idg],pq);
-              for d,m in zip(out,corr[pq]):
+              for d,m in zip(out,corr):
                 d -= m;
             #dgm: for idg,dgcorr in enumerate(dgmodel_corr):
             #dgm:   for d,m in zip(out,dgcorr[pq]):
