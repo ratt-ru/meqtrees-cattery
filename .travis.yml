@@ -6,17 +6,14 @@ dist: trusty
 before_install:
 - sudo apt-get update
 - sudo apt-get install -yq software-properties-common
-- sudo add-apt-repository "deb http://us-central1.gce.clouds.archive.ubuntu.com/ubuntu $(lsb_release -sc) main universe restricted multiverse"
-- sudo add-apt-repository -y ppa:radio-astro/main
+- sudo add-apt-repository -y ppa:kernsuite/kern-dev
 - sudo apt-get update
-- sudo apt-get install -yq casacore2 casarest python-pip python-meqtrees-timba python-pyfits python-numpy python-scipy lofar python-astlib python-purr meqtrees-timba
+- sudo apt-get install -yq casacore-dev casarest python-pip python-meqtrees-timba python-pyfits python-numpy python-scipy lofar python-astlib python-purr meqtrees-timba python-kittens python-owlcat python-tigger
 install:
-- sudo /usr/bin/pip install .
-- sudo /usr/bin/pip install astro-kittens
-- sudo /usr/bin/pip install owlcat astro-tigger
-- export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+- true
+#- export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 env:
-- MEQTREES_CATTERY_PATH=/usr/local/lib/python2.7/dist-packages/Cattery
+- MEQTREES_CATTERY_PATH=/usr/lib/python2.7/dist-packages/Cattery
 script:
 - cd test/Batchtest
 - /usr/bin/python batch_test.py
