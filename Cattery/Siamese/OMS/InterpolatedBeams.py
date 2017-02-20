@@ -266,6 +266,9 @@ class LMVoltageBeam (object):
         l/m has its own freq dependence, so a different l/m/freq is interpolated at every point.
         Output array is same shape as l/m.
 
+        In all three cases, if any points in freq are outside the beam's frequency axis span,
+        then the first/last channel in the beam will be scaled up/down with wavelength.
+
     And finally (D):
 
     (D) No dependence on frequency in the beam.
@@ -276,14 +279,10 @@ class LMVoltageBeam (object):
     # make sure inputs are arrays
     l = numpy.array(l) + self.l0;
     m = numpy.array(m) + self.m0;
-
     freq = numpy.array(freq);
     # promote l,m to the same shape
     l,m = unite_shapes(l,m);
     dprint(3,"input l/m [0] is",l.ravel()[0],m.ravel()[0],"and shapes are",l.shape);
-    l = self._lToPixel(l);
-    m = self._mToPixel(m);
-    dprint(3,"in pixel coordinates this is [0]",l.ravel()[0],m.ravel()[0]);
     # now we make a 2xN coordinate array for map_coordinates
     # lm[0,:] will be flattened L array, lm[1,:] will be flattened M array
     # lm[2,:] will be flattened freq array (if we have a freq dependence)
@@ -294,34 +293,59 @@ class LMVoltageBeam (object):
       freq = numpy.array(freq);
       if not freq.ndim:
         freq = freq.reshape(1);
-      dprint(3,"frequencies are",freq);
-      freq = self._freqToPixel(freq);
-      dprint(3,"in frequency plane coordinates we have",freq);
+      dprint(3,"frequencies are",freq)
+      ## catch out-of-bounds frequencies
+      below = freq < self._freqgrid[0]
+      above = freq > self._freqgrid[-1]
+      # lm scale factor is 1 for in-bounds channels, <1 for below, >1 for above.
+      scale = numpy.ones(len(freq),float)
+      scale[below] = freq[below]/self._freqgrid[0]
+      scale[above] = freq[above]/self._freqgrid[-1]
+      freq[below] = self._freqgrid[0]
+      freq[above] = self._freqgrid[-1]
+      # convert frequency to fractional channel index
+      chan = self._freqToPixel(freq)
+      dprint(3,"in frequency plane coordinates we have",chan)
       # case (A): reuse same frequency for every l/m point
-      if len(freq) == 1:
-        lm = numpy.vstack((l.ravel(),m.ravel(),[freq[0]]*l.size));
+      if len(chan) == 1:
+        chan = numpy.array([chan[0]]*l.size)
+        scale = scale[0]  # single lm scale factor 
+        lm = numpy.vstack((l.ravel(),m.ravel(),chan));
       # case B/C:
       else:
-        # first turn freq vector into an array of the proper shape
+        # first turn chan vector into an array of the proper shape
         if freqaxis is None:
           raise ValueError,"frequency axis not specified, but beam has a frequency dependence";
         freqshape = [1]*(freqaxis+1);
-        freqshape[freqaxis] = len(freq);
-        freq = freq.reshape(freqshape);
-        # now promote freq to same shape as l,m. This takes care of cases B and C.
-        # (the freq axis of l/m will be expanded, and other axes of freq will be expanded)
-        l,freq = unite_shapes(l,freq);
-        m,freq = unite_shapes(m,freq);
-        lm = numpy.vstack((l.ravel(),m.ravel(),freq.ravel()));
+        freqshape[freqaxis] = len(chan);
+        chan = chan.reshape(freqshape)
+        scale = scale.reshape(freqshape)
+        # now promote chan to same shape as l,m. This takes care of cases B and C.
+        # (the chan axis of l/m will be expanded, and other axes of chan will be expanded)
+        l1,chan = unite_shapes(l,chan)
+        m1,chan = unite_shapes(m,chan)
+        l,scale = unite_shapes(l,scale)
+        m,scale = unite_shapes(m,scale)
+        lm = numpy.vstack((l.ravel(),m.ravel(),chan.ravel()))
+        scale = scale.ravel()
+      if above.any() or below.any():
+        lm[0,:] *= scale
+        lm[1,:] *= scale
+        dprint(3,"some points were extrapolated for OOB frequencies using scale factors",
+          scale if numpy.isscalar(scale) else scale[above|below])
     # case (D): no frequency dependence in the beam
     else:
       lm = numpy.vstack((l.ravel(),m.ravel()));
+    # now convert lm to pixel coordinates
+    lm[0,:] = self._lToPixel(lm[0,:])
+    lm[1,:] = self._mToPixel(lm[1,:])
+    dprint(3,"xy pixel coordinates are [0]",lm[0,0],lm[1,0]);
     # interpolate and reshape back to shape of L
     if output is None:
       output = numpy.zeros(l.shape,complex);
     elif output.shape != l.shape:
       output.resize(l.shape);
-    dprint(3,"interpolating %d lm points"%(lm.size/2));
+    dprint(3,"interpolating %d lm points"%lm.shape[1]);
     output.real = interpolation.map_coordinates(self._beam_real,lm,order=self._spline_order,
                   prefilter=(self._spline_order==1),mode='nearest').reshape(l.shape);
     output.imag = interpolation.map_coordinates(self._beam_imag,lm,order=self._spline_order,
@@ -443,41 +467,6 @@ if not standalone:
       # even after the tree has been rebuilt.)
       global _voltage_beams;
       _voltage_beams = {};
-
-    def update_state (self,mystate):
-      """Standard function to update our state""";
-      mystate('filename_real',[]);
-      mystate('filename_imag',[]);
-      mystate('spline_order',3);
-      mystate('normalize',False);
-      mystate('ampl_interpolation',False);
-      mystate('verbose',0);
-      mystate('l_axis',"L")
-      mystate('m_axis',"M")
-      mystate('l_beam_offset',0.0);
-      mystate('m_beam_offset',0.0);
-      mystate('missing_is_null',False);
-      # Check filename arguments, and init _vb_key for init_voltage_beams() below
-      # We may be created with a single filename pair (scalar Jones term), or 4 filenames (full 2x2 matrix)
-      if isinstance(self.filename_real,str) and isinstance(self.filename_imag,str):
-        self._vb_key = ((self.filename_real,self.filename_imag),);
-      elif  len(self.filename_real) == 4 and len(self.filename_imag) == 4:
-        self._vb_key = tuple(zip(self.filename_real,self.filename_imag));
-      else:
-        raise ValueError,"filename_real/filename_imag: either a single filename, or a list of 4 filenames expected";
-      # other init
-      mequtils.add_axis('l');
-      mequtils.add_axis('m');
-      self._freqaxis = mequtils.get_axis_number("freq");
-      _verbosity.set_verbose(self.verbose);
-
-    def init_voltage_beams (self):
-      """initializes VoltageBeams for the given set of FITS files (per each _vb_key, that is).
-      Returns list of 1 or 4 VoltageBeam objects."""
-      # maintain a global dict of VoltageBeam objects per each filename set, so that we reuse them
-      global _voltage_beams;
-      if not '_voltage_beams' in globals():
-        _voltage_beams = {};
       # get VoltageBeam object from global dict, or init new one if not already defined
       vbs,beam_max = _voltage_beams.get(self._vb_key,(None,None));
       if not vbs:
@@ -485,10 +474,10 @@ if not standalone:
         for filename_real,filename_imag in self._vb_key:
           # if files do not exist, replace with blanks
           dprint(0,"loading beam files",filename_real,filename_imag)
-          if not os.path.exists(filename_real) and self.missing_is_null:
+          if filename_real and not os.path.exists(filename_real) and self.missing_is_null:
             dprint(0,"beam pattern",filename_real,"not found, using null instead")
             filename_real = None;
-          if not os.path.exists(filename_imag) and self.missing_is_null:
+          if filename_imag and not os.path.exists(filename_imag) and self.missing_is_null:
             dprint(0,"beam pattern",filename_imag,"not found, using null instead")
             filename_real = None;
           # now, create VoltageBeam if at least the real part still exists
@@ -579,49 +568,49 @@ if not standalone:
 
 
 
-  # test clause
-  if __name__ == "__main__":
-    import sys
-    _verbosity.set_verbose(5);
+# test clause
+if __name__ == "__main__":
+  import sys
+  _verbosity.set_verbose(5);
 
 
-    vb = LMVoltageMultifreqBeam(spline_order=3);
-    vb.read(
-      [("mk_1455MHz_feed_5deg_xxreal.fits","mk_1455MHz_feed_5deg_xximag.fits"),
-       ("mk_1460MHz_feed_5deg_xxreal.fits","mk_1460MHz_feed_5deg_xximag.fits")]);
+  vb = LMVoltageMultifreqBeam(spline_order=3);
+  vb.read(
+    [("mk_1455MHz_feed_5deg_xxreal.fits","mk_1455MHz_feed_5deg_xximag.fits"),
+     ("mk_1460MHz_feed_5deg_xxreal.fits","mk_1460MHz_feed_5deg_xximag.fits")]);
 
-    l0 = numpy.array([-2,0,2])*DEG;
-    l = numpy.vstack([l0]*len(l0));
+  l0 = numpy.array([-2,0,2])*DEG;
+  l = numpy.vstack([l0]*len(l0));
 
-    a = vb.interpolate(l,l.T,freq=[1.456e+9],freqaxis=2);
-    b = vb.interpolate(l,l.T,freq=[1.456e+9,1.457e+9,1.458e+9],freqaxis=2);
-    c = vb.interpolate(l,l.T,freq=[1.455e+9,1.457e+9,1.458e+9,1.46e+9],freqaxis=2);
+  a = vb.interpolate(l,l.T,freq=[1.456e+9],freqaxis=2);
+  b = vb.interpolate(l,l.T,freq=[1.456e+9,1.457e+9,1.458e+9],freqaxis=2);
+  c = vb.interpolate(l,l.T,freq=[1.455e+9,1.457e+9,1.458e+9,1.46e+9],freqaxis=2);
 
-    print "C",c.shape,c;
-    print "B",b.shape,b;
-    print "A",a.shape,a;
-    sys.exit(1);
+  print "C",c.shape,c;
+  print "B",b.shape,b;
+  print "A",a.shape,a;
+  sys.exit(1);
 
 
-    vb = LMVoltageBeam(spline_order=3);
-    vb.read("beam_xx_re.fits","beam_xx_im.fits");
+  vb = LMVoltageBeam(spline_order=3);
+  vb.read("beam_xx_re.fits","beam_xx_im.fits");
 
-    l0 = numpy.array([-2,-1,0,1,2])*DEG;
-    l = numpy.vstack([l0]*len(l0));
+  l0 = numpy.array([-2,-1,0,1,2])*DEG;
+  l = numpy.vstack([l0]*len(l0));
 
-    print vb.interpolate(l,l.T);
+  print vb.interpolate(l,l.T);
 
-    vb = LMVoltageBeam(spline_order=3);
-    vb.read("XX_0_Re.fits","XX_0_Im.fits");
+  vb = LMVoltageBeam(spline_order=3);
+  vb.read("XX_0_Re.fits","XX_0_Im.fits");
 
-    l0 = numpy.array([-4,-2,0,2,4])*DEG;
-    l = numpy.vstack([l0]*len(l0));
+  l0 = numpy.array([-4,-2,0,2,4])*DEG;
+  l = numpy.vstack([l0]*len(l0));
 
-    a = vb.interpolate(l,l.T,freq=[1e+9],freqaxis=2);
-    b = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9],freqaxis=2);
-    c = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9,1.3e+9,1.4e+9],freqaxis=1);
+  a = vb.interpolate(l,l.T,freq=[1e+9],freqaxis=2);
+  b = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9],freqaxis=2);
+  c = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9,1.3e+9,1.4e+9],freqaxis=1);
 
-    print "A",a.shape,a;
-    print "B",b.shape,b;
-    print "C",c.shape,c;
+  print "A",a.shape,a;
+  print "B",b.shape,b;
+  print "C",c.shape,c;
 
