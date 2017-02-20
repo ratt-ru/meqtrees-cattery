@@ -11,6 +11,7 @@ define("STEFCAL_SCRIPT","${mqt.CATTERY}/Calico/calico-stefcal.py","stefcal TDL s
 define("STEFCAL_SECTION","stefcal","default TDL config section")
 define("STEFCAL_JOBNAME","stefcal","default TDL job name")
 define("STEFCAL_TDLOPTS","","extra TDL options for stefcal")
+define("STEFCAL_INPUT_COLUMN","DATA","default input column")
 define("STEFCAL_OUTPUT_COLUMN","CORRECTED_DATA","default output column")
 define("STEFCAL_CALIBRATE_IFRS","all","subset of baselines used for calibration")
 define("STEFCAL_GAIN_Template","$MS/gain${SUFFIX}.cp","current file for gain solutions")
@@ -82,6 +83,8 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
               diffgain_intervals=None,diffgain_smoothing=None,
               flag_threshold=None,
               calibrate_ifrs="$STEFCAL_CALIBRATE_IFRS",
+              input_column="$STEFCAL_INPUT_COLUMN",
+              output_column="$STEFCAL_OUTPUT_COLUMN",
               output="CORR_RES",
               plotvis="${ms.PLOTVIS}",
               dirty=True,restore=False,restore_lsm=True,
@@ -118,8 +121,9 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
                     stefcal_reset_all=True to remove prior gains solutions.
   """
   msname,section,lsm,label,plotvis,calibrate_ifrs, \
-    gain_plot_prefix,gain1_plot_prefix,ifrgain_plot_prefix,diffgain_plot_prefix,saveconfig,plotfail = \
-    interpolate_locals("msname section lsm label plotvis calibrate_ifrs gain_plot_prefix gain1_plot_prefix ifrgain_plot_prefix diffgain_plot_prefix saveconfig plotfail");
+    gain_plot_prefix,gain1_plot_prefix,ifrgain_plot_prefix,diffgain_plot_prefix,saveconfig,plotfail,input_column,output_column = \
+    interpolate_locals("msname section lsm label plotvis calibrate_ifrs gain_plot_prefix gain1_plot_prefix ifrgain_plot_prefix diffgain_plot_prefix "
+      "saveconfig plotfail input_column output_column")
   
   plotfail = plotfail or warn
   makedir(v.DESTDIR);
@@ -135,7 +139,8 @@ def stefcal ( msname="$MS",section="$STEFCAL_SECTION",
   info("Running stefcal ${step <STEP} ${(<LABEL>)}");
   # setup args
   args0 = [ """${ms.MS_TDL} ${ms.CHAN_TDL} ${lsm.LSM_TDL} ms_sel.ms_ifr_subset_str=${ms.IFRS} 
-    ms_sel.output_column=$STEFCAL_OUTPUT_COLUMN
+    ms_sel.input_column=$input_column
+    ms_sel.output_column=$output_column
     stefcal_gain.enabled=1 stefcal_diffgain.enabled=%d %s"""%
     ((1 if diffgains else 0),STEFCAL_TDLOPTS) ];
   if diffgains:
