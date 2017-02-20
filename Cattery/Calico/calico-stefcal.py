@@ -87,6 +87,10 @@ read_ms_model_opt = TDLCompileOption("read_ms_model","Read additional uv-model v
   """);
 
 
+from Siamese.OMS.rotation import Rotation
+from Siamese.OMS import oms_dipole_projection
+meqmaker.add_sky_jones('L','parallactic angle or dipole rotation',[Rotation('L',feed_angle=False),oms_dipole_projection])
+
 # E - beam
 # add a fixed primary beam first
 from Calico.OMS import wsrt_beams  #,wsrt_beams_zernike
