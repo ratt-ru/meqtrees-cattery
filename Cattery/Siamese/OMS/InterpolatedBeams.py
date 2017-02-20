@@ -502,41 +502,41 @@ if not standalone:
         global _voltage_beams;
         if not '_voltage_beams' in globals():
           _voltage_beams = {};
-          # get VoltageBeam object from global dict, or init new one if not already defined
-          vbs,beam_max = _voltage_beams.get(self._vb_key,(None,None));
-          if not vbs:
-            vbs = [];
-            for filename_real,filename_imag in self._vb_key:
-              # if files do not exist, replace with blanks
-              dprint(0,"loading beam files",filename_real,filename_imag)
-              if filename_real and not os.path.exists(filename_real) and self.missing_is_null:
-                dprint(0,"beam pattern",filename_real,"not found, using null instead")
-                filename_real = None;
-              if filename_imag and not os.path.exists(filename_imag) and self.missing_is_null:
-                dprint(0,"beam pattern",filename_imag,"not found, using null instead")
-                filename_real = None;
-              # now, create VoltageBeam if at least the real part still exists
-              if filename_real:
-                vb = LMVoltageBeam(
-                      l0=self.l_beam_offset,m0=self.m_beam_offset,
-                      l_axis=self.l_axis,m_axis=self.m_axis,
-                      ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,
-                      verbose=self.verbose);
-                vb.read(filename_real,filename_imag);
-              else:
-                vb = None;
-              # work out norm of beam
-              vbs.append(vb);
-            if not any(vbs):
-              raise RuntimeError,"no beam patterns have been loaded. Please check your filename pattern"
-            if len(vbs) == 1:
-              beam_max = abs(vbs[0].beam()).max();
-            elif len(vbs) == 4:
-              xx,xy,yx,yy = [ vb.beam() if vb else 0 for vb in vbs ];
-              beam_max = math.sqrt((abs(xx)**2+abs(xy)**2+abs(yx)**2+abs(yy)**2).max()/2);
-            dprint(1,"beam max is",beam_max);
-            _voltage_beams[self._vb_key] = vbs,beam_max;
-          return vbs,beam_max;
+        # get VoltageBeam object from global dict, or init new one if not already defined
+        vbs,beam_max = _voltage_beams.get(self._vb_key,(None,None));
+        if not vbs:
+          vbs = [];
+          for filename_real,filename_imag in self._vb_key:
+            # if files do not exist, replace with blanks
+            dprint(0,"loading beam files",filename_real,filename_imag)
+            if filename_real and not os.path.exists(filename_real) and self.missing_is_null:
+              dprint(0,"beam pattern",filename_real,"not found, using null instead")
+              filename_real = None;
+            if filename_imag and not os.path.exists(filename_imag) and self.missing_is_null:
+              dprint(0,"beam pattern",filename_imag,"not found, using null instead")
+              filename_real = None;
+            # now, create VoltageBeam if at least the real part still exists
+            if filename_real:
+              vb = LMVoltageBeam(
+                    l0=self.l_beam_offset,m0=self.m_beam_offset,
+                    l_axis=self.l_axis,m_axis=self.m_axis,
+                    ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,
+                    verbose=self.verbose);
+              vb.read(filename_real,filename_imag);
+            else:
+              vb = None;
+            # work out norm of beam
+            vbs.append(vb);
+          if not any(vbs):
+            raise RuntimeError,"no beam patterns have been loaded. Please check your filename pattern"
+          if len(vbs) == 1:
+            beam_max = abs(vbs[0].beam()).max();
+          elif len(vbs) == 4:
+            xx,xy,yx,yy = [ vb.beam() if vb else 0 for vb in vbs ];
+            beam_max = math.sqrt((abs(xx)**2+abs(xy)**2+abs(yx)**2+abs(yy)**2).max()/2);
+          dprint(1,"beam max is",beam_max);
+          _voltage_beams[self._vb_key] = vbs,beam_max;
+        return vbs,beam_max;
 
     def get_result (self,request,*children):
       # get list of VoltageBeams
