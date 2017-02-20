@@ -266,6 +266,9 @@ class LMVoltageBeam (object):
         l/m has its own freq dependence, so a different l/m/freq is interpolated at every point.
         Output array is same shape as l/m.
 
+        In all three cases, if any points in freq are outside the beam's frequency axis span,
+        then the first/last channel in the beam will be scaled up/down with wavelength.
+
     And finally (D):
 
     (D) No dependence on frequency in the beam.
@@ -276,14 +279,10 @@ class LMVoltageBeam (object):
     # make sure inputs are arrays
     l = numpy.array(l) + self.l0;
     m = numpy.array(m) + self.m0;
-
     freq = numpy.array(freq);
     # promote l,m to the same shape
     l,m = unite_shapes(l,m);
     dprint(3,"input l/m [0] is",l.ravel()[0],m.ravel()[0],"and shapes are",l.shape);
-    l = self._lToPixel(l);
-    m = self._mToPixel(m);
-    dprint(3,"in pixel coordinates this is [0]",l.ravel()[0],m.ravel()[0]);
     # now we make a 2xN coordinate array for map_coordinates
     # lm[0,:] will be flattened L array, lm[1,:] will be flattened M array
     # lm[2,:] will be flattened freq array (if we have a freq dependence)
@@ -294,34 +293,59 @@ class LMVoltageBeam (object):
       freq = numpy.array(freq);
       if not freq.ndim:
         freq = freq.reshape(1);
-      dprint(3,"frequencies are",freq);
-      freq = self._freqToPixel(freq);
-      dprint(3,"in frequency plane coordinates we have",freq);
+      dprint(3,"frequencies are",freq)
+      ## catch out-of-bounds frequencies
+      below = freq < self._freqgrid[0]
+      above = freq > self._freqgrid[-1]
+      # lm scale factor is 1 for in-bounds channels, <1 for below, >1 for above.
+      scale = numpy.ones(len(freq),float)
+      scale[below] = freq[below]/self._freqgrid[0]
+      scale[above] = freq[above]/self._freqgrid[-1]
+      freq[below] = self._freqgrid[0]
+      freq[above] = self._freqgrid[-1]
+      # convert frequency to fractional channel index
+      chan = self._freqToPixel(freq)
+      dprint(3,"in frequency plane coordinates we have",chan)
       # case (A): reuse same frequency for every l/m point
-      if len(freq) == 1:
-        lm = numpy.vstack((l.ravel(),m.ravel(),[freq[0]]*l.size));
+      if len(chan) == 1:
+        chan = numpy.array([chan[0]]*l.size)
+        scale = scale[0]  # single lm scale factor 
+        lm = numpy.vstack((l.ravel(),m.ravel(),chan));
       # case B/C:
       else:
-        # first turn freq vector into an array of the proper shape
+        # first turn chan vector into an array of the proper shape
         if freqaxis is None:
           raise ValueError,"frequency axis not specified, but beam has a frequency dependence";
         freqshape = [1]*(freqaxis+1);
-        freqshape[freqaxis] = len(freq);
-        freq = freq.reshape(freqshape);
-        # now promote freq to same shape as l,m. This takes care of cases B and C.
-        # (the freq axis of l/m will be expanded, and other axes of freq will be expanded)
-        l,freq = unite_shapes(l,freq);
-        m,freq = unite_shapes(m,freq);
-        lm = numpy.vstack((l.ravel(),m.ravel(),freq.ravel()));
+        freqshape[freqaxis] = len(chan);
+        chan = chan.reshape(freqshape)
+        scale = scale.reshape(freqshape)
+        # now promote chan to same shape as l,m. This takes care of cases B and C.
+        # (the chan axis of l/m will be expanded, and other axes of chan will be expanded)
+        l1,chan = unite_shapes(l,chan)
+        m1,chan = unite_shapes(m,chan)
+        l,scale = unite_shapes(l,scale)
+        m,scale = unite_shapes(m,scale)
+        lm = numpy.vstack((l.ravel(),m.ravel(),chan.ravel()))
+        scale = scale.ravel()
+      if above.any() or below.any():
+        lm[0,:] *= scale
+        lm[1,:] *= scale
+        dprint(3,"some points were extrapolated for OOB frequencies using scale factors",
+          scale if numpy.isscalar(scale) else scale[above|below])
     # case (D): no frequency dependence in the beam
     else:
       lm = numpy.vstack((l.ravel(),m.ravel()));
+    # now convert lm to pixel coordinates
+    lm[0,:] = self._lToPixel(lm[0,:])
+    lm[1,:] = self._mToPixel(lm[1,:])
+    dprint(3,"xy pixel coordinates are [0]",lm[0,0],lm[1,0]);
     # interpolate and reshape back to shape of L
     if output is None:
       output = numpy.zeros(l.shape,complex);
     elif output.shape != l.shape:
       output.resize(l.shape);
-    dprint(3,"interpolating %d lm points"%(lm.size/2));
+    dprint(3,"interpolating %d lm points"%lm.shape[1]);
     output.real = interpolation.map_coordinates(self._beam_real,lm,order=self._spline_order,
                   prefilter=(self._spline_order==1),mode='nearest').reshape(l.shape);
     output.imag = interpolation.map_coordinates(self._beam_imag,lm,order=self._spline_order,
@@ -479,10 +503,10 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
       for filename_real,filename_imag in self._vb_key:
         # if files do not exist, replace with blanks
         dprint(0,"loading beam files",filename_real,filename_imag)
-        if not os.path.exists(filename_real) and self.missing_is_null:
+        if filename_real and not os.path.exists(filename_real) and self.missing_is_null:
           dprint(0,"beam pattern",filename_real,"not found, using null instead")
           filename_real = None;
-        if not os.path.exists(filename_imag) and self.missing_is_null:
+        if filename_imag and not os.path.exists(filename_imag) and self.missing_is_null:
           dprint(0,"beam pattern",filename_imag,"not found, using null instead")
           filename_real = None;
         # now, create VoltageBeam if at least the real part still exists

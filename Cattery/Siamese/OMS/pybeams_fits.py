@@ -53,6 +53,10 @@ TDLCompileOption("filename_pattern","Filename pattern",["beam_$(xy)_$(reim).fits
   <LI><B>$reim</B> or <B>$ReIm</B> or <B>$REIM</B>: "re", "Re" or "RE" for real, "im", "Im" or "IM" for imaginary</LI>
   <LI><B>$realimag</B> or <B>$RealImag</B> or <B>$REALIMAG</B>: "real", "Real" or "REAL" for real, "imag", "Imag" or "IMAG" for imaginary</LI>
   <UL>""");
+TDLCompileOption("beam_type","Jones matrix type",["2x2","diagonal","scalar"],doc="""<P>
+  Type of Jones matrix: full 2x2, diagonal, or scalar only. In the scalar case, the filename pattern 
+  should not contain a correlation index.
+  </P>""")
 TDLCompileOption("missing_is_null","Use null for missing beam elements",True,doc="""<P>
   If True, then 0 will be used when a beam file is missing. Useful if you only have beams for
   the diagonal elements (XX/YY), or only real beams.
@@ -97,15 +101,21 @@ def make_beam_node (beam,pattern,*children):
   """Makes beam interpolator node for the given filename pattern.""";
   filename_real = [];
   filename_imag = [];
-  for corr in Context.correlations:
-    # make FITS images or nulls for real and imaginary part
-    filename_real.append(make_beam_filename(pattern,corr,'re'));
-    filename_imag.append(make_beam_filename(pattern,corr,'im'));
+  if beam_type == "scalar":
+    filename_real.append(make_beam_filename(pattern,'','re'))
+    filename_imag.append(make_beam_filename(pattern,'','im'))
+  else:
+    for corr in Context.correlations:
+      # make FITS images or nulls for real and imaginary part
+      filename_real.append(make_beam_filename(pattern,corr,'re'));
+      filename_imag.append(make_beam_filename(pattern,corr,'im'));
+    if len(Context.correlations) == 4 and beam_type == "diagonal":
+      filename_real[1] = filename_real[2] = filename_imag[1] = filename_imag[2] = None
   # check that files exist
   if not missing_is_null:
     for f in filename_real+filename_imag:
-      if not os.path.exists(f):
-	raise RuntimeError,"Can't find beam pattern file %s"%f;
+      if f and not os.path.exists(f):
+        raise RuntimeError,"Can't find beam pattern file %s"%f;
   # if we end up with only one unique filename, make a scalar-mode interpolator
   if len(set(filename_real)) == 1 and len(set(filename_imag)) == 1:
     filename_real = filename_real[0];
