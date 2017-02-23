@@ -1,6 +1,7 @@
-FROM kernsuite/base:dev
+FROM kernsuite/base:2
 RUN docker-apt-install \
     casacore-dev \
+    casacore-tools \
     casarest \
     python-pip \
     python-meqtrees-timba \
