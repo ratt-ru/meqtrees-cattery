@@ -4,12 +4,14 @@ services:
  - docker
 
 before_install: true
-install: true
+
+install: 
+    - docker build -t kernsuite/cattery .
+
 before_script: true
 
 script:
-    - docker build -t cattery .
-    - docker run cattery
+    - docker run kernsuite/cattery
 
 deploy:
   provider: pypi
