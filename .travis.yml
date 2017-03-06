@@ -1,22 +1,18 @@
-language: python
-python:
- - "2.7"
 sudo: required
-dist: trusty
-before_install:
-- sudo apt-get update
-- sudo apt-get install -yq software-properties-common
-- sudo add-apt-repository -y ppa:kernsuite/kern-dev
-- sudo apt-get update
-- sudo apt-get install -yq casacore-dev casarest python-pip python-meqtrees-timba python-pyfits python-numpy python-scipy lofar python-astlib python-purr meqtrees-timba python-kittens python-owlcat python-tigger
-install:
-- true
-#- export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-env:
-- MEQTREES_CATTERY_PATH=/usr/lib/python2.7/dist-packages/Cattery
+
+services:
+ - docker
+
+before_install: true
+
+install: 
+    - docker build -t kernsuite/cattery .
+
+before_script: true
+
 script:
-- cd test/Batchtest
-- /usr/bin/python batch_test.py
+    - docker run kernsuite/cattery
+
 deploy:
   provider: pypi
   user: gijzelaerr
