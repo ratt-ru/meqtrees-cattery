@@ -15,7 +15,8 @@ RUN docker-apt-install \
     python-kittens \
     python-owlcat \
     python-tigger \
-    python-meqtrees-cattery
+    python-meqtrees-cattery \
+    python-pyxis
 ADD . /code
 WORKDIR /code
 RUN python setup.py install
