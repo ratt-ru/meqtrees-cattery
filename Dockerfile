@@ -14,7 +14,8 @@ RUN docker-apt-install \
     meqtrees-timba \
     python-kittens \
     python-owlcat \
-    python-tigger
+    python-tigger \
+    python-meqtrees_cattery
 ADD . /code
 WORKDIR /code
 RUN python setup.py install
