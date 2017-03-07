@@ -1,4 +1,4 @@
-FROM kernsuite/base:2
+FROM kernsuite/base:dev
 RUN docker-apt-install \
     casacore-dev \
     casacore-tools \
@@ -8,7 +8,6 @@ RUN docker-apt-install \
     python-pyfits \
     python-numpy \
     python-scipy \
-    lofar \
     python-astlib \
     python-purr \
     meqtrees-timba \
@@ -17,9 +16,10 @@ RUN docker-apt-install \
     python-tigger \
     python-meqtrees-cattery \
     python-pyxis
+RUN docker-apt-install \
+    makems
 ADD . /code
 WORKDIR /code
 RUN python setup.py install
-ENV MEQTREES_CATTERY_PATH=/usr/local/lib/python2.7/dist-packages/Cattery
 WORKDIR /code/test/Batchtest
 CMD python batch_test.py
