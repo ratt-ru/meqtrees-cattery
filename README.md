@@ -1,10 +1,11 @@
 meqtrees-cattery
 ================
 [![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/ska-sa/meqtrees-cattery?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
+Travis CI:
 [![Build Status](https://travis-ci.org/ska-sa/meqtrees-cattery.png)](https://travis-ci.org/ska-sa/meqtrees-cattery)
-
+Jenkins cron CI:
 [![Build Status](https://jenkins.meqtrees.net/job/meqtrees-cattery-cron/badge/icon)](https://jenkins.meqtrees.net/job/meqtrees-cattery-cron/)
+
 The Cattery is a set of MeqTrees-based frameworks for simulation and calibration of 
 radio interferometers. Pretty much everything is done via a Cattery package these
 days.
