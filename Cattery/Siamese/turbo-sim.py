@@ -234,6 +234,7 @@ def _simulate_MS (mqs,parent,wait=False):
   mqs.clearcache('VisDataMux');
   mqs.execute('VisDataMux',mssel.create_io_request(),wait=wait);
   
+_tdl_job_1_simulate_MS = _simulate_MS
 
 # this is a useful thing to have at the bottom of the script, it allows us to check the tree for consistency
 # simply by running 'python script.tdl'
