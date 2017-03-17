@@ -1392,8 +1392,8 @@ class StefCalNode (pynode.PyNode):
       if gainflags:
         dprint(2,"flagged gains per antenna:",", ".join(["%s %.2f%%"%(p,gf.sum()*100./gopt.solver.real_slots) for p,gf in sorted(gainflags.iteritems())]));
         for pq in data.iterkeys():
-          fmask = gainflags.get(pq[0],0);
-          fmask |= gainflags.get(pq[1],0);
+          fmask = gainflags.get(pq[0],False);
+          fmask |= gainflags.get(pq[1],False);
           if not is_null(fmask):
             chisq_arr[fmask] = 0;
             self.add_flags(bitflags,pq,(fmask)*FSOLOOB);
