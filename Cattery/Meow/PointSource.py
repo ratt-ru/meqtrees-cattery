@@ -32,10 +32,37 @@ import Context
 
 STOKES = ("I","Q","U","V");
 
+
+import scipy.integrate as integrate
+from Timba import pynode
+
+class PyGaussianLineNode (pynode.PyNode):
+  def __init__(self,*args):
+    pynode.PyNode.__init__(self,*args);
+
+  def update_state (self,mystate):
+    mystate('linefreq',0);
+    mystate('linewidth',0);
+    
+  def get_result (self,request,*children):
+    def gauss(t):
+      return 1/(self.linewidth*math.sqrt(2*math.pi))*math.exp(-0.5*((t-self.linefreq)/self.linewidth)**2)
+    freqs = request.cells.grid.freq
+    freqsize = request.cells.cell_size.freq
+    fq1 = freqs-freqsize/2
+    fq2 = freqs+freqsize/2
+    vells = meq.vells(shape=meq.shape(freq=freqs.size))
+    vi = vells.reshape(freqs.shape)
+    for i in xrange(len(freqs)):
+      # print vi[i], integrate.quad(gauss, fq1[i], fq2[i])[0]
+      vi[i] = integrate.quad(gauss, fq1[i], fq2[i])[0]
+    return meq.result(meq.vellset(vells), cells=request.cells)
+
+
 class PointSource(SkyComponent):
   def __init__(self,ns,name,direction,
                I=0.0,Q=None,U=None,V=None,
-               spi=None,freq0=None,
+               spi=None,freq0=None,linewidth=None,
                RM=None):
     """Creates a PointSource with the given name; associates with
     direction.
@@ -44,6 +71,7 @@ class PointSource(SkyComponent):
     Optional arguments:
       'Q','U','V' are constants, nodes, or Meow.Parms. If none of the three
           are supplied, an unpolarized source representation is used.
+      'linewidth': if not None, source is a spectral line of the given width, at freq0.
       'spi' and 'freq0' are constants, nodes or Meow.Parms. If both are
           supplied, a spectral index is added, otherwise the fluxes are
           constant in frequency. 'spi' may be a list of such, in which case
@@ -60,11 +88,17 @@ class PointSource(SkyComponent):
     self._add_parm('Q',Q or 0.,tags="flux pol");
     self._add_parm('U',U or 0.,tags="flux pol");
     self._add_parm('V',V or 0.,tags="flux pol");
-    self._has_rm = RM != 0 and RM is not None;
+    # is this a spectral-line source?
+    self._has_linewidth = linewidth is not None
+    if self._has_linewidth:
+      self._add_parm('linewidth',linewidth,tags="spectrum")
+      self._add_parm('linefreq',freq0 or (ns.freq0 ** 0),tags="spectrum");
+    # does this source have an RM
+    self._has_rm = bool(RM) and not self._has_linewidth
     if self._has_rm:
       self._add_parm("RM",RM,tags="pol");
-    # see if a spectral index is present (freq0!=0 then), create polc
-    self._has_spi = spi != 0 and spi is not None;
+    # does this source have an spi
+    self._has_spi = bool(spi) and not self._has_linewidth
     if self._has_spi:
       if isinstance(spi,(list,tuple)):
         self._nspi = len(spi);
@@ -138,20 +172,32 @@ class PointSource(SkyComponent):
   def norm_spectrum (self):
     """Returns spectrum normalized to 1 at the reference frequency.
     Flux should be multiplied by this to get the real spectrum""";
-    if not self._has_spi:
-      return 1;
-    nsp = self.ns.norm_spectrum;
-    if not nsp.initialized():
-      freq = self.ns0.freq ** Meq.Freq;
-      fr = self.ns.freqratio << freq/self._parm('spi_fq0');  
-      if self._nspi == 1:
-        nsp << Meq.Pow(fr,self._parm('spi'));
-      else:
-        # multi-term spectral index
-        logfr = self.ns.logfreqratio << Meq.Log(fr);
-        nsp << Meq.Pow(fr,Meq.Add(self._parm('spi'),self._parm('spi_2')*logfr,
-          *[ self._parm('spi_%d'%(i+1))*Meq.Pow(logfr,i) for i in range(2,self._nspi)] ));
-    return nsp;
+    if self._has_linewidth:
+      nsp = self.ns.norm_spectrum;
+      if not nsp.initialized():
+        from Meow import PyGaussianLineNode
+        nsp << Meq.PyNode(module_name=__file__,
+                          class_name="PyGaussianLineNode",
+                          linefreq=self._get_constant('linefreq'), 
+                          linewidth=self._get_constant('linewidth'))
+        # freq = self.ns0.freq ** Meq.Freq;
+        # nsp << Meq.Exp(-Meq.Sqr((freq-self._parm('linefreq'))/(math.sqrt(2)*self._parm('linewidth'))))
+      return nsp;
+    elif self._has_spi:
+      nsp = self.ns.norm_spectrum;
+      if not nsp.initialized():
+        freq = self.ns0.freq ** Meq.Freq;
+        fr = self.ns.freqratio << freq/self._parm('spi_fq0');  
+        if self._nspi == 1:
+          nsp << Meq.Pow(fr,self._parm('spi'));
+        else:
+          # multi-term spectral index
+          logfr = self.ns.logfreqratio << Meq.Log(fr);
+          nsp << Meq.Pow(fr,Meq.Add(self._parm('spi'),self._parm('spi_2')*logfr,
+            *[ self._parm('spi_%d'%(i+1))*Meq.Pow(logfr,i) for i in range(2,self._nspi)] ));
+      return nsp;
+    else:
+      return 1
 
   def coherency_elements (self,observation):
     """helper method: returns the four components of the coherency matrix""";
@@ -184,7 +230,7 @@ class PointSource(SkyComponent):
   def brightness_static (self,observation=None):
     """If the brightness matrix is constant (i.e. no time-freq dependence), returns it.
     Else returns None.""";
-    if not self._constant_flux or self._has_spi:
+    if not self._constant_flux or self._has_spi or self._has_linewidth:
       return None;
     observation = observation or Context.observation;
     if not observation:
@@ -206,7 +252,7 @@ class PointSource(SkyComponent):
     if not coh.initialized():
       # if not polarized, just return I
       if not always_matrix and not self._polarized:
-        if self._has_spi:
+        if self._has_spi or self._has_linewidth:
           if self._constant_flux:
             coh << Context.unitCoherency(self.stokes("I"))*self.norm_spectrum();
           else:
@@ -216,7 +262,7 @@ class PointSource(SkyComponent):
       else:
         coh_els = self.coherency_elements(observation);
         if self._constant_flux:
-          if self._has_spi:
+          if self._has_spi or self._has_linewidth:
             coh1 = self.ns.coh1 << Meq.Matrix22(*[Context.unitCoherency(x) for x in coh_els]);
             coh << coh1*self.norm_spectrum();
           else:

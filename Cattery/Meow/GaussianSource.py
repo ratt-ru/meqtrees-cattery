@@ -38,7 +38,7 @@ class GaussianSource(PointSource):
   def __init__(self,ns,name,direction,
                # standard flux parameters
                I=0.0,Q=None,U=None,V=None,
-               spi=None,freq0=None,
+               spi=None,freq0=None,linewidth=None,
                RM=None,
                # new-style extent paramaters: projections of the major axis FWHM
                # onto the l and m axes, plus an minor/major ratio (None for symmetric)
@@ -46,7 +46,7 @@ class GaussianSource(PointSource):
                # old-style (deprecated) extent parameters
                size=None,phi=0):
     PointSource.__init__(self,ns,name,direction,I,Q,U,V,
-                        spi,freq0,RM);
+                        spi,freq0,linewidth,RM);
     # check for old interface, convert to new-style arguments
     if size is not None:
       print "WARNING: using deprecated interface to Meow.GaussianSource.";

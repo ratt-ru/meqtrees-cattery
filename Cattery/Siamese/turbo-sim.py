@@ -28,6 +28,7 @@ from Timba.TDL import *
 from Timba.Meq import meq
 import math
 import random
+import traceback
 
 import Meow
 import Meow.StdTrees
@@ -78,7 +79,8 @@ try:
   from Siamese.OMS.tigger_lsm import TiggerSkyModel
   models.insert(0,TiggerSkyModel());
 except:
-  print 'Failure to import TiggerSkyModel module'
+  traceback.print_exc()
+  print 'Failed to import TiggerSkyModel module'
   print 'Is the location of Tigger defined in your PYTHONPATH environment variable?'
   pass;
       
