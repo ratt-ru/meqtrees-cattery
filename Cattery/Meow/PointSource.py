@@ -175,7 +175,6 @@ class PointSource(SkyComponent):
     if self._has_linewidth:
       nsp = self.ns.norm_spectrum;
       if not nsp.initialized():
-        from Meow import PyGaussianLineNode
         nsp << Meq.PyNode(module_name=__file__,
                           class_name="PyGaussianLineNode",
                           linefreq=self._get_constant('linefreq'), 
