@@ -233,36 +233,108 @@ class GainOpts (object):
         dprint(0,"%s solutions in %s are for class %s, expected %s"%(self.label,self.table,gains['implementation'],self.implementation));
       self.init_value = gains['solutions'];
       self.has_init_value = True;
-      dprint(1,"loaded %d %s solutions from %s"%(len(self.init_value),self.name,self.table));
+      dprint(1,"loaded %d %s solutions from %s" % (len(self.init_value),self.name,self.table));
     except:
       traceback.print_exc();
-      dprint(0,"error loading %s solutions from"%self.label,self.table);
+      dprint(0,"error loading %s solutions from" % self.label,self.table);
 
   _outgoing_tables = {};
         
   def save_values (self):
     if self.save:
-      GainOpts._outgoing_tables.setdefault(self.table,{})[self.label] = \
-        dict(solutions=self.solver.gain,implementation=self.implementation);
+        for ant in self.solver.gain:
+              corr_gains = []
+              for corr in xrange(len(self.solver.gain[ant])):
+                  # If no gains were found there is (1,0,0,1) instead of a valset, remove this and write out arrays
+                  if not hasattr(self.solver.gain[ant][corr], "shape"):
+                      gains = numpy.tile(self.solver.gain[ant][corr],
+                                         self.solver.tiled_shape).astype(dtype=self.solver._dtype)
+                  else: # Dont want to write out these special valset objects, want tables with ordinary arrays
+                      gains = numpy.array(self.solver.gain[ant][corr],
+                                          dtype=self.solver._dtype)
+                  corr_gains.append(gains)
+              self.solver.gain[ant] = corr_gains
+
+        GainOpts._outgoing_tables.setdefault(self.table, {})[self.label] = \
+        dict(solutions=self.solver.gain, implementation=self.implementation)
 
   def save_intermediate_values (self,niter):
     if self.intermediate_table:
-      GainOpts._outgoing_tables.setdefault(self.intermediate_table,{})[self.label,niter] = \
-        dict(solutions=self.solver.gain,implementation=self.implementation);
+      GainOpts._outgoing_tables.setdefault(self.intermediate_table, {})[self.label,niter] = \
+        dict(solutions=self.solver.gain,implementation=self.implementation)
 
   @staticmethod 
   def flush_tables ():
-    GainOpts._incoming_tables = {};
-    for table,initval in GainOpts._outgoing_tables.iteritems():
+    def merge_di_jones(old_struct, struct):
+      for ant in struct["gains"]["G"]["solutions"]:
+        # table contains subtables for each antenna:
+        if ant in old_struct["gains"]["G"]["solutions"]:
+          for corr in xrange(len(struct["gains"]["G"]["solutions"][ant])):
+            nt_old = old_struct["gains"]["G"]["solutions"][ant][corr].shape[0]
+            nt_new = struct["gains"]["G"]["solutions"][ant][corr].shape[0]
+            nf_old = old_struct["gains"]["G"]["solutions"][ant][corr].shape[1]
+            nf_new = struct["gains"][gtype]["solutions"][ant][corr].shape[1]
+            assert nf_old == nf_new, "Trying to append gain solutions to table with " \
+                                     "different number of frequencies... cannot take, " \
+                                     "check your input and clear out old gain tables!"
+            gains = numpy.zeros([nt_old + nt_new, nf_old],
+                                dtype=struct["gains"]["G"]["solutions"][ant][corr].dtype)
+            gains[0:nt_old, :] = old_struct["gains"]["G"]["solutions"][ant][corr]
+            gains[nt_old:(nt_old + nt_new), :] = \
+              struct["gains"]["G"]["solutions"][ant][corr]
+            old_struct["gains"]["G"]["solutions"][ant][corr] = gains
+        # antenna not yet in current solutions, append it:
+        else:
+          old_struct["gains"]["G"]["solutions"][ant] = \
+            struct["gains"]["G"]["solutions"][ant]
+        return old_struct
+
+    GainOpts._incoming_tables = {}
+    for table, initval in GainOpts._outgoing_tables.iteritems():
       if initval:
-        struct = dict(description="stefcal gain solutions table",version=2,gains=initval);
+        struct = dict(description="stefcal gain solutions table",version=2,gains=initval)
         try:
-          cPickle.dump(struct,file(table,'w'),2);
-          dprint(1,"saved %d gain set(s) to %s"%(len(initval),table));
+          with open(table, 'a+') as f:
+            old_data = f.read()
+            fsize = f.tell()
+          if fsize > 0: # has existing tiles in struct, append
+              old_struct = cPickle.loads(old_data)
+              must_clobber = False
+              # Check if the tables can be merged:
+              if (struct["description"] != old_struct["description"]) or \
+                 (struct["version"] != old_struct["version"]):
+                  must_clobber = True
+              for gtype in struct["gains"]:
+                  if gtype in old_struct["gains"]:
+                      if struct["gains"][gtype]["implementation"] != \
+                         old_struct["gains"][gtype]["implementation"]:
+                          must_clobber = True
+              # some of the data tables were not of the same type, need to clobber:
+              if must_clobber:
+                  dprint(1, "Gain tables not of the same type! Did you leave old tables in the directory? "
+                            "Will clobber")
+                  old_struct = struct
+              else: # append to the existing data
+                  for gtype in struct["gains"]:
+                      # merge gain type keys:
+                      if gtype in old_struct["gains"]:
+                          if gtype == "G":
+                            old_struct = merge_di_jones(old_struct, struct)
+                      # otherwise simply add new gain key
+                      else:
+                          old_struct["gains"][gtype] = struct["gains"][gtype]
+                  dprint(1, "Appending new solutions to existing tables")
+              # finally dump out the merged table:
+              cPickle.dump(old_struct, open(table, 'w+'), 2)
+          else: # brand spanking new table
+              dprint(1, "Creating a new gain table %s" % table)
+              cPickle.dump(struct, open(table, 'w+'), 2)
+          dprint(1,"saved %d gain set(s) to %s"%(len(initval),table))
         except:
-          traceback.print_exc();
-          dprint(0,"error saving gains to",table);
-    GainOpts._outgoing_tables = {};
+          traceback.print_exc()
+          dprint(0,"error saving gains to", table)
+          raise
+    GainOpts._outgoing_tables = {}
 
   @staticmethod
 #  @profile
