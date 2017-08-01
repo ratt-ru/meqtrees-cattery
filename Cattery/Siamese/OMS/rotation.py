@@ -172,7 +172,7 @@ class Rotation (object):
       else:
         if Context.observation.circular():
           pexp = cmath.rect(1,angle)
-          pexp = cmath.rect(1,-angle)
+          nexp = cmath.rect(1,-angle)
         else:
           # treat these cases directly, to avoid rounding errors causing unseemly near-0 terms
           if angle_deg == 90:
