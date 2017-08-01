@@ -186,7 +186,7 @@ class Rotation (object):
 
       # now make the rotation matrix. 'cos' and 'sin' may be nodes or constants at this point, it doesn't matter.
       if Context.observation.circular():
-        Jj << Meq.Matrix22(pexp,0,0,nexp);
+        Jj << Meq.Matrix22(nexp,0,0,pexp);
       else:
         Jj << Meq.Matrix22(cos,sin,-sin,cos);
     
