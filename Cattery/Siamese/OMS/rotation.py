@@ -172,7 +172,7 @@ class Rotation (object):
       else:
         if Context.observation.circular():
           pexp = cmath.rect(1,angle)
-          pexp = cmath.rect(1,-angle)
+          nexp = cmath.rect(1,-angle)
         else:
           # treat these cases directly, to avoid rounding errors causing unseemly near-0 terms
           if angle_deg == 90:
@@ -186,7 +186,7 @@ class Rotation (object):
 
       # now make the rotation matrix. 'cos' and 'sin' may be nodes or constants at this point, it doesn't matter.
       if Context.observation.circular():
-        Jj << Meq.Matrix22(pexp,0,0,nexp);
+        Jj << Meq.Matrix22(nexp,0,0,pexp);
       else:
         Jj << Meq.Matrix22(cos,sin,-sin,cos);
     
