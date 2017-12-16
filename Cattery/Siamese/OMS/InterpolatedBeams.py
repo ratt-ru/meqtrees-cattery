@@ -331,8 +331,7 @@ class LMVoltageBeam (object):
       if above.any() or below.any():
         lm[0,:] *= scale
         lm[1,:] *= scale
-        dprint(3,"some points were extrapolated for OOB frequencies using scale factors",
-          scale if numpy.isscalar(scale) else scale[above|below])
+        dprint(3,"some points were extrapolated for OOB frequencies using scale factors")
     # case (D): no frequency dependence in the beam
     else:
       lm = numpy.vstack((l.ravel(),m.ravel()));
