@@ -492,12 +492,14 @@ class MSWriteFlagSelector (MSFlagSelector):
 
 class MSSelector (object):
   _corr_1 = "1";
+  _corr_1_2x2 = "1 corr to 2x2 diag";
   _corr_2 = "2";
   _corr_2x2 = "2x2";
   _corr_2x2_diag = "2x2, diagonal terms only"
   _corr_2x2_offdiag = "2x2, off-diagonal terms only"
   _corr_index = {
     _corr_1:[0],
+    _corr_1_2x2: [0,-1,-1,0],
     _corr_2:[0,-1,-1,1],
     _corr_2x2:[0,1,2,3],
     _corr_2x2_diag:[0,-1,-1,3],
@@ -947,11 +949,11 @@ class MSSelector (object):
     # set options for correlation subset
     ncorr = len(self.ms_corr_names);
     if ncorr < 2:
-      corrlist = [self._corr_1];
+      corrlist = [self._corr_1, self._corr_1_2x2];
     elif ncorr < 4:
-      corrlist = [self._corr_2,self._corr_1];
+      corrlist = [self._corr_2,self._corr_1, self._corr_1_2x2];
     else:
-      corrlist = [self._corr_2x2,self._corr_2x2_diag,self._corr_2,self._corr_1];
+      corrlist = [self._corr_2x2,self._corr_2x2_diag,self._corr_2,self._corr_1, self._corr_1_2x2];
     self.corrsel_option.set_option_list(corrlist);
 
   def imaging_selector (self,*args,**kw):

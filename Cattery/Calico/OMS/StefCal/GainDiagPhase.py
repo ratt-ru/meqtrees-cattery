@@ -201,7 +201,7 @@ class GainDiagPhase (DataTiler):
           print "S%d %s:%s"%(step,p,i),"G''",g1[p,i],g1[p,i][verbose_element];
         # take difference at second step
         gaindiff2[p] += square(gnew - gold)
-        gaindiff2[p][pmask] = 0;
+        gaindiff2[p][mask] = 0;
         # apply solution averaging
         if self.opts.average == 1 or (self.opts.average == 2 and step):
           gnew += gold;

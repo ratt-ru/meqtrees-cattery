@@ -189,7 +189,7 @@ class LMVoltageBeam (object):
     laxis = axes.iaxis(self._l_axis);
     maxis = axes.iaxis(self._m_axis);
     if laxis<0 or maxis<0:
-      raise TypeError,"FITS file %s missing L or M axis"%filename_real;
+      raise TypeError,"FITS file %s missing %s or %s axis"%(filename_real,self._l_axis,self._m_axis);
     # setup conversion functions
     self._lToPixel = Kittens.utils.curry(axes.toPixel,laxis,sign=self._l_axis_sign);
     self._mToPixel = Kittens.utils.curry(axes.toPixel,maxis,sign=self._m_axis_sign);
@@ -442,158 +442,164 @@ class LMVoltageMultifreqBeam (LMVoltageBeam):
   def _freqToPixel (self,freq):
     return self._freq_interpolator(freq);
 
-from Timba import pynode
-from Timba.Meq import meq
-from Timba import mequtils
+try:
+  from Timba import pynode
+  from Timba.Meq import meq
+  from Timba import mequtils
+  standalone = False
+except:
+  print "importing InterpolatedBeams in standalone mode, ignoring MeqTrees-related stuff"
+  standalone = True
 
-def _cells_grid (obj,axis):
-  """helper function to get a grid out of the cells object. Returns None if none is found"""
-  if hasattr(obj,'cells') and hasattr(obj.cells.grid,axis):
-    return obj.cells.grid[axis];
-  else:
-    return None;
-
-class FITSBeamInterpolatorNode (pynode.PyNode):
-  def __init__ (self,*args):
-    pynode.PyNode.__init__(self,*args);
-    # Maintain a global dict of VoltageBeam objects per each filename set, so that we reuse them
-    # We also reset this dict each time a node is created (otherwise the objects end up being reused
-    # even after the tree has been rebuilt.)
-    global _voltage_beams;
-    _voltage_beams = {};
-
-  def update_state (self,mystate):
-    """Standard function to update our state""";
-    mystate('filename_real',[]);
-    mystate('filename_imag',[]);
-    mystate('spline_order',3);
-    mystate('normalize',False);
-    mystate('ampl_interpolation',False);
-    mystate('verbose',0);
-    mystate('l_axis',"L")
-    mystate('m_axis',"M")
-    mystate('l_beam_offset',0.0);
-    mystate('m_beam_offset',0.0);
-    mystate('missing_is_null',False);
-    # Check filename arguments, and init _vb_key for init_voltage_beams() below
-    # We may be created with a single filename pair (scalar Jones term), or 4 filenames (full 2x2 matrix)
-    if isinstance(self.filename_real,str) and isinstance(self.filename_imag,str):
-      self._vb_key = ((self.filename_real,self.filename_imag),);
-    elif  len(self.filename_real) == 4 and len(self.filename_imag) == 4:
-      self._vb_key = tuple(zip(self.filename_real,self.filename_imag));
+if not standalone:  
+  def _cells_grid (obj,axis):
+    """helper function to get a grid out of the cells object. Returns None if none is found"""
+    if hasattr(obj,'cells') and hasattr(obj.cells.grid,axis):
+      return obj.cells.grid[axis];
     else:
-      raise ValueError,"filename_real/filename_imag: either a single filename, or a list of 4 filenames expected";
-    # other init
-    mequtils.add_axis('l');
-    mequtils.add_axis('m');
-    self._freqaxis = mequtils.get_axis_number("freq");
-    _verbosity.set_verbose(self.verbose);
+      return None;
 
-  def init_voltage_beams (self):
-    """initializes VoltageBeams for the given set of FITS files (per each _vb_key, that is).
-    Returns list of 1 or 4 VoltageBeam objects."""
-    # maintain a global dict of VoltageBeam objects per each filename set, so that we reuse them
-    global _voltage_beams;
-    if not '_voltage_beams' in globals():
+  class FITSBeamInterpolatorNode (pynode.PyNode):
+    def __init__ (self,*args):
+      pynode.PyNode.__init__(self,*args);
+      # Maintain a global dict of VoltageBeam objects per each filename set, so that we reuse them
+      # We also reset this dict each time a node is created (otherwise the objects end up being reused
+      # even after the tree has been rebuilt.)
+      global _voltage_beams;
       _voltage_beams = {};
-    # get VoltageBeam object from global dict, or init new one if not already defined
-    vbs,beam_max = _voltage_beams.get(self._vb_key,(None,None));
-    if not vbs:
-      vbs = [];
-      for filename_real,filename_imag in self._vb_key:
-        # if files do not exist, replace with blanks
-        dprint(0,"loading beam files",filename_real,filename_imag)
-        if filename_real and not os.path.exists(filename_real) and self.missing_is_null:
-          dprint(0,"beam pattern",filename_real,"not found, using null instead")
-          filename_real = None;
-        if filename_imag and not os.path.exists(filename_imag) and self.missing_is_null:
-          dprint(0,"beam pattern",filename_imag,"not found, using null instead")
-          filename_real = None;
-        # now, create VoltageBeam if at least the real part still exists
-        if filename_real:
-          vb = LMVoltageBeam(
-                l0=self.l_beam_offset,m0=self.m_beam_offset,
-                l_axis=self.l_axis,m_axis=self.m_axis,
-                ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,
-                verbose=self.verbose);
-          vb.read(filename_real,filename_imag);
-        else:
-          vb = None;
-        # work out norm of beam
-        vbs.append(vb);
-      if not any(vbs):
-        raise RuntimeError,"no beam patterns have been loaded. Please check your filename pattern"
-      if len(vbs) == 1:
-        beam_max = abs(vbs[0].beam()).max();
-      elif len(vbs) == 4:
-        xx,xy,yx,yy = [ vb.beam() if vb else 0 for vb in vbs ];
-        beam_max = math.sqrt((abs(xx)**2+abs(xy)**2+abs(yx)**2+abs(yy)**2).max()/2);
-      dprint(1,"beam max is",beam_max);
-      _voltage_beams[self._vb_key] = vbs,beam_max;
-    return vbs,beam_max;
 
-  def get_result (self,request,*children):
-    # get list of VoltageBeams
-    vbs,beam_max = self.init_voltage_beams();
-    # now, figure out the lm and time/freq grid
-    # lm may be a 2/3-vector or an Nx2/3 tensor
-    lm = children[0];
-    dims = getattr(lm,'dims',[len(lm.vellsets)]);
-    if len(dims) == 2 and dims[1] in (2,3):
-      nsrc,nlm = dims;
-      tensor = True;
-    elif len(dims) == 1 and dims[0] in (2,3):
-      nsrc,nlm = 1,dims[0];
-      tensor = False;
-    else:
-      print "child 0: %d vellsets, shape %s"%(len(lm.vellsets),getattr(lm,'dims',[]));
-      raise TypeError,"expecting a 2/3-vector or an Nx2/3 matrix for child 0 (lm)";
-    # pointing offsets (child 1) are optional
-    if len(children) > 1:
-      dlm = children[1];
-      if len(dlm.vellsets) != 2:
-        raise TypeError,"expecting a 2-vector for child 1 (dlm)";
-      dl,dm = dlm.vellsets[0].value,dlm.vellsets[1].value;
-    else:
-      dl = dm = 0;
-    # setup grid dict that will be passed to VoltageBeam.interpolate
-    grid = dict();
-    for axis in 'time','freq':
-      values = _cells_grid(lm,axis);
-      if values is None:
-        values = _cells_grid(request,axis);
-      if values is not None:
-        grid[axis] = values;
-    vellsets = [];
-    # now loop over sources and interpolte
-    for isrc in range(nsrc):
-      # put l,m into grid
-      l,m = lm.vellsets[isrc*nlm].value,lm.vellsets[isrc*nlm+1].value;
-      l,dl = unite_shapes(l,dl);
-      m,dm = unite_shapes(m,dm);
-      grid['l'] = l - dl;
-      grid['m'] = m - dm;
-      # interpolate
-      for vb in vbs:
-        if vb is None:
-          vellsets.append(meq.vellset(meq.sca_vells(0.)));
+    def update_state (self,mystate):
+        """Standard function to update our state""";
+        mystate('filename_real',[]);
+        mystate('filename_imag',[]);
+        mystate('spline_order',3);
+        mystate('normalize',False);
+        mystate('ampl_interpolation',False);
+        mystate('verbose',0);
+        mystate('l_axis',"L")
+        mystate('m_axis',"M")
+        mystate('l_beam_offset',0.0);
+        mystate('m_beam_offset',0.0);
+        mystate('missing_is_null',False);
+        # Check filename arguments, and init _vb_key for init_voltage_beams() below
+        # We may be created with a single filename pair (scalar Jones term), or 4 filenames (full 2x2 matrix)
+        if isinstance(self.filename_real,str) and isinstance(self.filename_imag,str):
+          self._vb_key = ((self.filename_real,self.filename_imag),);
+        elif  len(self.filename_real) == 4 and len(self.filename_imag) == 4:
+          self._vb_key = tuple(zip(self.filename_real,self.filename_imag));
         else:
-          beam = vb.interpolate(freqaxis=self._freqaxis,**grid);
-          if self.normalize and beam_max != 0:
-            beam /= beam_max;
-          vells = meq.complex_vells(beam.shape);
-          vells[...] = beam[...];
-          # make vells and return result
-          vellsets.append(meq.vellset(vells));
-    # create result object
-    cells = request.cells if vb.hasFrequencyAxis() else getattr(lm,'cells',None);
-    result = meq.result(vellsets[0],cells=cells);
-    if len(vellsets) > 1:
-      result.vellsets[1:] = vellsets[1:];
-    # vbs is either length 4 or length 1. If length 4, then result needs to have its dimensions
-    if len(vbs) > 1:
-      result.dims = (nsrc,2,2) if tensor else (2,2);
-    return result;
+          raise ValueError,"filename_real/filename_imag: either a single filename, or a list of 4 filenames expected";
+        # other init
+        mequtils.add_axis('l');
+        mequtils.add_axis('m');
+        self._freqaxis = mequtils.get_axis_number("freq");
+        _verbosity.set_verbose(self.verbose);
+
+    def init_voltage_beams (self):
+        """initializes VoltageBeams for the given set of FITS files (per each _vb_key, that is).
+        Returns list of 1 or 4 VoltageBeam objects."""
+        # maintain a global dict of VoltageBeam objects per each filename set, so that we reuse them
+        global _voltage_beams;
+        if not '_voltage_beams' in globals():
+          _voltage_beams = {};
+        # get VoltageBeam object from global dict, or init new one if not already defined
+        vbs,beam_max = _voltage_beams.get(self._vb_key,(None,None));
+        if not vbs:
+          vbs = [];
+          for filename_real,filename_imag in self._vb_key:
+            # if files do not exist, replace with blanks
+            dprint(0,"loading beam files",filename_real,filename_imag)
+            if filename_real and not os.path.exists(filename_real) and self.missing_is_null:
+              dprint(0,"beam pattern",filename_real,"not found, using null instead")
+              filename_real = None;
+            if filename_imag and not os.path.exists(filename_imag) and self.missing_is_null:
+              dprint(0,"beam pattern",filename_imag,"not found, using null instead")
+              filename_real = None;
+            # now, create VoltageBeam if at least the real part still exists
+            if filename_real:
+              vb = LMVoltageBeam(
+                    l0=self.l_beam_offset,m0=self.m_beam_offset,
+                    l_axis=self.l_axis,m_axis=self.m_axis,
+                    ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,
+                    verbose=self.verbose);
+              vb.read(filename_real,filename_imag);
+            else:
+              vb = None;
+            # work out norm of beam
+            vbs.append(vb);
+          if not any(vbs):
+            raise RuntimeError,"no beam patterns have been loaded. Please check your filename pattern"
+          if len(vbs) == 1:
+            beam_max = abs(vbs[0].beam()).max();
+          elif len(vbs) == 4:
+            xx,xy,yx,yy = [ vb.beam() if vb else 0 for vb in vbs ];
+            beam_max = math.sqrt((abs(xx)**2+abs(xy)**2+abs(yx)**2+abs(yy)**2).max()/2);
+          dprint(1,"beam max is",beam_max);
+          _voltage_beams[self._vb_key] = vbs,beam_max;
+        return vbs,beam_max;
+
+    def get_result (self,request,*children):
+      # get list of VoltageBeams
+      vbs,beam_max = self.init_voltage_beams();
+      # now, figure out the lm and time/freq grid
+      # lm may be a 2/3-vector or an Nx2/3 tensor
+      lm = children[0];
+      dims = getattr(lm,'dims',[len(lm.vellsets)]);
+      if len(dims) == 2 and dims[1] in (2,3):
+        nsrc,nlm = dims;
+        tensor = True;
+      elif len(dims) == 1 and dims[0] in (2,3):
+        nsrc,nlm = 1,dims[0];
+        tensor = False;
+      else:
+        print "child 0: %d vellsets, shape %s"%(len(lm.vellsets),getattr(lm,'dims',[]));
+        raise TypeError,"expecting a 2/3-vector or an Nx2/3 matrix for child 0 (lm)";
+      # pointing offsets (child 1) are optional
+      if len(children) > 1:
+        dlm = children[1];
+        if len(dlm.vellsets) != 2:
+          raise TypeError,"expecting a 2-vector for child 1 (dlm)";
+        dl,dm = dlm.vellsets[0].value,dlm.vellsets[1].value;
+      else:
+        dl = dm = 0;
+      # setup grid dict that will be passed to VoltageBeam.interpolate
+      grid = dict();
+      for axis in 'time','freq':
+        values = _cells_grid(lm,axis);
+        if values is None:
+          values = _cells_grid(request,axis);
+        if values is not None:
+          grid[axis] = values;
+      vellsets = [];
+      # now loop over sources and interpolte
+      for isrc in range(nsrc):
+        # put l,m into grid
+        l,m = lm.vellsets[isrc*nlm].value,lm.vellsets[isrc*nlm+1].value;
+        l,dl = unite_shapes(l,dl);
+        m,dm = unite_shapes(m,dm);
+        grid['l'] = l - dl;
+        grid['m'] = m - dm;
+        # interpolate
+        for vb in vbs:
+          if vb is None:
+            vellsets.append(meq.vellset(meq.sca_vells(0.)));
+          else:
+            beam = vb.interpolate(freqaxis=self._freqaxis,**grid);
+            if self.normalize and beam_max != 0:
+              beam /= beam_max;
+            vells = meq.complex_vells(beam.shape);
+            vells[...] = beam[...];
+            # make vells and return result
+            vellsets.append(meq.vellset(vells));
+      # create result object
+      cells = request.cells if vb.hasFrequencyAxis() else getattr(lm,'cells',None);
+      result = meq.result(vellsets[0],cells=cells);
+      if len(vellsets) > 1:
+        result.vellsets[1:] = vellsets[1:];
+      # vbs is either length 4 or length 1. If length 4, then result needs to have its dimensions
+      if len(vbs) > 1:
+        result.dims = (nsrc,2,2) if tensor else (2,2);
+      return result;
 
 
 

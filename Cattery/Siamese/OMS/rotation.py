@@ -162,22 +162,33 @@ class Rotation (object):
           ns.fa << ns.fa0 + pa;
         else:
           ns.fa << ns.fa0 - pa;
-        cos = ns.cos_fa << Meq.Cos(ns.fa);
-        sin = ns.sin_fa << Meq.Sin(ns.fa);
+        if Context.observation.circular():
+          pexp = ns.exp_pfa << Meq.Polar(1,ns.fa);
+          nexp = ns.exp_nfa << Meq.Polar(1,-ns.fa);
+        else:
+          cos = ns.cos_fa << Meq.Cos(ns.fa);
+          sin = ns.sin_fa << Meq.Sin(ns.fa);
       # no p.a., work out sines and cosines directly (as constants)
       else:
-        # treat these cases directly, to avoid rounding errors causing unseemly near-0 terms
-        if angle_deg == 90:
-          cos,sin = 0,1;
-        elif angle_deg == 180:
-          cos,sin = -1,0;
-        elif angle_deg == 270:
-          cos,sin = 0,-1;
+        if Context.observation.circular():
+          pexp = cmath.rect(1,angle)
+          nexp = cmath.rect(1,-angle)
         else:
-          cos,sin = math.cos(angle),math.sin(angle);
+          # treat these cases directly, to avoid rounding errors causing unseemly near-0 terms
+          if angle_deg == 90:
+            cos,sin = 0,1;
+          elif angle_deg == 180:
+            cos,sin = -1,0;
+          elif angle_deg == 270:
+            cos,sin = 0,-1;
+          else:
+            cos,sin = math.cos(angle),math.sin(angle);
 
       # now make the rotation matrix. 'cos' and 'sin' may be nodes or constants at this point, it doesn't matter.
-      Jj << Meq.Matrix22(cos,sin,-sin,cos);
+      if Context.observation.circular():
+        Jj << Meq.Matrix22(nexp,0,0,pexp);
+      else:
+        Jj << Meq.Matrix22(cos,sin,-sin,cos);
     
     # If used as a sky-Jones, return somethig that can be qualified with a source name
     if sources:

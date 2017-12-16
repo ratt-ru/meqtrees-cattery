@@ -335,16 +335,20 @@ class IfrArray (object):
     """returns interferometer UVW node(s) for a given phase centre direction,
     or using the global phase center if None is given.
     If an IFR is supplied, returns UVW node for that IFR""";
-    dir0 = Context.get_dir0(dir0);
-    radec0 = dir0.radec();
-    uvw_ifr = self.ns.uvw_ifr.qadd(radec0);
+    dir0 = Context.get_dir0(dir0)
+    radec0 = dir0.radec()
+    uvw_ifr = self.ns.uvw_ifr.qadd(radec0)
     if not uvw_ifr(*(self.ifrs()[0])).initialized():
-      uvw = self.uvw(dir0);
-      # If preferring baseline UVWs, then self.uvw() will now have initialized uvw_ifr for us.
-      # So check once more, and make our own via subtraction if needed
-      if not uvw_ifr(*(self.ifrs()[0])).initialized():
-        for sta1,sta2 in self.ifrs():
-          uvw_ifr(sta1,sta2) << uvw(sta2) - uvw(sta1);
+      if self._ms_uvw:
+        for (ip,p),(iq,q) in self.ifr_index():
+          uvw_ifr(p,q) << Meq.Spigot(station_1_index=ip,station_2_index=iq,input_col='UVW',include_deriv=self._include_uvw_deriv)
+      else:
+        uvw = self.uvw(dir0);
+        # If preferring baseline UVWs, then self.uvw() will now have initialized uvw_ifr for us.
+        # So check once more, and make our own via subtraction if needed
+        if not uvw_ifr(*(self.ifrs()[0])).initialized():
+          for sta1,sta2 in self.ifrs():
+            uvw_ifr(sta1,sta2) << uvw(sta2) - uvw(sta1)
     return uvw_ifr(*quals);
 
   def uv (self,dir0,*quals):

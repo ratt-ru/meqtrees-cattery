@@ -87,6 +87,10 @@ read_ms_model_opt = TDLCompileOption("read_ms_model","Read additional uv-model v
   """);
 
 
+from Siamese.OMS.rotation import Rotation
+from Siamese.OMS import oms_dipole_projection
+meqmaker.add_sky_jones('L','parallactic angle or dipole rotation',[Rotation('L',feed_angle=False),oms_dipole_projection])
+
 # E - beam
 # add a fixed primary beam first
 from Calico.OMS import wsrt_beams  #,wsrt_beams_zernike
@@ -125,27 +129,16 @@ output_option = TDLCompileOption('do_output',"Output visibilities",
                                  [  (CORRECTED_DATA,"corrected data"),
                                     (CORRECTED_DATA_SUB,"corrected data minus DDS"),
                                     (CORRECTED_RESIDUALS,"corrected residuals") ],
-  doc="""<P>This selects what sort of visibilities get written to the output column:</P>
+  doc="""<P>This selects what sort of visibilities get written to the output column.</P>
   <ul>
 
-  <li><B>Predict</B> refers to the visibilities given by the sky model (plus an optional uv-model column),
-  corrupted by the current instrumental model using the Measurement Equation specified below.</li>
+  <li><B>Corrected data</B>: input data corrected for the direction-independent (DI) Jones terms;</li>
 
-  <li><B>Corrected data</B> is the input data corrected for the instrumental model (by applying the inverse of the
-  M.E.)</li>
+  <li><B>Corrected residuals</B>: corrected data minus complete sky model;</li>
 
-  <li><B>Uncorrected residuals</B> refer to input data minus predict. This corresponds to whatever signal is
-  left in your data that is <b>not</b> represented by the model, and still subject to instrumental corruptions.</li>
-
-  <li><B>Corrected residuals</B> are residuals corrected for the instrumental model. This is what you usually
-  want to see during calibration.</li>
+  <li><B>Corrected data minus DDS</B>: corrected data minus only those sky model components that have a dE term.</li>
 
   </ul>
-
-  </P>If calibration is enabled, then a calibration step is executed prior to generating output data. This
-  will update the instrumental and/or sky models. If calibration is not enabled, then the current models
-  may still be determined by the results of past calibration, since these are stored in persistent <i>MEP
-  tables.</i></P>
 
   """);
 

@@ -5,6 +5,7 @@ import os
 import os.path
 import sys
 import subprocess
+import Cattery
 
 ## ugly hack to get around UGLY FSCKING ARROGNAT (misspelling fully intentional) pyfits-2.3 bug
 import Kittens.utils
@@ -87,6 +88,8 @@ if __name__ == '__main__':
   print "========== Running makems";
   run("makems %s"%path("WSRT_makems.cfg"));
   run("mv WSRT.MS_p0 WSRT.MS");
+  os.environ["MEQTREES_CATTERY_PATH"] = Cattery.__path__[0]
+  run("pyxis WSRT.MS ms.prep"); #TODO: this is hacky, bug in CASAcore
   run("ls -ld WSRT.MS");
   run("owlcat downweigh-redundant-baselines WSRT.MS");
   run("lwimager ms=WSRT.MS data=CORRECTED_DATA mode=channel weight=natural npix=10");

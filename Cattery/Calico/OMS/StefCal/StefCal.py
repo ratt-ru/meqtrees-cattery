@@ -1034,7 +1034,7 @@ class StefCalNode (pynode.PyNode):
           if self.subtract_dgsrc:
             for idg,dg in enumerate(self.dgopts):
               corr = dg.solver.apply(dgmodel[idg],pq);
-              for d,m in zip(out,corr[pq]):
+              for d,m in zip(out,corr):
                 d -= m;
             #dgm: for idg,dgcorr in enumerate(dgmodel_corr):
             #dgm:   for d,m in zip(out,dgcorr[pq]):
@@ -1392,8 +1392,8 @@ class StefCalNode (pynode.PyNode):
       if gainflags:
         dprint(2,"flagged gains per antenna:",", ".join(["%s %.2f%%"%(p,gf.sum()*100./gopt.solver.real_slots) for p,gf in sorted(gainflags.iteritems())]));
         for pq in data.iterkeys():
-          fmask = gainflags.get(pq[0],0);
-          fmask |= gainflags.get(pq[1],0);
+          fmask = gainflags.get(pq[0],False);
+          fmask |= gainflags.get(pq[1],False);
           if not is_null(fmask):
             chisq_arr[fmask] = 0;
             self.add_flags(bitflags,pq,(fmask)*FSOLOOB);

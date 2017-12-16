@@ -60,7 +60,9 @@ class GainDiag (DataTiler):
     for ifr in self._solve_ifrs:
       self._antennas.update(ifr);
       self._parms.update([(p,i) for p in ifr for i in range(2)]);
-    self._unity = numpy.ones(self.subshape,dtype=complex if not opts.real_only else float);
+    self._float = opts.use_float
+    self._dtype = numpy.float64 if opts.real_only else (numpy.complex64 if self._float else numpy.complex128)
+    self._unity = numpy.ones(self.subshape,dtype=self._dtype);
     # init_value=1: init each parm with the _unity array
     # subsequent steps create new arrays, so sufficient to use the same initial value object for all antennas
     if init_value == 1:
@@ -146,8 +148,8 @@ class GainDiag (DataTiler):
               m[bfmask] = 0;
               d[bfmask] = 0;
             # compute update
-            mh = self.tile_data(m)*self.tile_subshape(g0[q,j]);
-            dmh = self.tile_data(d)*mh;
+            mh = self.tile_data(m,dtype=self._dtype)*self.tile_subshape(g0[q,j]);
+            dmh = self.tile_data(d,dtype=self._dtype)*mh;
             mh2 = abs(mh)**2;
             if (p,q) in verbose_baselines and i==j:
               print "S%d %s%s:%s%s"%(step,p,q,i,j),"D",d[verbose_element],"MH",m[verbose_element], \
@@ -195,7 +197,7 @@ class GainDiag (DataTiler):
           print "S%d %s:%s"%(step,p,i),"G''",g1[p,i],g1[p,i][verbose_element];
         # take difference at second step
         gaindiff2[p] += square(gnew - gold)
-        gaindiff2[p][pmask] = 0;
+        gaindiff2[p][mask] = 0;
         # apply solution averaging
         if self.opts.average == 1 or (self.opts.average == 2 and step):
           gnew += gold;
@@ -355,7 +357,7 @@ class GainDiag (DataTiler):
     appl = self._apply_cache.get(pq) if cache else None;
     if appl is None:
 #      print [ (getattr(tiler.untile_data(tiler.tile_data(d)),'shape',()),getattr(self.gpgq(pq,i,j),'shape',())) for d,(i,j) in zip(lhs,IJ2x2) ];
-      appl = [ 0 if is_null(d) else tiler.untile_data(tiler.tile_data(d)*self.gpgq(pq,i,j))
+      appl = [ 0 if is_null(d) else tiler.untile_data(tiler.tile_data(d,dtype=self._dtype)*self.gpgq(pq,i,j))
                                    for d,(i,j) in zip(lhs,IJ2x2) ];
       if cache:
         self._apply_cache[pq] = appl;
@@ -371,7 +373,7 @@ class GainDiag (DataTiler):
     appl = self._apply_inverse_cache.get(pq) if cache else None;
     if appl is None:
       mod = rhs[pq];
-      appl = [ 0 if is_null(m) else tiler.untile_data(tiler.tile_data(m)*
+      appl = [ 0 if is_null(m) else tiler.untile_data(tiler.tile_data(m,dtype=self._dtype)*
                   self.gpgq_inv(pq,i,j,regularize=regularize)) for m,(i,j) in zip(mod,IJ2x2) ];
       if cache:
         self._apply_inverse_cache[pq] = appl;
