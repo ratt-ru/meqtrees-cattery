@@ -1,20 +1,17 @@
 sudo: required
-
 services:
- - docker
-
+- docker
 before_install: true
-
-install: 
-    - docker build -t kernsuite/cattery .
-
+install:
+- docker build -t kernsuite/cattery .
 before_script: true
-
 script:
-    - docker run kernsuite/cattery
-
+- docker run kernsuite/cattery
 deploy:
   provider: pypi
   user: gijzelaerr
   password:
-    secure: XlGz3/FEHT+e2B1JSFSiW+UPcZ+mGHHEb94a+f+b/UYxgfW/JiLw3EZOSnr6NBbrpA6aNQhPDxMVlMaqtTuOTWOt9sOly9RXfYe8Wem1WzEMbVj9n4P/f8BtJHE/op2aFVhlVGh5aSwt+H6uC7rHlYinQAGN76d+DdUTNwjh3CE=
+    secure: LW8gBbuZXiMH+IBMD4kVoEt1qUXCOZTsn9QKgX4s4Ta79dBSSaAjZXTAlVZs3JCAjrQ53erLrffsJezwLCrSFRTHHlyHSdiDmomdvHTfwzfZsShv8ZhbN3V8LAGG812ZIVMzOf8IWwodWxlJWK9GvWcPSWCHXUnXUUQ+/kCCHyE=
+  on:
+    tags: true
+    repo: ska-sa/meqtrees-cattery
