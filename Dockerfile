@@ -1,4 +1,4 @@
-FROM kernsuite/base:3
+FROM kernsuite/base:dev
 RUN docker-apt-install \
     casacore-dev \
     casacore-tools \
@@ -9,18 +9,19 @@ RUN docker-apt-install \
     python-scipy \
     python-astlib \
     python-casacore
-RUN docker-apt-install \
     build-essential \
     cmake \
-    makems
+    lofar \
+    python-qt4 \
+    python-qwt5-qt4 \
+    git
 
 ################################
 # install latest masters
 ################################
-RUN echo "deb-src http://ppa.launchpad.net/kernsuite/kern-3/ubuntu xenial main" > /etc/apt/sources.list.d/kernsuite-ubuntu-kern-3-xenial.list
 RUN apt-get update
 RUN apt-get build-dep -y meqtrees-timba meqtrees-cattery
-RUN docker-apt-install python-qt4 python-qwt5-qt4 git
+RUN docker-apt-install 
 RUN mkdir -p /opt/src/meqtrees
 ENV BUILD /opt/src/meqtrees
 WORKDIR $BUILD
