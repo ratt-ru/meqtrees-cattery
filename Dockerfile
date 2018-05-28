@@ -15,6 +15,7 @@ RUN docker-apt-install \
     lofar \
     python-qt4 \
     python-qwt5-qt4 \
+    python-astropy \
     git \
     software-properties-common
     
