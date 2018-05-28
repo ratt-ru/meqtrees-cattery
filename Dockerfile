@@ -1,4 +1,5 @@
 FROM kernsuite/base:dev
+RUN apt-add-repository -s ppa:kernsuite/kern-dev
 RUN docker-apt-install \
     casacore-dev \
     casacore-tools \
