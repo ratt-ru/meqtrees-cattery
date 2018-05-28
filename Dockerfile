@@ -1,5 +1,5 @@
 FROM kernsuite/base:dev
-RUN apt-add-repository -s ppa:kernsuite/kern-dev
+
 RUN docker-apt-install \
     casacore-dev \
     casacore-tools \
@@ -15,7 +15,10 @@ RUN docker-apt-install \
     lofar \
     python-qt4 \
     python-qwt5-qt4 \
-    git
+    git \
+    software-properties-common
+    
+RUN apt-add-repository -s ppa:kernsuite/kern-dev
 
 ################################
 # install latest masters
