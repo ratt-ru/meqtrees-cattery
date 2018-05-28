@@ -8,7 +8,7 @@ RUN docker-apt-install \
     python-numpy \
     python-scipy \
     python-astlib \
-    python-casacore
+    python-casacore \
     build-essential \
     cmake \
     lofar \
@@ -21,7 +21,6 @@ RUN docker-apt-install \
 ################################
 RUN apt-get update
 RUN apt-get build-dep -y meqtrees-timba meqtrees-cattery
-RUN docker-apt-install 
 RUN mkdir -p /opt/src/meqtrees
 ENV BUILD /opt/src/meqtrees
 WORKDIR $BUILD
