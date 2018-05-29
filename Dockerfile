@@ -8,7 +8,8 @@ RUN docker-apt-install \
     python-numpy \
     python-scipy \
     python-astlib \
-    python-casacore
+    python-casacore \
+    libqdbm-dev
 RUN docker-apt-install \
     build-essential \
     cmake \
