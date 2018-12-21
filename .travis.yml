@@ -1,4 +1,4 @@
-lanuage: python
+language: python
 matrix:
   include:
   - env: TARGET=py2
