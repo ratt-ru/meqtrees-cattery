@@ -1,12 +1,20 @@
+lanuage: python
+matrix:
+  include:
+  - env: TARGET=py2
+  - env: TARGET=py3
+  - env: TARGET=pep8
+  - env: TARGET=mypy
+  allow_failures:
+  - env: TARGET=pep8
+  - env: TARGET=mypy
 sudo: required
 services:
-- docker
-before_install: true
+ - docker
 install:
-- docker build -t kernsuite/cattery .
-before_script: true
+ - true
 script:
-- docker run kernsuite/cattery
+- docker build . -f .travis/${TARGET}.docker
 deploy:
   provider: pypi
   user: gijzelaerr

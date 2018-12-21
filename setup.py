@@ -39,6 +39,17 @@ for dirpath, dirnames, filenames in os.walk('Cattery'):
     elif filenames:
         data_files.append([dirpath, [os.path.join(dirpath, f) for f in filenames]])
 
+install_requires = [
+    'numpy',
+    'purr',
+    'astropy',
+    'python_casacore',
+    'scipy',
+    'astro_kittens',
+    'astro_pyxis',
+    # 'Timba' is not on pypi
+]
+
 
 setup(name='meqtrees_cattery',
       version='1.5.3',
@@ -48,5 +59,5 @@ setup(name='meqtrees_cattery',
       url='https://github.com/ska-sa/meqtrees-cattery',
       packages=packages,
       data_files=data_files,
-      requires=['numpy', 'Purr', 'pyfits', 'python_casacore', 'scipy', 'Timba'],
+      install_requires=install_requires
      )

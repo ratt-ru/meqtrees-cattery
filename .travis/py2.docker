@@ -1,0 +1,23 @@
+FROM kernsuite/base:dev
+RUN docker-apt-install \
+    casacore-dev \
+    casacore-tools \
+    casarest \
+    meqtrees-timba \
+    libqdbm-dev \
+    owlcat \
+    python-pip \
+    python-astropy \
+    python-numpy \
+    python-scipy \
+    python-astlib \
+    python-casacore \
+    python-casacore \
+    python-qt4 \
+    python-qwt5-qt4 \
+    lofar
+ADD . /code
+WORKDIR /code
+RUN pip install .
+WORKDIR /code/test/Batchtest
+RUN python batch_test.py
