@@ -111,9 +111,9 @@ TDLCompileOption("noise_stddev","Add noise, Jy",[None,1e-6,1e-3],more=float);
 
 def _define_forest (ns):
   if not mssel.msname:
-    raise RuntimeError,"MS not set up in compile-time options";
+    raise RuntimeError("MS not set up in compile-time options");
   if run_purr:
-    print mssel.msname;
+    print(mssel.msname);
     import os.path
     purrlog = os.path.normpath(mssel.msname)+".purrlog";
     Timba.TDL.GUI.purr(purrlog,[mssel.msname,'.']);
@@ -183,4 +183,4 @@ if __name__ == '__main__':
   # resolves nodes
   ns.Resolve();
 
-  print len(ns.AllNodes()),'nodes defined';
+  print(len(ns.AllNodes()),'nodes defined');

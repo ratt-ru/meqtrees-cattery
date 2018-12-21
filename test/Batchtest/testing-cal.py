@@ -128,7 +128,7 @@ def _define_forest(ns,parent=None,**kw):
   purrpipe = Purr.Pipe.Pipe(mssel.msname);
   
   # get antennas from MS
-  ANTENNAS = mssel.get_antenna_set(range(1,15));
+  ANTENNAS = mssel.get_antenna_set(list(range(1,15)));
   array = Meow.IfrArray(ns,ANTENNAS,mirror_uvw=False);
   stas = array.stations();
   # get phase centre from MS, setup observation
@@ -173,7 +173,7 @@ def _define_forest(ns,parent=None,**kw):
       for src in meqmaker.get_source_list(ns):
         parms.update([(p.name,p) for p in src.get_solvables()]);
       if parms:
-        pg_src = ParmGroup.ParmGroup("source",parms.values(),
+        pg_src = ParmGroup.ParmGroup("source",list(parms.values()),
                     table_name="sources.fmep",
                     individual=True,bookmark=True);
         # now make a solvejobs for the source
@@ -219,7 +219,7 @@ def _define_forest(ns,parent=None,**kw):
           observed(p,q) << 0;
           model(p,q)  << Meq.Abs(predict(p,q))*Meq.FMod(Meq.Arg(spigots(p,q))-Meq.Arg(predict(p,q)),2*math.pi);
       else:
-        raise ValueError,"unknown cal_type setting: "+str(cal_type);
+        raise ValueError("unknown cal_type setting: "+str(cal_type));
     # make a solve tree
     solve_tree = StdTrees.SolveTree(ns,model,solve_ifrs=solve_ifrs);
     # the output of the sequencer is either the residuals or the spigots,
