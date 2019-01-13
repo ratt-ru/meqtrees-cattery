@@ -14,8 +14,20 @@ RUN docker-apt-install \
     python-casacore \
     python-casacore \
     python-qt4 \
-    python-qwt5-qt4 \
-    lofar
+    python-qwt5-qt4
+
+# screw LOFAR makems, build ska-sa makems from source
+RUN mkdir -p /opt/src
+ENV BUILD=/opt/src
+RUN git clone https://github.com/ska-sa/makems
+RUN mkdir -p $BUILD/makems/LOFAR/build/gnu_opt
+WORKDIR $BUILD/makems/LOFAR/build/gnu_opt
+RUN cmake -DCMAKE_MODULE_PATH:PATH=$BUILD/makems/LOFAR/CMake \
+-DUSE_LOG4CPLUS=OFF -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release ../..
+RUN make -j 16
+RUN make install
+ENV PATH=/opt/src/makems/LOFAR/build/gnu_opt/CEP/MS/src:${PATH}
+
 ADD . /code
 WORKDIR /code
 RUN pip install .
