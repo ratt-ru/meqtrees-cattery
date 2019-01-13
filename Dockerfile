@@ -20,7 +20,8 @@ RUN docker-apt-install \
 RUN docker-apt-install \
     build-essential \
     cmake \
-    lofar
+    lofar \
+    libblitz0-dev
 
 ################################
 # install latest masters
