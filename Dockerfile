@@ -7,10 +7,15 @@ RUN docker-apt-install \
     python3 \
     python3-pip \
     python-pyfits \
+    python3-pyfits \
     python-numpy \
+    python3-numpy \
     python-scipy \
+    python3-scipy \
     python-astlib \
+    python3-astlib \
     python-casacore \
+    python3-casacore \
     libqdbm-dev
 RUN docker-apt-install \
     build-essential \
