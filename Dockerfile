@@ -15,7 +15,7 @@ RUN docker-apt-install \
 RUN docker-apt-install \
     build-essential \
     cmake \
-    makems
+    lofar
 
 ################################
 # install latest masters
