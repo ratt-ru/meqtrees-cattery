@@ -20,6 +20,8 @@ RUN docker-apt-install \
 ################################
 # install latest masters
 ################################
+RUN echo "deb-src http://ppa.launchpad.net/kernsuite/kern-4/ubuntu bionic main" > /etc/apt/sources.list.d/kernsuite-ubuntu-kern-4-bionic.list
+RUN apt-get update
 RUN apt-get update
 RUN apt-get build-dep -y meqtrees-timba meqtrees-cattery
 RUN docker-apt-install python-qt4 python-qwt5-qt4 git
