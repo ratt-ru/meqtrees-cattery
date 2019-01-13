@@ -47,6 +47,15 @@ RUN Tools/Build/bootstrap_cmake release
 WORKDIR $BUILD
 RUN cd meqtrees-timba/build/release && make -j8 && make install
 
+#Install python2.7
+RUN pip install astropy<3.0 # monkeypatch in last compatible astropy
+RUN cd kittens && python2.7 setup.py install
+RUN cd purr && python2.7 setup.py install
+RUN cd pyxis && python2.7 setup.py install
+RUN cd tigger && python2.7 setup.py install
+RUN cd meqtrees-cattery && python2.7 setup.py install
+RUN cd owlcat && python2.7 setup.py install
+
 #Install python3
 RUN cd kittens && python3 setup.py install
 RUN cd purr && python3 setup.py install
@@ -54,14 +63,6 @@ RUN cd pyxis && python3 setup.py install
 RUN cd tigger && python3 setup.py install
 RUN cd meqtrees-cattery && python3 setup.py install
 RUN cd owlcat && python3 setup.py install
-
-#Install python2.7
-RUN cd kittens && python2.7 setup.py install
-RUN cd purr && python2.7 setup.py install
-RUN cd pyxis && python2.7 setup.py install
-RUN cd tigger && python2.7 setup.py install
-RUN cd meqtrees-cattery && python2.7 setup.py install
-RUN cd owlcat && python2.7 setup.py install
 
 ENV LD_LIBRARY_PATH /usr/local/lib:$LD_LIBRARY_PATH
 ENV PATH /usr/local/bin:$PATH
