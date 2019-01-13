@@ -16,6 +16,11 @@ RUN docker-apt-install \
     python3-pyqt4 \
     python3-qwt
 
+RUN docker-apt-install \
+    git \
+    cmake \
+    build-essential
+
 # screw LOFAR makems, build ska-sa makems from source
 RUN mkdir -p /opt/src
 ENV BUILD=/opt/src
