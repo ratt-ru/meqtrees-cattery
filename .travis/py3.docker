@@ -1,4 +1,4 @@
-FROM kernsuite/base:dev
+FROM kernsuite/base:4
 RUN docker-apt-install \
     casacore-dev \
     casacore-tools \
@@ -24,6 +24,7 @@ RUN docker-apt-install \
 # screw LOFAR makems, build ska-sa makems from source
 RUN mkdir -p /opt/src
 ENV BUILD=/opt/src
+WORKDIR ${BUILD}
 RUN git clone https://github.com/ska-sa/makems
 RUN mkdir -p $BUILD/makems/LOFAR/build/gnu_opt
 WORKDIR $BUILD/makems/LOFAR/build/gnu_opt
