@@ -48,7 +48,8 @@ WORKDIR $BUILD
 RUN cd meqtrees-timba/build/release && make -j8 && make install
 
 #Install python2.7
-RUN pip install astropy<3.0 # monkeypatch in last compatible astropy
+# monkeypatch in last compatible astropy
+RUN pip install astropy<3.0
 RUN cd kittens && python2.7 setup.py install
 RUN cd purr && python2.7 setup.py install
 RUN cd pyxis && python2.7 setup.py install
