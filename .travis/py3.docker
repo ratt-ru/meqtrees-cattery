@@ -1,4 +1,4 @@
-FROM kernsuite/base:dev
+FROM kernsuite/base:4
 RUN docker-apt-install \
     casacore-dev \
     casacore-tools \
@@ -6,6 +6,8 @@ RUN docker-apt-install \
     meqtrees-timba \
     libqdbm-dev \
     owlcat \
+    python-astro-tigger \
+    python3-gdbm \
     python3-pip \
     python3-astropy \
     python3-numpy \
@@ -14,8 +16,27 @@ RUN docker-apt-install \
     python3-casacore \
     python3-casacore \
     python3-pyqt4 \
-    python3-qwt \
-    lofar
+    python3-qwt
+
+RUN docker-apt-install \
+    git \
+    cmake \
+    build-essential \
+    libboost-all-dev
+
+# screw LOFAR makems, build ska-sa makems from source
+RUN mkdir -p /opt/src
+ENV BUILD=/opt/src
+WORKDIR ${BUILD}
+RUN git clone https://github.com/ska-sa/makems
+RUN mkdir -p $BUILD/makems/LOFAR/build/gnu_opt
+WORKDIR $BUILD/makems/LOFAR/build/gnu_opt
+RUN cmake -DCMAKE_MODULE_PATH:PATH=$BUILD/makems/LOFAR/CMake \
+-DUSE_LOG4CPLUS=OFF -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release ../..
+RUN make -j 16
+RUN make install
+ENV PATH=/opt/src/makems/LOFAR/build/gnu_opt/CEP/MS/src:${PATH}
+
 ADD . /code
 WORKDIR /code
 RUN pip3 install .
