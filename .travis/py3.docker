@@ -6,7 +6,7 @@ RUN docker-apt-install \
     meqtrees-timba \
     libqdbm-dev \
     owlcat \
-    python-tigger \
+    python-astro-tigger \
     python3-pip \
     python3-astropy \
     python3-numpy \
