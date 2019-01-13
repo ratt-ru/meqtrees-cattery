@@ -20,7 +20,7 @@ RUN docker-apt-install \
     git \
     cmake \
     build-essential \
-    libboost-dev-all
+    libboost-all-dev
 
 # screw LOFAR makems, build ska-sa makems from source
 RUN mkdir -p /opt/src
