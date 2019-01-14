@@ -1,3 +1,7 @@
+Latest KERN status: [![Travis Status](https://travis-ci.org/ska-sa/meqtrees-cattery.svg?branch=master)](https://travis-ci.org/ska-sa/meqtrees-cattery)
+
+Latest Master status: [![Jenkins Status](https://jenkins.meqtrees.net/job/meqtrees-cattery-cron/badge/icon)](https://jenkins.meqtrees.net/job/meqtrees-cattery-cron/)
+
 # meqtrees-cattery
 
 The Cattery is a set of MeqTrees-based frameworks for simulation and calibration of 
@@ -25,8 +29,4 @@ Read everything about MeqTrees on the wiki:
 
 https://github.com/ska-sa/meqtrees/wiki
 
-## Development
 
-[![Travis Status](https://travis-ci.org/ska-sa/meqtrees-cattery.svg?branch=master)](https://travis-ci.org/ska-sa/meqtrees-cattery)
-
-[![Jenkins Status](https://jenkins.meqtrees.net/job/meqtrees-cattery-cron/badge/icon)](https://jenkins.meqtrees.net/job/meqtrees-cattery-cron/)
