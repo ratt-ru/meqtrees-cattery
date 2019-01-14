@@ -14,7 +14,8 @@ services:
 install:
  - true
 script:
-- docker build . -f .travis/${TARGET}.docker
+- docker build . -f .travis/${TARGET}.docker -t meqtrees_${TARGET}
+- docker run --rm meqtrees_${TARGET}
 deploy:
   provider: pypi
   user: gijzelaerr

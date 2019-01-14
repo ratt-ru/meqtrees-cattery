@@ -14,30 +14,18 @@ RUN docker-apt-install \
     cmake \
     libblitz0-dev \
     binutils-dev \
-    wget
+    makems
 
 ################################
 # install latest masters
 ################################
 RUN echo "deb-src http://ppa.launchpad.net/kernsuite/kern-5/ubuntu bionic main" > /etc/apt/sources.list.d/kernsuite-ubuntu-kern-4-bionic.list
 RUN apt-get update
-RUN apt-get update
 RUN apt-get build-dep -y meqtrees-timba meqtrees-cattery
 RUN docker-apt-install python-qt4 python-qwt5-qt4 git
 RUN mkdir -p /opt/src/meqtrees
 ENV BUILD /opt/src/meqtrees
 WORKDIR $BUILD
-
-# screw LOFAR makems, build ska-sa makems from source
-RUN wget https://github.com/ska-sa/makems/archive/v1.5.0.tar.gz
-RUN tar -xvf v1.5.0.tar.gz
-RUN mkdir -p $BUILD/makems-1.5.0/LOFAR/build/gnu_opt
-WORKDIR $BUILD/makems-1.5.0/LOFAR/build/gnu_opt
-RUN cmake -DCMAKE_MODULE_PATH:PATH=$BUILD/makems-1.5.0/LOFAR/CMake \
--DUSE_LOG4CPLUS=OFF -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release ../..
-RUN make -j 16
-RUN make install
-ENV PATH=/opt/src/meqtrees/makems-1.5.0/LOFAR/build/gnu_opt/CEP/MS/src:${PATH}
 
 # now the rest of Meqtrees
 WORKDIR $BUILD
@@ -76,7 +64,4 @@ RUN ldconfig # update the linker config
 ADD . /code
 WORKDIR /code/test/Batchtest
 
-CMD echo '##################################################' && \
-    echo 'Starting Python 2.7 testing...' && \
-    echo '##################################################' && \
-    python2.7 batch_test.py
+CMD python2.7 batch_test.py
