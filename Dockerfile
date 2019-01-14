@@ -28,7 +28,7 @@ ENV BUILD /opt/src/meqtrees
 WORKDIR $BUILD
 
 # screw LOFAR makems, build ska-sa makems from source
-RUN git clone https://github.com/ska-sa/makems
+RUN git clone https://github.com/ska-sa/makems@v1.5.0
 RUN mkdir -p $BUILD/makems/LOFAR/build/gnu_opt
 WORKDIR $BUILD/makems/LOFAR/build/gnu_opt
 RUN cmake -DCMAKE_MODULE_PATH:PATH=$BUILD/makems/LOFAR/CMake \
