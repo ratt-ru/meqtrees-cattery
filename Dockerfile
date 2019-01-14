@@ -13,7 +13,8 @@ RUN docker-apt-install \
     build-essential \
     cmake \
     libblitz0-dev \
-    binutils-dev
+    binutils-dev \
+    wget
 
 ################################
 # install latest masters
@@ -28,14 +29,15 @@ ENV BUILD /opt/src/meqtrees
 WORKDIR $BUILD
 
 # screw LOFAR makems, build ska-sa makems from source
-RUN git clone https://github.com/ska-sa/makems@v1.5.0
-RUN mkdir -p $BUILD/makems/LOFAR/build/gnu_opt
-WORKDIR $BUILD/makems/LOFAR/build/gnu_opt
-RUN cmake -DCMAKE_MODULE_PATH:PATH=$BUILD/makems/LOFAR/CMake \
+RUN wget https://github.com/ska-sa/makems/archive/v1.5.0.tar.gz
+RUN tar -xvf v1.5.0.tar.gz
+RUN mkdir -p $BUILD/makems-1.5.0/LOFAR/build/gnu_opt
+WORKDIR $BUILD/makems-1.5.0/LOFAR/build/gnu_opt
+RUN cmake -DCMAKE_MODULE_PATH:PATH=$BUILD/makems-1.5.0/LOFAR/CMake \
 -DUSE_LOG4CPLUS=OFF -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release ../..
 RUN make -j 16
 RUN make install
-ENV PATH=/opt/src/meqtrees/makems/LOFAR/build/gnu_opt/CEP/MS/src:${PATH}
+ENV PATH=/opt/src/meqtrees/makems-1.5.0/LOFAR/build/gnu_opt/CEP/MS/src:${PATH}
 
 # now the rest of Meqtrees
 WORKDIR $BUILD
