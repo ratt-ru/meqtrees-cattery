@@ -1,4 +1,4 @@
-FROM kernsuite/base:4
+FROM kernsuite/base:5
 RUN docker-apt-install \
     casacore-dev \
     casacore-tools \
@@ -9,35 +9,23 @@ RUN docker-apt-install \
     python-scipy \
     python-astlib \
     python-casacore \
-    libqdbm-dev
-RUN docker-apt-install \
+    libqdbm-dev \
     build-essential \
     cmake \
-    libblitz0-dev
-RUN docker-apt-install \
-    binutils-dev
+    libblitz0-dev \
+    binutils-dev \
+    makems
 
 ################################
 # install latest masters
 ################################
-RUN echo "deb-src http://ppa.launchpad.net/kernsuite/kern-4/ubuntu bionic main" > /etc/apt/sources.list.d/kernsuite-ubuntu-kern-4-bionic.list
-RUN apt-get update
+RUN echo "deb-src http://ppa.launchpad.net/kernsuite/kern-5/ubuntu bionic main" > /etc/apt/sources.list.d/kernsuite-ubuntu-kern-4-bionic.list
 RUN apt-get update
 RUN apt-get build-dep -y meqtrees-timba meqtrees-cattery
 RUN docker-apt-install python-qt4 python-qwt5-qt4 git
 RUN mkdir -p /opt/src/meqtrees
 ENV BUILD /opt/src/meqtrees
 WORKDIR $BUILD
-
-# screw LOFAR makems, build ska-sa makems from source
-RUN git clone https://github.com/ska-sa/makems
-RUN mkdir -p $BUILD/makems/LOFAR/build/gnu_opt
-WORKDIR $BUILD/makems/LOFAR/build/gnu_opt
-RUN cmake -DCMAKE_MODULE_PATH:PATH=$BUILD/makems/LOFAR/CMake \
--DUSE_LOG4CPLUS=OFF -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=Release ../..
-RUN make -j 16
-RUN make install
-ENV PATH=/opt/src/meqtrees/makems/LOFAR/build/gnu_opt/CEP/MS/src:${PATH}
 
 # now the rest of Meqtrees
 WORKDIR $BUILD
@@ -76,7 +64,4 @@ RUN ldconfig # update the linker config
 ADD . /code
 WORKDIR /code/test/Batchtest
 
-CMD echo '##################################################' && \
-    echo 'Starting Python 2.7 testing...' && \
-    echo '##################################################' && \
-    python2.7 batch_test.py
+CMD python2.7 batch_test.py
