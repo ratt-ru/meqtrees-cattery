@@ -21,8 +21,23 @@ RUN docker-apt-install \
     libboost-all-dev \
     makems
 
+RUN docker-apt-install \
+    wget
+
 ADD . /code
 WORKDIR /code
-RUN pip install .
-WORKDIR /code/test/Batchtest
-CMD python batch_test.py
+RUN pip install -U .
+
+# get the test from pyxis
+RUN wget https://github.com/ska-sa/pyxis/archive/v1.6.2.tar.gz
+RUN tar -xvf v1.6.2.tar.gz
+WORKDIR /code/pyxis-1.6.2
+RUN pip install -U .
+
+# run test when built
+RUN pip install nose
+WORKDIR /usr/local/lib/python2.7/dist-packages/Pyxis/recipies/meqtrees-batch-test
+RUN python2.7 -m "nose"
+
+ENTRYPOINT ["meqtree-pipeliner.py"]
+CMD ["--help"]

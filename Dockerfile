@@ -16,6 +16,9 @@ RUN docker-apt-install \
     binutils-dev \
     makems
 
+RUN docker-apt-install \
+    wget
+
 ################################
 # install latest masters
 ################################
@@ -32,36 +35,44 @@ WORKDIR $BUILD
 RUN git clone https://github.com/ska-sa/meqtrees-timba
 RUN git clone https://github.com/ska-sa/kittens 
 RUN git clone https://github.com/ska-sa/purr
-RUN git clone https://github.com/ska-sa/pyxis 
 RUN git clone https://github.com/ska-sa/tigger 
-ADD . /opt/src/meqtrees/cattery 
 RUN git clone https://github.com/ska-sa/owlcat 
 
-#Build Timba
+# Add current module
+ADD . /opt/src/meqtrees/cattery 
 
+# Build Timba
 RUN mkdir meqtrees-timba/build
 WORKDIR $BUILD/meqtrees-timba
 RUN Tools/Build/bootstrap_cmake release
 WORKDIR $BUILD
 RUN cd meqtrees-timba/build/release && make -j16 && make install
 
-#Install python2.7
-# monkeypatch in last compatible astropy
-RUN pip install astropy==2.0.11
-RUN cd kittens && python2.7 setup.py install
-RUN cd purr && python2.7 setup.py install
-RUN cd pyxis && python2.7 setup.py install
-RUN cd tigger && python2.7 setup.py install
-RUN cd cattery && python2.7 setup.py install
-RUN cd owlcat && python2.7 setup.py install
+# Install python2.7 modules
+RUN cd cattery && pip install . 
+RUN cd kittens && pip install .
+RUN cd purr && pip install .
+RUN cd tigger && pip install .
+RUN cd owlcat && pip install .
 
 ENV LD_LIBRARY_PATH /usr/local/lib:$LD_LIBRARY_PATH
 ENV PATH /usr/local/bin:$PATH
 RUN ldconfig # update the linker config
-################################
-# add test
-################################
-ADD . /code
-WORKDIR /code/test/Batchtest
 
-CMD python2.7 batch_test.py
+################################
+# get the test from pyxis
+################################
+WORKDIR $BUILD
+RUN wget https://github.com/ska-sa/pyxis/archive/v1.6.2.tar.gz
+RUN tar -xvf v1.6.2.tar.gz
+WORKDIR $BUILD/pyxis-1.6.2
+RUN ls .
+RUN pip install -U .
+
+# run test when built
+RUN pip install nose
+WORKDIR /usr/local/lib/python2.7/dist-packages/Pyxis/recipies/meqtrees-batch-test
+RUN python2.7 -m "nose"
+
+ENTRYPOINT ["meqtree-pipeliner.py"]
+CMD ["--help"]
