@@ -6,6 +6,7 @@ matrix:
   - env: TARGET=pep8
   - env: TARGET=mypy
   allow_failures:
+  - env: TARGET=py3
   - env: TARGET=pep8
   - env: TARGET=mypy
 sudo: required
@@ -14,8 +15,7 @@ services:
 install:
  - true
 script:
-- docker build . -f .travis/${TARGET}.docker -t meqtrees_${TARGET}
-- docker run --rm meqtrees_${TARGET}
+- travis_wait 30 docker build . -f .travis/${TARGET}.docker -t cattery_${TARGET}
 deploy:
   provider: pypi
   user: gijzelaerr
