@@ -79,7 +79,7 @@ TDLCompileOption('flag_absmin',"Flag on absolute value <=",[None,1.,2.],more=flo
 TDLCompileOption('flag_rms',"Flag on rms sigmas >= ",[None,3.,5.,10.],more=float);
 
 def _define_forest(ns):
-  ANTENNAS = mssel.get_antenna_set(range(1,15));
+  ANTENNAS = mssel.get_antenna_set(list(range(1,15)));
   array = Meow.IfrArray(ns,ANTENNAS,mirror_uvw=False);
   observation = Meow.Observation(ns);
   Meow.Context.set(array,observation);

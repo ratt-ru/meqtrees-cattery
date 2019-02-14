@@ -125,8 +125,8 @@ def single_grid_model_tan(ns, basename, l0, m0, dl, dm, nsrc, I):
                 l_prime = theta_prime * math.sin(phi)
                 m_prime = theta_prime * math.cos(phi)
                 model.append(point_source(ns, name, l_prime, m_prime, I))
-                print l_prime
-                print m_prime
+                print(l_prime)
+                print(m_prime)
     return model
 
 
@@ -147,8 +147,8 @@ def single_grid_model(ns, basename, l0, m0, dl, dm, nsrc, I):
                 l_prime = theta_prime * math.sin(phi)
                 m_prime = theta_prime * math.cos(phi)
                 model.append(point_source(ns, name, l_prime, m_prime, I))
-                print l_prime
-                print m_prime
+                print(l_prime)
+                print(m_prime)
     return model
 
 
@@ -217,7 +217,7 @@ def source_list(ns, basename="S", l0=None, m0=None):
     sources = model_func(ns, basename, l0, m0,
                          grid_step * ARCMIN, grid_step * ARCMIN,
                          (grid_size - 1) / 2, source_flux)
-    return filter(lambda x: x, sources)
+    return [x for x in sources if x]
 
 
 def de_project(ns, l0, m0, dl, dm, dx, dy):

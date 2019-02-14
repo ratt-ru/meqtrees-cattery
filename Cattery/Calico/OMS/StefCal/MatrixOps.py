@@ -35,7 +35,7 @@ def matrix_multiply (A,B):
 
 def matrix_conj (A):
   """Conjugates a matrix given as a flat 4-list""";
-  return [ numpy.conj(A[i]) for i in 0,2,1,3 ];
+  return [ numpy.conj(A[i]) for i in (0,2,1,3) ];
 
 def matrix_transpose (A):
   """Transposes a matrix given as a flat 4-list""";

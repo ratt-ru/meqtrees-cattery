@@ -24,7 +24,7 @@ class MIM_model(Parameterization):
                 self.src = sources
 
             else:
-                raise TypeError, "sources must be a (list of) Sky/xyz-Component"
+                raise TypeError("sources must be a (list of) Sky/xyz-Component")
         self.array = array
         if not self.array:
             # get from Context:
@@ -34,7 +34,7 @@ class MIM_model(Parameterization):
 
     def make_tec(self):
         """abstract method, creates nodes to compute the TEC-values"""
-        raise TypeError, type(self).__name__ + ".make_tec() not defined"
+        raise TypeError(type(self).__name__ + ".make_tec() not defined")
 
     def make_phase_error(self):
         """create phase errors, default = exp(i lambda * 25 * tec)"""

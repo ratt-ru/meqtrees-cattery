@@ -63,8 +63,8 @@ class DiagAmplPhase (object):
     else:
       x,y,X,Y = 'x','y','X','Y';
     xx,xy,yx,yy = x+x,x+y,y+x,y+y;
-    axx,axy,ayx,ayy = [ q+":a" for q in xx,xy,yx,yy ];
-    pxx,pxy,pyx,pyy = [ q+":p" for q in xx,xy,yx,yy ];
+    axx,axy,ayx,ayy = [ q+":a" for q in (xx,xy,yx,yy) ];
+    pxx,pxy,pyx,pyy = [ q+":p" for q in (xx,xy,yx,yy) ];
 
     ampl_def = phase_def = None;
     parms_phase = [];
@@ -138,8 +138,8 @@ class FullRealImag (object):
     else:
       x,y,X,Y = 'x','y','X','Y';
     xx,xy,yx,yy = x+x,x+y,y+x,y+y;
-    rxx,rxy,ryx,ryy = [ q+":r" for q in xx,xy,yx,yy ];
-    ixx,ixy,iyx,iyy = [ q+":i" for q in xx,xy,yx,yy ];
+    rxx,rxy,ryx,ryy = [ q+":r" for q in (xx,xy,yx,yy) ];
+    ixx,ixy,iyx,iyy = [ q+":i" for q in (xx,xy,yx,yy) ];
     # prepare parm definitions for real and imag parts of diagonal and off-diagonal elements
     tags = NodeTags(tags) + "solvable";
     diag_pdefs = offdiag_pdefs = None;

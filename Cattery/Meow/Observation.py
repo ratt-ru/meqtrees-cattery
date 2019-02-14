@@ -24,7 +24,7 @@
 #
 
 from Timba.TDL import *
-from Direction import *
+from .Direction import *
 
 
 class Observation (object):
@@ -42,7 +42,7 @@ class Observation (object):
     """
     self.ns = ns;
     if circular and linear:
-      raise ValueError,"either circular=True or linerar=True must be specified, not both";
+      raise ValueError("either circular=True or linerar=True must be specified, not both");
     self._circular = circular;
     self._quals = quals;
     self._kwquals = kwquals;

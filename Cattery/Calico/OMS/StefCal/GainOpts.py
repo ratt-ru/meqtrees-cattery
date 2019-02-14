@@ -4,9 +4,10 @@ import sys
 import Kittens.utils
 import os.path
 import os
-import cPickle
+import pickle
 import numpy
 import traceback
+from functools import reduce
 
 MODE_SOLVE_SAVE = "solve-save";
 MODE_SOLVE_NOSAVE = "solve-nosave"
@@ -220,7 +221,7 @@ class GainOpts (object):
     try:
       struct = GainOpts._incoming_tables.get(self.table);
       if not struct:
-        struct = GainOpts._incoming_tables[self.table] = cPickle.load(file(self.table));
+        struct = GainOpts._incoming_tables[self.table] = pickle.load(file(self.table));
       if not isinstance(struct,dict) or struct.get('version',0) < 2:
         dprint(0,"error loading %s solutions: %s format or version not known"%(self.label,self.table));
         return;
@@ -253,11 +254,11 @@ class GainOpts (object):
   @staticmethod 
   def flush_tables ():
     GainOpts._incoming_tables = {};
-    for table,initval in GainOpts._outgoing_tables.iteritems():
+    for table,initval in GainOpts._outgoing_tables.items():
       if initval:
         struct = dict(description="stefcal gain solutions table",version=2,gains=initval);
         try:
-          cPickle.dump(struct,file(table,'w'),2);
+          pickle.dump(struct,file(table,'w'),2);
           dprint(1,"saved %d gain set(s) to %s"%(len(initval),table));
         except:
           traceback.print_exc();
@@ -273,9 +274,9 @@ class GainOpts (object):
     for opt in opts:
       if opt.enable:
         if len(opt.subtiling) != len(datashape):
-          raise ValueError,"%s tiling vector must have the same length as the data shape"%self.name;
+          raise ValueError("%s tiling vector must have the same length as the data shape"%self.name);
         if min(opt.subtiling) < 0:
-          raise ValueError,"invalid %s tiling %s"%(opt.name,opt.subtiling);
+          raise ValueError("invalid %s tiling %s"%(opt.name,opt.subtiling));
         opt.subtiling = opt.subtiling or [0]*len(datashape);
         # work out least-common-multiple subtile size for each axis on which a subtiling is defined.
         lcm_tiling = [ LCM(a,b) if a>0 and b>0 else max(a,b,0) for a,b in zip(lcm_tiling,opt.subtiling) ];
@@ -307,7 +308,7 @@ class GainOpts (object):
     if self.bounds:
       dprint(0,"  gains will be flagged on amplitudes outside of",self.bounds);
     if self.has_init_value:
-      initval = self.init_value.values()[0][0];
+      initval = list(self.init_value.values())[0][0];
       dprint(1,"  initial values loaded, first number is",initval.flat[0] if hasattr(initval,'flat') else initval);
     else:
       dprint(1,"  default initial value is",self.init_value);

@@ -42,29 +42,29 @@ else:
 
   def dprint (msg,level=1):
     if level <= _verbosity:
-      print msg;
+      print(msg);
 
-  from CorruptComponent import CorruptComponent
-  from Position import Position
-  from Direction import Direction
-  from LMDirection import LMDirection
-  from AzElDirection import AzElDirection
-  from LMApproxDirection import LMApproxDirection
-  from IfrArray import IfrArray
-  from Observation import Observation
-  from Parameterization import Parameterization
-  from Patch import Patch
-  from SkyComponent import SkyComponent
-  from PointSource import PointSource
-  from KnownVisComponent import KnownVisComponent
-  from GaussianSource import GaussianSource
-  from SixpackComponent import SixpackComponent
-  from FITSImageComponent import FITSImageComponent
-  from Parm import Parm
+  from .CorruptComponent import CorruptComponent
+  from .Position import Position
+  from .Direction import Direction
+  from .LMDirection import LMDirection
+  from .AzElDirection import AzElDirection
+  from .LMApproxDirection import LMApproxDirection
+  from .IfrArray import IfrArray
+  from .Observation import Observation
+  from .Parameterization import Parameterization
+  from .Patch import Patch
+  from .SkyComponent import SkyComponent
+  from .PointSource import PointSource
+  from .KnownVisComponent import KnownVisComponent
+  from .GaussianSource import GaussianSource
+  from .SixpackComponent import SixpackComponent
+  from .FITSImageComponent import FITSImageComponent
+  from .Parm import Parm
   
-  import Bookmarks
-  import MSUtils
-  import Utils
+  from . import Bookmarks
+  from . import MSUtils
+  from . import Utils
 
   __all__ = [
               CorruptComponent,

@@ -26,7 +26,7 @@
 from Timba.TDL import *
 from Timba.Meq import meq
 from Meow import Parameterization
-import Context
+from . import Context
 
 
 def gain_ap_matrix (jones,ampl=1.,phase=0.,tags=[],series=None,solvable=True):

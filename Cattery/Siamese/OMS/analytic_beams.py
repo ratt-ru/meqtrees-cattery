@@ -76,9 +76,9 @@ class WSRT_cos3_beam (object):
     if not self._prepared:
       self.ns = ns;
       try:
-        self._sizes = map(float,str(self.dish_sizes).split());
+        self._sizes = list(map(float,str(self.dish_sizes).split()));
       except:
-        raise RuntimeError,"illegal dish sizes specification";
+        raise RuntimeError("illegal dish sizes specification");
       self._per_station = len(self._sizes)>1;
       if self.ell != 0:
         self._ellnode = ns.ell << Meq.Constant(value=Timba.array.array([self.ell,-self.ell]));
@@ -151,7 +151,7 @@ class circular_aperture_beam (WSRT_cos3_beam):
 #  def compute_tensor (self,E,lm,pointing=None,p=0):
 #    return self.compute(E,lm,pointing,p);
 
-import AnalyticBeams.ClippedSincBeam
+from . import AnalyticBeams.ClippedSincBeam
 
 class clipped_sinc_beam (WSRT_cos3_beam):
   label = "clipped_sinc";
@@ -196,7 +196,7 @@ def compute_jones (Jones,sources,stations=None,
     if globals().get('use_%s'%beam_model.label,None):
       break;
   else:
-    raise RuntimeError,"no beam model selected";
+    raise RuntimeError("no beam model selected");
   beam_model.prepare(ns);
   
   # this dict will hold LM tuples (or nodes) for each source.
@@ -241,7 +241,7 @@ def compute_jones_tensor (Jones,sources,stations=None,lmn=None,
     if globals().get('use_%s'%beam_model.label,None):
       break;
   else:
-    raise RuntimeError,"no beam model selected";
+    raise RuntimeError("no beam model selected");
   
   if getattr(beam_model,'compute_tensor',None) is None:
     return None;

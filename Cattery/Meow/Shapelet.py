@@ -26,8 +26,8 @@
 import math
 from Timba.TDL import *
 from Timba.Meq import meq
-from PointSource import *
-import Context,Parm
+from .PointSource import *
+from . import Context,Parm
 
 STOKES = ("I","Q","U","V");
 

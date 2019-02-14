@@ -34,7 +34,7 @@ class KLNode (pynode.PyNode):
         # leaf node), and a request object
     def get_result(self, request, *children):
         if len(children) < 2:
-            raise TypeError, "this is NOT a leaf node, At least 2  children expected!"
+            raise TypeError("this is NOT a leaf node, At least 2  children expected!")
         cells = request.cells
         res = meq.result(None, cells)
 
@@ -70,7 +70,7 @@ class KLNode (pynode.PyNode):
         val0 = [0, ] * num_parms
         par = [0, ] * num_parms
         solvable = False
-        parmidx = range(num_parms)
+        parmidx = list(range(num_parms))
 
         # initialize  result vector 1 field per pp;
         #      ph=[[0,]*grid_size,]*num_parms;
@@ -81,7 +81,7 @@ class KLNode (pynode.PyNode):
                 ph[j].append(0)
 
         # if solvable they should have perturbed_values;
-        if vs0[0].has_key('perturbed_value'):
+        if 'perturbed_value' in vs0[0]:
             solvable = True
             pert = [0] * num_parms
             pt = []

@@ -80,11 +80,11 @@ def _tdl_job_query_punits(mqs, parent):
 # Test routine to check the tree for consistency in the absence of a server
 
 if __name__ == '__main__':
-  print '\n*******************\n** Local test of:',script_name,':\n'
+  print('\n*******************\n** Local test of:',script_name,':\n')
   ns=NodeScope()
   _define_forest(ns)
   ns.Resolve()
-  print "Added %d nodes" % len(ns.AllNodes())
+  print("Added %d nodes" % len(ns.AllNodes()))
   #display LSM without MeqBrowser
   # create cell
   lsm.display(app='create')

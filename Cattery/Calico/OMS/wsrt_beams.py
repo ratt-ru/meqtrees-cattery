@@ -30,7 +30,7 @@ use the latter module directly -- this module is only retained for backwards com
 __default_label__ = "E";
 __default_name__  = "WSRT cos^3 beam";
 
-from wsrt_cos3_beam import WSRTCos3Beam
+from .wsrt_cos3_beam import WSRTCos3Beam
 
 _beam = WSRTCos3Beam("E",solvable=True);
 

@@ -54,7 +54,7 @@ class ZJones(object):
 
     def compute_jones(self, jones, sources, stations=None, tags=None, label='', inspectors=[], **kw):
         stations = stations or Context.array.stations()
-        print "selected", selname
+        print("selected", selname)
         for mod in modules:
             if _modname(mod).replace('.', '_') == selname:
                 self.mim_model = mod

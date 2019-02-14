@@ -64,7 +64,7 @@ def compute_jones (Jones,sources,stations=None,inspectors=[],meqmaker=None,label
   # now loop over sources
   for isrc,src in enumerate(sources):
     # work out dl,dm offset and dlmn node
-    print shift_type;
+    print(shift_type);
     if shift_lm_offset:
       dl = ns.dl(src) << dl_arcsec*ARCSEC;
       dm = ns.dm(src) << dm_arcsec*ARCSEC;

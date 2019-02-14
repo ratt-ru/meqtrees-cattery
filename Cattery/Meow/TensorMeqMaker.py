@@ -185,7 +185,7 @@ class TensorMeqMaker (MeqMaker):
             overlap = part&subset;
             # the overlap and the remainder of this partition, whatever is not empty,
             # become new parititons
-            new_partitions += [ p1 for p1 in overlap,part-overlap if p1 ];
+            new_partitions += [ p1 for p1 in (overlap,part-overlap) if p1 ];
             # remove overlap from subset
             subset -= overlap;
           partitions = new_partitions;

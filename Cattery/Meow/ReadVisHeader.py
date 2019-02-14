@@ -44,7 +44,7 @@ def process_vis_header (hdr):
     # antenna positions
     pos = hdr.antenna_pos;
     if pos.ndim != 2 or pos.shape[0] != 3:
-	raise ValueError,'incorrectly shaped antenna_pos';
+	raise ValueError('incorrectly shaped antenna_pos');
     nant = pos.shape[1];
     coords = ('x','y','z');
     for iant in range(nant):
@@ -85,6 +85,6 @@ def process_vis_header (hdr):
       set_state('freq1',value=f1);
     except: pass;
   except:
-    print traceback.print_exc();
+    print(traceback.print_exc());
     raise;
     

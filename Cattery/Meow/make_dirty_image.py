@@ -67,13 +67,13 @@ if not retcode:
   filename = files.get('fits');
   if filename:
     if viewer == "none":
-      print "Image %s ready. No image viewer selected (see TDL Exec menu)."%filename;
+      print("Image %s ready. No image viewer selected (see TDL Exec menu)."%filename);
     else:
       viewer = os.path.expanduser(viewer);
       if filename and os.path.exists(filename):
         try:
           os.execvp(viewer,[viewer,filename]);
         except OSError:
-          print "WARNING: failed to start image viewer '%s'. Perhaps it is not installed?"%viewer;
+          print("WARNING: failed to start image viewer '%s'. Perhaps it is not installed?"%viewer);
   else:
-    print "ERROR: no FITS image filename supplied to the make_dirty_image.py script. Please report this as a bug.";
+    print("ERROR: no FITS image filename supplied to the make_dirty_image.py script. Please report this as a bug.");

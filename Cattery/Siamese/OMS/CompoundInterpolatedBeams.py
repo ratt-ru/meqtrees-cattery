@@ -52,7 +52,7 @@ class FITSCompoundBeamInterpolatorNode (pynode.PyNode):
         and len(self.filename_real) == len(self.filename_imag) and not len(self.filename_real)%1:
       self._vb_key = tuple(zip(self.filename_real,self.filename_imag));
     else:
-      raise ValueError,"filename_real/filename_imag: two lists of filenames of 2N elements each expected";
+      raise ValueError("filename_real/filename_imag: two lists of filenames of 2N elements each expected");
     # other init
     mequtils.add_axis('l');
     mequtils.add_axis('m');
@@ -74,7 +74,7 @@ class FITSCompoundBeamInterpolatorNode (pynode.PyNode):
         # if files do not exist, replace with blanks
         if not ( os.path.exists(filename_real) and os.path.exists(filename_imag) ) and self.missing_is_null:
           filename_real = None;
-          print "No beam pattern %s or %s, assuming null beam"%(filename_real,filename_imag);
+          print("No beam pattern %s or %s, assuming null beam"%(filename_real,filename_imag));
         # now, create VoltageBeam if at least the real part still exists
         if filename_real:
           vb = LMVoltageBeam(
@@ -141,7 +141,7 @@ if __name__ == "__main__":
   l0 = numpy.array([-2,-1,0,1,2])*DEG;
   l = numpy.vstack([l0]*len(l0));
 
-  print vb.interpolate(l,l.T);
+  print(vb.interpolate(l,l.T));
 
   vb = LMVoltageBeam(spline_order=3);
   vb.read("XX_0_Re.fits","XX_0_Im.fits");
@@ -153,7 +153,7 @@ if __name__ == "__main__":
   b = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9],freqaxis=2);
   c = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9,1.3e+9,1.4e+9],freqaxis=1);
 
-  print "A",a.shape,a;
-  print "B",b.shape,b;
-  print "C",c.shape,c;
+  print("A",a.shape,a);
+  print("B",b.shape,b);
+  print("C",c.shape,c);
 

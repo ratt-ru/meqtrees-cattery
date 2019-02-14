@@ -5,7 +5,7 @@ import operator
 import itertools
 import scipy.ndimage.filters
 
-from MatrixOps import *
+from .MatrixOps import *
 
 from Timba.Meq import meq
 import Kittens.utils
@@ -35,8 +35,8 @@ def pq_direct_conjugate (p,q,data):
   else:
     return None,None,None;
 
-from GainDiag import GainDiag    
-from DataTiler import DataTiler    
+from .GainDiag import GainDiag    
+from .DataTiler import DataTiler    
 
 square = lambda x:(x*numpy.conj(x)).real;
 
@@ -125,7 +125,7 @@ class GainDiagCommon (GainDiag):
         # build up sums for this jones element
         sum_reim = 0;
         sum_sq = 0;
-        for p,q,j in itertools.product(self._antennas,self._antennas,range(2)):
+        for p,q,j in itertools.product(self._antennas,self._antennas,list(range(2))):
           pq,direct,conjugate = pq_direct_conjugate(p,q,rhs);
           if pq in self._solve_ifrs:
             # get weights, data, model
@@ -183,7 +183,7 @@ class GainDiagCommon (GainDiag):
           gnew[mask] = gold[mask];
           dprint(2,"%s: %d values reset due to INF/NAN"%(p,mask.sum()));
         if p in verbose_stations:
-          print "S%d %s:%s"%(step,p,i),"G''",g1[p,i],g1[p,i][verbose_element];
+          print("S%d %s:%s"%(step,p,i),"G''",g1[p,i],g1[p,i][verbose_element]);
         # take difference at second step
         gaindiff2 += square(gnew - gold)
         gaindiff2[pqmask] = 0;

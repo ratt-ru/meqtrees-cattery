@@ -26,9 +26,9 @@
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from SkyComponent import *
-from Direction import *
-import Context
+from .SkyComponent import *
+from .Direction import *
+from . import Context
 
 class KnownVisComponent (SkyComponent):
   """A KnownVisComponent is simply a SkyComponent whose visibilities are

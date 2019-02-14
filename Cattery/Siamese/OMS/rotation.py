@@ -136,7 +136,7 @@ class Rotation (object):
           self.angle_opt.set_value(" ".join(["%g"%(p/DEG) for p in angles]));
       except:
         traceback.print_exc();
-        print "Error reading %s/FEED subtable. Feed angles not filled."%Context.mssel.msname;
+        print("Error reading %s/FEED subtable. Feed angles not filled."%Context.mssel.msname);
 
   def compute_jones (self,Jones,sources=None,stations=None,**kw):
     """Returns Jones matrices. Note that this can also be used as a sky-Jones,
@@ -145,7 +145,7 @@ class Rotation (object):
     stations = stations or Context.array.stations();
 
     # get the feed angles
-    angles = map(_str_to_float,re_whitespace.split(self.feed_angle)) if self.feed_angle is not None else [0];
+    angles = list(map(_str_to_float,re_whitespace.split(self.feed_angle))) if self.feed_angle is not None else [0];
 
     for p in stations:
       # get feed angle for this antenna number. If list contains fewer angles than stations, the last angle is reused

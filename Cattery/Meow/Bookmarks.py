@@ -73,7 +73,7 @@ class Page (object):
     if is_node(node):
       node = node.name;
     elif not isinstance(node,str):
-      raise TypeError,"node or node name expected";
+      raise TypeError("node or node name expected");
     # add page to bookmarks
     self._add_pagerec();
     # add bookmark
@@ -169,7 +169,7 @@ def make_node_folder (name,nodes,sorted=False,ncol=2,nrow=2,folder=None,maxmenu=
     nodes = list(nodes);
     global _int_or_str;
     nodes.sort(lambda a,b:
-      cmp(map(_int_or_str,a.name.split(':')),map(_int_or_str,b.name.split(':'))));
+      cmp(list(map(_int_or_str,a.name.split(':'))),list(map(_int_or_str,b.name.split(':')))));
   # place in top-level folder or in subfolder
   if folder is None:
     folder = Folder(name);

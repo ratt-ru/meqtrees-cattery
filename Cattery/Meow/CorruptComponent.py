@@ -25,7 +25,7 @@
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from SkyComponent import *
+from .SkyComponent import *
 
 class CorruptComponent(SkyComponent):
   """A CorruptComponent represents an SkyComponent, plus a set of

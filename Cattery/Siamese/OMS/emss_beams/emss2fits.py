@@ -83,7 +83,7 @@ separate the per-component groups with '+'.""");
   
   if options.taper:
     try:
-      taper_r0,taper_r1 = numpy.array(map(float,options.taper.split(",")))*DEG;
+      taper_r0,taper_r1 = numpy.array(list(map(float,options.taper.split(","))))*DEG;
     except:
       parser.error("Invalid --taper %s setting"%options.taper);
       
@@ -101,7 +101,7 @@ separate the per-component groups with '+'.""");
     if not fitsfile.upper().endswith('.FITS'):
       fitsfile += ".fits";
     
-  from EMSSVoltageBeam import _verbosity,EMSSVoltageBeamPS,EMSSVoltageBeamGridder,dprint,dprintf
+  from .EMSSVoltageBeam import _verbosity,EMSSVoltageBeamPS,EMSSVoltageBeamGridder,dprint,dprintf
   _verbosity.set_verbose(options.verbose);
   _verbosity.enable_timestamps(options.timestamps);
   interpolator = EMSSVoltageBeamPS;
@@ -126,7 +126,7 @@ separate the per-component groups with '+'.""");
                       rotate_xy=options.rotate_xy,
                       theta_step=options.theta_stepping,phi_step=options.phi_stepping,rotate=options.rotate,
                       verbose=options.verbose);
-    print "Creating %s voltage beam from %s"%("Y" if options.y else "X"," ".join(patfile2));
+    print("Creating %s voltage beam from %s"%("Y" if options.y else "X"," ".join(patfile2)));
     beam_components.append(vb);
   
   if not beam_components:
@@ -162,11 +162,11 @@ separate the per-component groups with '+'.""");
         axis_freq = ctype,npix,crval,cdelt,crpix;
     # have we found l/m axes?
     if l0 is not None and m0 is not None and freq is not None:
-      print "Using %dx%d grid from template file %s"%(len(l0),len(m0),options.template);
-      print "Using frequencies of %sMHz"%(",".join(map(str,freq*1e-6)));
+      print("Using %dx%d grid from template file %s"%(len(l0),len(m0),options.template));
+      print("Using frequencies of %sMHz"%(",".join(map(str,freq*1e-6))));
       l0,m0 = numpy.meshgrid(l0,m0);
     else:
-      print "Template FITS file %s does not contain RA/DEC/FREQ axes"%options.template;
+      print("Template FITS file %s does not contain RA/DEC/FREQ axes"%options.template);
       sys.exit(1);
       
   # else generate an lm grid based on the command line
@@ -192,7 +192,7 @@ separate the per-component groups with '+'.""");
     else:
       freq0 = beam_components[0].freqGrid()[0];
     freq = numpy.arange(options.num_freq)*options.delta_freq*1e+6 + freq0;
-    print "Using frequency grid of %sMHz"%(",".join(map(str,freq)));
+    print("Using frequency grid of %sMHz"%(",".join(map(str,freq))));
   
     
   # INTERPOLATE!!!
@@ -200,11 +200,11 @@ separate the per-component groups with '+'.""");
     parts = [];
     for row0 in range(0,len(l0),options.incremental):
       row1 = min(row0+options.incremental,len(l0));
-      print "Generating pattern for rows %d:%d"%(row0,row1);
+      print("Generating pattern for rows %d:%d"%(row0,row1));
       images = [ vb.interpolate(l0[row0:row1,...],m0[row0:row1,...],freq=freq,freqaxis=2) 
                  for vb in beam_components ];
       parts.append(sum(images));
-    print "Concatenating patterns";
+    print("Concatenating patterns");
     image = numpy.concatenate(parts);
     parts = None;
   else:
@@ -240,7 +240,7 @@ separate the per-component groups with '+'.""");
   import os.path
   
   if options.template:
-    print "Generating FITS images using template %s"%options.template
+    print("Generating FITS images using template %s"%options.template)
     
     def make_image (filename,data,what):
       hdu = pyfits.PrimaryHDU(data);
@@ -266,13 +266,13 @@ separate the per-component groups with '+'.""");
       if os.path.exists(filename):
         os.unlink(filename);
       hdu.writeto(filename,clobber=True);
-      print "Wrote %s to %s"%(what,filename);
+      print("Wrote %s to %s"%(what,filename));
 
   else:
     npix = options.radius*2 + 1;
-    print "Generating FITS images of %dx%d pixels, at a resolution of %g deg/pix"%(npix,npix,options.resolution);
-    print "Full image size will be %fx%f deg"%(options.resolution*npix,options.resolution*npix);
-    print "Frequency axis: %s MHz"%",".join(map(str,freq*1e-6));
+    print("Generating FITS images of %dx%d pixels, at a resolution of %g deg/pix"%(npix,npix,options.resolution));
+    print("Full image size will be %fx%f deg"%(options.resolution*npix,options.resolution*npix));
+    print("Frequency axis: %s MHz"%",".join(map(str,freq*1e-6)));
     
     def make_image (filename,data,what):
       hdu = pyfits.PrimaryHDU(data);
@@ -296,7 +296,7 @@ separate the per-component groups with '+'.""");
       if os.path.exists(filename):
         os.unlink(filename);
       hdu.writeto(filename,clobber=True);
-      print "Wrote %s to %s"%(what,filename);
+      print("Wrote %s to %s"%(what,filename));
   
   if not nout or options.ampl:
     make_image(fitsfile if options.ampl else fitsfile+"_ampl.fits",abs(image),"amplitude pattern");

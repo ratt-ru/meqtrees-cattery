@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
   # This starts a meqserver. Note how we pass the "-mt 2" option to run two threads.
   # A proper pipeline script may want to get the value of "-mt" from its own arguments (sys.argv).
-  print "Starting meqserver";
+  print("Starting meqserver");
   mqs = meqserver.default_mqs(wait_init=10,extra=["-mt","2"]);
 
   # Once we're connected to a server, some cleanup is required before we can exit the script.
@@ -21,27 +21,27 @@ if __name__ == '__main__':
     TDLOptions.config.read("batch_sim_example.tdl.conf");
 
     script = "example-sim.py";
-    print "========== Compiling batch job 1";
+    print("========== Compiling batch job 1");
     mod,ns,msg = Compile.compile_file(mqs,script,config="batch job 1");
-    print "========== Running batch job 1";
+    print("========== Running batch job 1");
     mod._tdl_job_1_simulate_MS(mqs,None,wait=True);
 
-    print "========== Compiling batch job 2";
+    print("========== Compiling batch job 2");
     mod,ns,msg = Compile.compile_file(mqs,script,config="batch job 2");
-    print "========== Running batch job 2";
+    print("========== Running batch job 2");
     mod._tdl_job_1_simulate_MS(mqs,None,wait=True);
 
-    print "========== Compiling batch job 2 with modified config";
+    print("========== Compiling batch job 2 with modified config");
     TDLOptions.init_options("batch job 2",save=False);
     TDLOptions.set_option("me.enable_G",False);
     mod,ns,msg = Compile.compile_file(mqs,script,config=None);
-    print "========== Running batch job 2";
+    print("========== Running batch job 2");
     mod._tdl_job_1_simulate_MS(mqs,None,wait=True);
 
   ### Cleanup time
   finally:
-    print "Stopping meqserver";
+    print("Stopping meqserver");
     # this halts the meqserver
     meqserver.stop_default_mqs();
     # now we can exit
-    print "Bye!";
+    print("Bye!");

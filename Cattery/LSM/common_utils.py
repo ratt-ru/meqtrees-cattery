@@ -104,7 +104,7 @@ def bin_search(xarr,x,i_start,i_end):
    if  xarr[i_start]==x:
      return i_start
    else:
-     print "bin search error 1"
+     print("bin search error 1")
      return -1
 
   # trivial case with length 2 array
@@ -113,7 +113,7 @@ def bin_search(xarr,x,i_start,i_end):
      x<xarr[i_end]:
     return i_start
    else:
-    print "bin search error 2"
+    print("bin search error 2")
     return -2
 
   # compare with the mid point
@@ -130,7 +130,7 @@ def bin_search(xarr,x,i_start,i_end):
 
 
   # will not get here
-  print "bin search error 3"
+  print("bin search error 3")
   return -3
 
 
@@ -210,7 +210,7 @@ def rec_parse(myrec):
       and construct a dictionary
   """
   #print myrec
-  my_keys=myrec.keys()
+  my_keys=list(myrec.keys())
   new_dict={}
   for kk in my_keys:
    if kk=='funklet' or kk=='init_funklet':
@@ -248,7 +248,7 @@ def traverse(root,node_dict,subscope=None):
  
   #print "My name",name
   classname=root.classname
-  if not node_dict.has_key(name):
+  if name not in node_dict:
    node_dict[name]={'name':name, 'classname':classname, 'initrec':{},\
         'children':[]}  
    ir=root.initrec()
@@ -274,13 +274,13 @@ def create_node_stub(mydict,stubs,ns,myname):
   chlist=myrec['children']
   #stublist=[]
   for ch in chlist:
-   if not stubs.has_key(ch):
+   if ch not in stubs:
     stubs[ch]=create_node_stub(mydict,stubs,ns,ch)
   # now we have created the child list
   
   # first check the nodescope if the node given by the name already exists
   if ns[myname].initialized():
-   print "WARNING: node %s already created"%myname
+   print("WARNING: node %s already created"%myname)
    got_stub=cname_node_stub(ns,myname)
    # add children
    for child in chlist:
@@ -311,24 +311,24 @@ def create_node_stub(mydict,stubs,ns,myname):
   irec_str=""
   # Remove JUNK! from initrecord()
   # remove class field
-  if irec.has_key('class'):
+  if 'class' in irec:
    irec.pop('class')
   # remove node_desctiption
-  if irec.has_key('node_description'):
+  if 'node_description' in irec:
    irec.pop('node_description')
   # remove name
-  if irec.has_key('name'):
+  if 'name' in irec:
    irec.pop('name')
   # remove node index
-  if irec.has_key('nodeindex'):
+  if 'nodeindex' in irec:
    irec.pop('nodeindex')
   # remove children
-  if irec.has_key('children'):
+  if 'children' in irec:
    irec.pop('children')
 
 
 
-  for kname in irec.keys():
+  for kname in list(irec.keys()):
    krec=irec[kname]
    if not isinstance(krec,dict):
     irec_str=irec_str+" "+kname+"="+str(krec)+','
@@ -363,7 +363,7 @@ def create_node_stub(mydict,stubs,ns,myname):
   # total_str="ns['"+myname+"']<<Meq.Parm(default_funklet_value)"
   #print "Total=",total_str
   #exec total_str in globals(),locals()
-  exec total_str
+  exec(total_str)
   #print ns[myname].initrec()
   #return ns[myname]
   return cname_node_stub(ns,myname)
@@ -374,8 +374,8 @@ def create_node_stub(mydict,stubs,ns,myname):
 def reconstruct(my_dict,ns):
   # temp dictionary to store created node stubs
   nodestub_dict={}
-  for sname in my_dict.keys():
-   if not nodestub_dict.has_key(sname):
+  for sname in list(my_dict.keys()):
+   if sname not in nodestub_dict:
      nodestub_dict[sname]=create_node_stub(my_dict,nodestub_dict,ns,sname)
   return nodestub_dict
 
@@ -464,10 +464,10 @@ def node_extract_parms(sixpack,ns):
  myra=get_default_parms(ra)
  dec=allnodes[dec_name]
  mydec=get_default_parms(dec)
- if allnodes.has_key(I0_name):
+ if I0_name in allnodes:
   br=allnodes[I0_name]
   mybr=get_default_parms(br)
- elif allnodes.has_key(SIFI_name):
+ elif SIFI_name in allnodes:
   br=allnodes[SIFI_name]
   mybr=get_default_parms(br)
  else:
@@ -482,7 +482,7 @@ def node_extract_parms(sixpack,ns):
 # ns=nodescope used for the sixpack
 def node_extract_polarization_parms(sixpack,ns,absolute=0):
  # get name
- print dir(sixpack)
+ print(dir(sixpack))
  myname=sixpack.label()
  #print "looking for QUV of ",myname
  # first get I0 for further processing
@@ -512,38 +512,38 @@ def node_extract_polarization_parms(sixpack,ns,absolute=0):
   SIFI_name='SIF_stokesI:q='+myname
   I0_name='I0:q='+myname
   RM_name='RM:q='+myname
- if allnodes.has_key(I0_name):
+ if I0_name in allnodes:
    sI=allnodes[I0_name]
    myii=get_default_parms(sI)
    SI=0
    f0=-1
- elif allnodes.has_key(SIFI_name): 
+ elif SIFI_name in allnodes: 
    sI=allnodes[SIFI_name]
    [myii,SI,f0]=get_stokes_I_parms(sI)
  else:
    myii=SI=0
    f0=-1
  
- if allnodes.has_key(Q_name):
+ if Q_name in allnodes:
    qq=allnodes[Q_name]
    myqq=get_default_parms(qq)*myii/100
- elif allnodes.has_key(sQ_name):
+ elif sQ_name in allnodes:
    qq=allnodes[sQ_name]
    myqq=get_default_parms(qq)
  else:
    myqq=0
- if allnodes.has_key(U_name):
+ if U_name in allnodes:
    uu=allnodes[U_name]
    myuu=get_default_parms(uu)*myii/100
- elif allnodes.has_key(sU_name):
+ elif sU_name in allnodes:
    uu=allnodes[sU_name]
    myuu=get_default_parms(uu)
  else:
    myuu=0
- if allnodes.has_key(V_name):
+ if V_name in allnodes:
    vv=allnodes[V_name]
    myvv=get_default_parms(vv)*myii/100
- elif allnodes.has_key(sV_name):
+ elif sV_name in allnodes:
    vv=allnodes[sV_name]
    myvv=get_default_parms(vv)
  else:
@@ -555,7 +555,7 @@ def node_extract_polarization_parms(sixpack,ns,absolute=0):
   return [myqq,myuu,myvv]
 
 
- if allnodes.has_key(RM_name):
+ if RM_name in allnodes:
    rmnode=allnodes[RM_name]
    RM=get_default_parms(rmnode)
  else:
@@ -578,7 +578,7 @@ def get_default_parms(nd):
  irec=nd.initrec()
  #print irec
  # try to get default_value
- if irec.has_key('default_value'):
+ if 'default_value' in irec:
   cf=irec['default_value']
   # this need to be a scalar
   if cf.size>=1:
@@ -586,7 +586,7 @@ def get_default_parms(nd):
      my_val=Timba.array.ravel(cf)[0]
   else: #scalar
      my_val=float(cf)
- elif irec.has_key('init_funklet'):
+ elif 'init_funklet' in irec:
   # get coeff array (or scalar)
   fn=irec['init_funklet']
   if(is_meqpolc(fn)):
@@ -604,7 +604,7 @@ def get_default_parms(nd):
    # return exponent
    my_val=math.pow(10,my_val)
   else: # error
-   print "WARNING: unable to find a value for funklet",fn
+   print("WARNING: unable to find a value for funklet",fn)
    my_val=-1
  else: # error
    my_val=-1
@@ -616,7 +616,7 @@ def get_default_parms(nd):
 # from a Stokes I node.
 def get_stokes_I_parms(nd):
     irec=nd.initrec()
-    if irec.has_key('init_funklet'):
+    if 'init_funklet' in irec:
        fn=irec['init_funklet']
        if (is_meqpolc(fn)):
          cf=fn['coeff']
@@ -640,13 +640,13 @@ def get_stokes_I_parms(nd):
          else: #scalar
            my_SI=0
        fr=fn['axis_list']
-       if fr and fr.has_key('freq'):
+       if fr and 'freq' in fr:
          my_F=fr['freq']
        else:
          my_F=0
        return  [my_I,my_SI,my_F]
     else:
-      print "WARNING: unable to find a value for Stokes I in ",nd.name
+      print("WARNING: unable to find a value for Stokes I in ",nd.name)
     return [0,0,0]
 
 
@@ -674,7 +674,7 @@ def cname_node_stub(ns,nodename):
       wstr=wstr+"('"+qstr+"')"
 
     #print wstr
-    exec wstr
+    exec(wstr)
   return nodestub
 
 
@@ -775,18 +775,18 @@ if __name__ == '__main__':
   my_sixpack=LSM_Sixpack.newstar_source(ns,punit="foo",I0=1.0, f0=1e6,RA=2.0, Dec=2.1,trace=0, Qpct=0.1, Upct=1,Vpct=-0.1)
   my_sixpack.sixpack(ns)
   ns.Resolve()
-  print ns.AllNodes()
-  print ns["ra:q="+my_sixpack.label()]
-  print my_sixpack.ra().name
+  print(ns.AllNodes())
+  print(ns["ra:q="+my_sixpack.label()])
+  print(my_sixpack.ra().name)
   my_sixpack.display()
   rr=my_sixpack.ra()
-  print rr.name
-  print extract_parms(my_sixpack,ns)
-  print extract_polarization_parms(my_sixpack,ns)
+  print(rr.name)
+  print(extract_parms(my_sixpack,ns))
+  print(extract_polarization_parms(my_sixpack,ns))
   change_radec(my_sixpack,3.0,4.5,ns)
   my_sixpack.display()
-  print dir(ns)
-  print extract_parms(my_sixpack,ns)
+  print(dir(ns))
+  print(extract_parms(my_sixpack,ns))
 
 
   ra0=1.111
@@ -795,4 +795,4 @@ if __name__ == '__main__':
   m=0.4330
   (rr,dd)=lm_to_radec(ra0,dec0,l,m)
   (L,M)=radec_to_lm(ra0,dec0,rr,dd)
-  print rr,dd,L,M,l,m
+  print(rr,dd,L,M,l,m)

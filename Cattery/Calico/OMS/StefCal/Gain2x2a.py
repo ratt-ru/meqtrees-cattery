@@ -5,7 +5,8 @@ import operator
 import scipy.ndimage.filters
 import Kittens.utils
 
-from MatrixOps import *
+from .MatrixOps import *
+from functools import reduce
 
 _verbosity = Kittens.utils.verbosity(name="gain2x2");
 dprint = _verbosity.dprint;
@@ -21,7 +22,7 @@ verbose_stations = (); # set(('CS001HBA0','CS001HBA1'));
 #verbose_stations = set([p[0] for p in verbose_baselines]+[p[1] for p in verbose_baselines]);
 verbose_stations_corr = (); # set([p[0] for p in verbose_baselines_corr]+[p[1] for p in verbose_baselines_corr]);
 
-from DataTiler import DataTiler    
+from .DataTiler import DataTiler    
 
 class Gain2x2a (DataTiler):
   """Support class to handle a set of subtiled gains in the form of 2x2 G matrices.
@@ -55,7 +56,7 @@ class Gain2x2a (DataTiler):
     if isinstance(init_value,dict):
       # init values will write into arrays, so make a copy
       self.gain = dict([(p,[self._unity.copy(),self._zero.copy(),self._zero.copy(),self._unity.copy()]) for p in self._antennas]);
-      for p,values in init_value.iteritems():
+      for p,values in init_value.items():
         gmat = self.gain.get(p);
         if gmat is not None:
           for i,(g,value) in enumerate(zip(gmat,values)):
@@ -98,17 +99,17 @@ class Gain2x2a (DataTiler):
 
   def _get_matrix (self,p,q,data):
     if (p,q) in data:
-      return map(self.tile_data,data[p,q]);
+      return list(map(self.tile_data,data[p,q]));
     elif (q,p) in data:
-      return matrix_conj(map(self.tile_data,data[q,p]));
+      return matrix_conj(list(map(self.tile_data,data[q,p])));
     else:
       return None;
 
   def _get_conj_matrix (self,p,q,data):
     if (p,q) in data:
-      return matrix_conj(map(self.tile_data,data[p,q]));
+      return matrix_conj(list(map(self.tile_data,data[p,q])));
     elif (q,p) in data:
-      return map(self.tile_data,data[q,p]);
+      return list(map(self.tile_data,data[q,p]));
     else:
       return None;
 
@@ -160,7 +161,7 @@ class Gain2x2a (DataTiler):
 #                    print ('m' if idm else 'd'),p,q,x.shape,bfmask.shape
                     x[bfmask] = 0;
             # get the current gain
-            g = map(self.tile_subshape,active_gain[q]);
+            g = list(map(self.tile_subshape,active_gain[q]));
 #            print p,q,niter,step,": M",[ is_null(x) for x in m ],"D",[ is_null(x) for x in d ],"G",[ is_null(x) for x in g ];
             # multiply and accumulate
             v = matrix_multiply(g,m);
@@ -169,12 +170,12 @@ class Gain2x2a (DataTiler):
 #            print "V",[ is_null(x) for x in v ],"DV",[ is_null(x) for x in dv ],"VHV",[ is_null(x) for x in vhv ];
 #            print m[1],d[1],v[1];
             if (p,q) in verbose_baselines:
-              print "%s%s"%(p,q),"D",[ g[verbose_element] for g in d[0],d[3] ],"M",[ g[verbose_element] for g in m[0],m[3] ];
-              print "%s%s"%(p,q),"Gq",[ g[verbose_element] for g in gain0[q][0],gain0[q][3] ],"V",[ g[verbose_element] for g in v[0],v[3] ];
-              print "%s%s"%(p,q),"DV",[ g[verbose_element] for g in dv[0],dv[3] ],"VHV",[ g[verbose_element] for g in vhv[0],vhv[3] ];
+              print("%s%s"%(p,q),"D",[ g[verbose_element] for g in (d[0],d[3]) ],"M",[ g[verbose_element] for g in (m[0],m[3]) ]);
+              print("%s%s"%(p,q),"Gq",[ g[verbose_element] for g in (gain0[q][0],gain0[q][3]) ],"V",[ g[verbose_element] for g in (v[0],v[3]) ]);
+              print("%s%s"%(p,q),"DV",[ g[verbose_element] for g in (dv[0],dv[3]) ],"VHV",[ g[verbose_element] for g in (vhv[0],vhv[3]) ]);
             # reduce tiles back to gain shape
-            dv1 = map(self.reduce_tiles,dv);
-            vhv1 = map(self.reduce_tiles,vhv);
+            dv1 = list(map(self.reduce_tiles,dv));
+            vhv1 = list(map(self.reduce_tiles,vhv));
             # mask out flagged elements
             if numpy.any(pqmask):
               for mat in dv1,vhv1:
@@ -208,8 +209,8 @@ class Gain2x2a (DataTiler):
         
         if p in verbose_stations:
 #            print "S%d"%step,p,"sum DV",[ g[verbose_element] for g in sum_dv ],"sum VHV",[ g[verbose_element] for g in sum_vhv ];
-          print "S%d"%step,p,"G'"," ".join([ "%.5g@%.3g"%(abs(g[verbose_element]),cmath.phase(g[verbose_element])) for g in g1p ]);
-          print "S%d"%step,p,"G'"," ".join([ "%.7g%+.4g"%(g[verbose_element].real,g[verbose_element].imag) for g in g1p ]);
+          print("S%d"%step,p,"G'"," ".join([ "%.5g@%.3g"%(abs(g[verbose_element]),cmath.phase(g[verbose_element])) for g in g1p ]));
+          print("S%d"%step,p,"G'"," ".join([ "%.7g%+.4g"%(g[verbose_element].real,g[verbose_element].imag) for g in g1p ]));
         # take mean with previous value
         if self.opts.average == 1 or (self.opts.average == 2 and step):
           if self.opts.omega == 0.5:
@@ -217,8 +218,8 @@ class Gain2x2a (DataTiler):
           else:
             matrix_add1(matrix_scale1(g1p,self.opts.omega),matrix_scale(g0p,(1-self.opts.omega)));
           if p in verbose_stations:
-            print "SA",p," ".join([ "%.5g@%.3g"%(abs(g[verbose_element]),cmath.phase(g[verbose_element])) for g in gain1[p] ]);
-            print "SA",p," ".join([ "%.7g%+.4g"%(g[verbose_element].real,g[verbose_element].imag) for g in gain1[p] ]);
+            print("SA",p," ".join([ "%.5g@%.3g"%(abs(g[verbose_element]),cmath.phase(g[verbose_element])) for g in gain1[p] ]));
+            print("SA",p," ".join([ "%.7g%+.4g"%(g[verbose_element].real,g[verbose_element].imag) for g in gain1[p] ]));
         # mask out infs/nans
         flag0 = self.gainflags.get(p,False);
         masks = [ (~numpy.isfinite(g1))|flag0 for g1 in g1p ];
@@ -232,7 +233,7 @@ class Gain2x2a (DataTiler):
           # flag out-of-bounds gains
           if bounds:
             lower,upper = bounds;
-            absg = map(abs,g1p);
+            absg = list(map(abs,g1p));
             # oob[i] will be True if gain element #i is out of bounds, and not masked above
             oob = [ ((x<(lower or 0))|(upper and x>upper)) for x in (absg[0],absg[3]) ];
             # reduce to single mask for all 4 gains
@@ -258,10 +259,10 @@ class Gain2x2a (DataTiler):
           active_gain[p] = g1p;
 
     if flags_per_antenna:
-      dprint(3,"new gain-flags: "," ".join(["%s:%d"%x for x in sorted(flags_per_antenna.iteritems())]));
+      dprint(3,"new gain-flags: "," ".join(["%s:%d"%x for x in sorted(flags_per_antenna.items())]));
 
-    deltanorm_sq = sum(gaindiff2.itervalues());
-    gainnorm_sq  = sum([ sum([ square(g1) for g1 in gain1 ]) for p,gain1 in gain1dict.iteritems() ]);
+    deltanorm_sq = sum(gaindiff2.values());
+    gainnorm_sq  = sum([ sum([ square(g1) for g1 in gain1 ]) for p,gain1 in gain1dict.items() ]);
     self.gainnorm = numpy.sqrt(gainnorm_sq).max();
     # find how many have converged
     self.delta_sq = deltanorm_sq/gainnorm_sq;
@@ -281,7 +282,7 @@ class Gain2x2a (DataTiler):
   def get_gainflags (self,flagnull=False,lower=None,upper=None):
     """works out gain flags based on upper and lower bounds (also taking into account previously raised flags)
     Returns array of gain-based flags of shape datashape.""";
-    for p,g0p in self.gain.iteritems():
+    for p,g0p in self.gain.items():
       mask = False;
       # accumulate mask
       for g0 in g0p[0],g0p[3]:
@@ -299,7 +300,7 @@ class Gain2x2a (DataTiler):
           self.gainflags[p] = mask;
     # reformat entries to datashape
     outflags = {};
-    for p,gf in self.gainflags.iteritems():
+    for p,gf in self.gainflags.items():
       fl = numpy.zeros(self.datashape,bool);
       self.tile_data(fl)[...] = self.tile_subshape(gf);
       outflags[p] = fl;
@@ -308,7 +309,7 @@ class Gain2x2a (DataTiler):
   def _G (self,p):
     g = self._gmat.get(p);
     if g is None:
-      g = self._gmat[p] = map(self.tile_subshape,self.gain[p]);
+      g = self._gmat[p] = list(map(self.tile_subshape,self.gain[p]));
     return g;
 
   def _Gconj (self,p):
@@ -323,8 +324,8 @@ class Gain2x2a (DataTiler):
       a,b,c,d = self._G(p);
       gi = self._ginv[p,reg] = matrix_maskinf(matrix_invert((a+reg,b,c,d+reg)));
       if p in verbose_stations_corr:
-        print p,"G",[ g[verbose_element] for g in a,b,c,d ];
-        print p,"Ginv",[ g[verbose_element] for g in gi ];
+        print(p,"G",[ g[verbose_element] for g in (a,b,c,d) ]);
+        print(p,"Ginv",[ g[verbose_element] for g in gi ]);
 #      print "Inverting",p;
     return gi;
 
@@ -350,13 +351,13 @@ class Gain2x2a (DataTiler):
       if cache:
         self._residual_cache[pq] = r;
       if pq in verbose_baselines_corr:
-        print pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ];
-        print pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ];
-        print pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in c ];
-        print pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in r ];
+        print(pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ]);
+        print(pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ]);
+        print(pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in c ]);
+        print(pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in r ]);
     else:
       if pq in verbose_baselines_corr:
-        print pq,"R cached",[ 0 if is_null(g) else g[verbose_element] for g in r ];
+        print(pq,"R cached",[ 0 if is_null(g) else g[verbose_element] for g in r ]);
     return r;
 
   def residual_inverse (self,lhs,rhs,pq,regularize=0,tiler=None,cache=True):
@@ -370,10 +371,10 @@ class Gain2x2a (DataTiler):
       if cache:
         self._residual_inverse_cache[pq] = r;
       if pq in verbose_baselines_corr:
-        print pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ];
-        print pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ];
-        print pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in c ];
-        print pq,"Ri",[ 0 if is_null(g) else g[verbose_element] for g in r ];
+        print(pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ]);
+        print(pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ]);
+        print(pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in c ]);
+        print(pq,"Ri",[ 0 if is_null(g) else g[verbose_element] for g in r ]);
     return r;
 
   def apply (self,lhs,pq,cache=False,tiler=False):
@@ -384,7 +385,7 @@ class Gain2x2a (DataTiler):
     appl = self._apply_cache.get(pq) if cache else None;
     if appl is None:
       lhs = self._get_matrix(p,q,lhs);
-      appl = map(tiler.untile_data,matrix_multiply(self._G(p),matrix_multiply(lhs,self._Gconj(q))));
+      appl = list(map(tiler.untile_data,matrix_multiply(self._G(p),matrix_multiply(lhs,self._Gconj(q)))));
       if cache:
         self._apply_cache[pq] = appl;
     return appl;
@@ -396,19 +397,19 @@ class Gain2x2a (DataTiler):
     tiler = tiler or self;
     appl = self._apply_inverse_cache.get(pq) if cache else None;
     if appl is None:
-      appl = map(tiler.untile_data,matrix_multiply(self._Ginv(p,regularize),
-        matrix_multiply(map(tiler.tile_data,rhs[pq]),self._Ginvconj(q,regularize))));
+      appl = list(map(tiler.untile_data,matrix_multiply(self._Ginv(p,regularize),
+        matrix_multiply(list(map(tiler.tile_data,rhs[pq])),self._Ginvconj(q,regularize)))));
       if cache:
         self._apply_inverse_cache[pq] = appl;
       if pq in verbose_baselines_corr:
-        print pq,"RHS",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ];
-        print pq,"APPLINV",[ 0 if is_null(g) else g[verbose_element] for g in appl ];
+        print(pq,"RHS",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ]);
+        print(pq,"APPLINV",[ 0 if is_null(g) else g[verbose_element] for g in appl ]);
     return appl;
 
   def get_2x2_gains (self,datashape,expanded_dataslice,tiler=None):
     tiler = tiler or self;
     gainsdict = {};
-    for p,gmat in self.gain.iteritems():
+    for p,gmat in self.gain.items():
       gainsdict[p] = [ tiler.expand_subshape(x,datashape,expanded_dataslice) for x in gmat ];
     return gainsdict;
 

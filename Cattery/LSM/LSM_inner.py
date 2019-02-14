@@ -34,10 +34,10 @@ import sys,time
 import pickle # for serialization and file io
 # from Dummy import *
 
-from common_utils import *
+from .common_utils import *
 from Timba.Meq import meq
 from Timba.TDL import *
-import LSM_Sixpack
+from . import LSM_Sixpack
 from Timba.Meq import meq
 
 from Timba.Apps import app_nogui
@@ -59,7 +59,7 @@ class Source:
  def __init__(self,name,treeType=POINT_TYPE,tableName='Table1',major=0, minor=0, pangle=0):
    # Check source name to be a string
    if type(name) != type(""):
-    raise TypeError,"Name must be a string, not %s"  % type(name).__name__
+    raise TypeError("Name must be a string, not %s"  % type(name).__name__)
    self.name=name
    self.tableName=tableName
    self.eX=major
@@ -215,7 +215,7 @@ class SpH:
    self.setU(my_result.result.vellsets[4])
    self.setV(my_result.result.vellsets[5])
   else:
-   print "Cannot update values: (cell,mqs)",self.lsm.cells,self.lsm.mqs
+   print("Cannot update values: (cell,mqs)",self.lsm.cells,self.lsm.mqs)
 
 
  # returns the size of the values corresponding to the given (t,f) pair
@@ -225,11 +225,11 @@ class SpH:
   # range error check
   if (self.lsm.cells.segments.freq.start_index > freq_index) or\
     (self.lsm.cells.segments.freq.end_index < freq_index):
-    print "Index error, Frequency %d" %freq_index
+    print("Index error, Frequency %d" %freq_index)
     freq_index=self.lsm.cells.segments.freq.start_index
   if (self.lsm.cells.segments.time.start_index > time_index) or\
     (self.lsm.cells.segments.time.end_index < time_index):
-    print "Index error, Time %d" %time_index
+    print("Index error, Time %d" %time_index)
     time_index=self.lsm.cells.segments.time.start_index
   if type=='A' or type=='I':
    # expect a vellset
@@ -300,11 +300,11 @@ class SpH:
   # range error check
   if (self.lsm.cells.segments.freq.start_index > freq_index) or\
     (self.lsm.cells.segments.freq.end_index < freq_index):
-    print "Index error, Frequency %d" %freq_index
+    print("Index error, Frequency %d" %freq_index)
     freq_index=self.lsm.cells.segments.freq.start_index
   if (self.lsm.cells.segments.time.start_index > time_index) or\
     (self.lsm.cells.segments.time.end_index < time_index):
-    print "Index error, Time %d" %time_index
+    print("Index error, Time %d" %time_index)
     time_index=self.lsm.cells.segments.time.start_index
 
   if type=='A' or type=='I':
@@ -372,7 +372,7 @@ class SpH:
     #print "Scalar Return ",self.sI.value[0]
     return self.sV.value[0]
   else:
-    print "Error request",type
+    print("Error request",type)
     return 0
 
 

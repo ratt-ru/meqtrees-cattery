@@ -24,9 +24,9 @@
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-from SkyComponent import *
-import Context
-import Parallelization
+from .SkyComponent import *
+from . import Context
+from . import Parallelization
 
 class Patch (SkyComponent):
   def __init__(self,ns,name,direction,components=[]):

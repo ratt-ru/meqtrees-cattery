@@ -87,7 +87,7 @@ TDLCompileOption("verbose_level","Debugging message level",[None,1,2,3],more=int
 REIM = "re","im";
 REALIMAG = dict(re="real",im="imag");
 
-import Utils
+from . import Utils
 
 def make_beam_filename (filename_pattern,corr,reim):
   """Makes beam filename for the given correlation and real/imaginary component (one of "re" or "im")"""
@@ -115,13 +115,13 @@ def make_beam_node (beam,pattern,*children):
   if not missing_is_null:
     for f in filename_real+filename_imag:
       if f and not os.path.exists(f):
-        raise RuntimeError,"Can't find beam pattern file %s"%f;
+        raise RuntimeError("Can't find beam pattern file %s"%f);
   # if we end up with only one unique filename, make a scalar-mode interpolator
   if len(set(filename_real)) == 1 and len(set(filename_imag)) == 1:
     filename_real = filename_real[0];
     filename_imag = filename_imag[0];
   # now make interpolator node
-  import InterpolatedBeams
+  from . import InterpolatedBeams
   if children[-1] is None:
     children = children[:-1];
   beam << Meq.PyNode(class_name="FITSBeamInterpolatorNode",module_name=InterpolatedBeams.__file__,

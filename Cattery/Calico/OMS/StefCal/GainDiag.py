@@ -4,7 +4,7 @@ import math
 import operator
 import scipy.ndimage.filters
 
-from MatrixOps import *
+from .MatrixOps import *
 
 from Timba.Meq import meq
 import Kittens.utils
@@ -34,7 +34,7 @@ def pq_direct_conjugate (p,q,data):
   else:
     return None,None,None;
 
-from DataTiler import DataTiler    
+from .DataTiler import DataTiler    
 
 square = lambda x:(x*numpy.conj(x)).real;
 
@@ -72,7 +72,7 @@ class GainDiag (DataTiler):
     # as a starting point
     elif isinstance(init_value,dict):
       self.gain = dict([ (pp,self._unity.copy()) for pp in parms ]);
-      for p,value in init_value.iteritems():
+      for p,value in init_value.items():
         g = self.gain.get(p);
         if g is not None:
           if value.ndim == 1:
@@ -123,12 +123,12 @@ class GainDiag (DataTiler):
     # this does two iterations at a time              
     for step,g0,g1 in (0,self.gain,gain0),(1,gain0,gain1):
       # converge from one side (solve for Gp)
-      for p,i in self.gain.keys():
+      for p,i in list(self.gain.keys()):
         pmask = self.gainflags.get(p,False);
         # build up sums
         sum_reim = 0;
         sum_sq = 0;
-        for q,j in self.gain.keys():
+        for q,j in list(self.gain.keys()):
           pq,direct,conjugate = pq_direct_conjugate(p,q,rhs);
           if pq in self._solve_ifrs:
             # get weights, data, model
@@ -152,8 +152,8 @@ class GainDiag (DataTiler):
             dmh = self.tile_data(d,dtype=self._dtype)*mh;
             mh2 = abs(mh)**2;
             if (p,q) in verbose_baselines and i==j:
-              print "S%d %s%s:%s%s"%(step,p,q,i,j),"D",d[verbose_element],"MH",m[verbose_element], \
-                  "Gq",g0[q,j][verbose_element],"V",mh[verbose_element],"DV",dmh[verbose_element],"VHV",mh2[verbose_element];
+              print("S%d %s%s:%s%s"%(step,p,q,i,j),"D",d[verbose_element],"MH",m[verbose_element], \
+                  "Gq",g0[q,j][verbose_element],"V",mh[verbose_element],"DV",dmh[verbose_element],"VHV",mh2[verbose_element]);
             # average over tiles
             dmh = self.reduce_tiles(dmh);
             mh2 = self.reduce_tiles(mh2);
@@ -175,8 +175,8 @@ class GainDiag (DataTiler):
             sum_reim.real = scipy.ndimage.filters.gaussian_filter(sum_reim.real,self.opts.smoothing,mode='mirror');
             sum_reim.imag = scipy.ndimage.filters.gaussian_filter(sum_reim.imag,self.opts.smoothing,mode='mirror');
         if p in verbose_stations:
-          print "S%d %s:%s"%(step,p,i),"sum DV",sum_reim[verbose_element],"sum VHV",sum_sq[verbose_element];
-          print "S%d %s:%s"%(step,p,i),"G'",(sum_reim/sum_sq),(sum_reim/sum_sq)[verbose_element];
+          print("S%d %s:%s"%(step,p,i),"sum DV",sum_reim[verbose_element],"sum VHV",sum_sq[verbose_element]);
+          print("S%d %s:%s"%(step,p,i),"G'",(sum_reim/sum_sq),(sum_reim/sum_sq)[verbose_element]);
         gold = g0[p,i];
         # null sumsq means no valid data (or gain flagged)
         if is_null(sum_sq):
@@ -194,7 +194,7 @@ class GainDiag (DataTiler):
           gnew[mask] = gold[mask];
           dprint(2,"%s: %d values reset due to INF/NAN"%(p,mask.sum()));
         if p in verbose_stations:
-          print "S%d %s:%s"%(step,p,i),"G''",g1[p,i],g1[p,i][verbose_element];
+          print("S%d %s:%s"%(step,p,i),"G''",g1[p,i],g1[p,i][verbose_element]);
         # take difference at second step
         gaindiff2[p] += square(gnew - gold)
         gaindiff2[p][mask] = 0;
@@ -231,9 +231,9 @@ class GainDiag (DataTiler):
           else:
             self.gainflags[p] = mask;
     # now sum the ||delta-G||^2 over all gains
-    deltanorm_sq = sum(gaindiff2.itervalues());
+    deltanorm_sq = sum(gaindiff2.values());
     # norm-squared of new gain solution, per each t/f slot
-    gainnorm_sq = sum([ square(g1) for pp,g1 in gain1.iteritems() ]);
+    gainnorm_sq = sum([ square(g1) for pp,g1 in gain1.items() ]);
     self.gainnorm = numpy.sqrt(gainnorm_sq).max();
     # find how many have converged
     self.delta_sq = deltanorm_sq/gainnorm_sq;
@@ -254,7 +254,7 @@ class GainDiag (DataTiler):
   def get_gainflags (self,flagnull=False,lower=None,upper=None):
     """works out gain flags based on upper and lower bounds (also taking into account previously raised flags)
     Returns array of gain-based flags of shape datashape.""";
-    for (p,i),g0 in self.gain.iteritems():
+    for (p,i),g0 in self.gain.items():
       # accumulate mask
       mask = False;
       if flagnull:
@@ -271,7 +271,7 @@ class GainDiag (DataTiler):
           self.gainflags[p] = mask;
     # reformat entries to datashape
     outflags = {};
-    for p,gf in self.gainflags.iteritems():
+    for p,gf in self.gainflags.items():
       fl = numpy.zeros(self.datashape,bool);
       self.tile_data(fl)[...] = self.tile_subshape(gf);
       outflags[p] = fl;
@@ -300,8 +300,8 @@ class GainDiag (DataTiler):
           gpi = self._gp_inv[pi] =  1/(gp+regularize);
           gpi[~numpy.isfinite(gpi)] = 0; 
           if pi[0] in verbose_stations_corr:
-            print "G:%s:%s"%pi,self.gain[pi][verbose_element];
-            print "Ginv:%s:%s"%pi,gpi[verbose_element];
+            print("G:%s:%s"%pi,self.gain[pi][verbose_element]);
+            print("Ginv:%s:%s"%pi,gpi[verbose_element]);
         gpgqi.append(gpi);
       g = self._gpgq_inv[pq,i,j] = self.tile_subshape(gpgqi[0]*numpy.conj(gpgqi[1]));
     return g;
@@ -309,7 +309,7 @@ class GainDiag (DataTiler):
   def get_last_timeslot (self):
     """Returns dict of p->g, where p is a parm ID, and g is the gain solution for the last timeslot.
     This can be used to initialize new gain objects (for init_value)"""
-    return dict([(key,value[-1,...]) for key,value in self.gain.iteritems() ]);
+    return dict([(key,value[-1,...]) for key,value in self.gain.items() ]);
 
   def reset_residuals (self):
     self._residual = {};
@@ -325,10 +325,10 @@ class GainDiag (DataTiler):
       if cache:
         self._residual_cache[pq] = res;
       if pq in verbose_baselines_corr:
-        print pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ];
-        print pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ];
-        print pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in corr ];
-        print pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in res ];
+        print(pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ]);
+        print(pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ]);
+        print(pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in corr ]);
+        print(pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in res ]);
     return res;
 
   def residual_inverse (self,lhs,rhs,pq,regularize=0,tiler=None,cache=False):
@@ -342,10 +342,10 @@ class GainDiag (DataTiler):
       if cache:
         self._residual_inverse_cache[pq] = res;
       if pq in verbose_baselines_corr:
-        print pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ];
-        print pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ];
-        print pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in corr ];
-        print pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in res ];
+        print(pq,"D",[ 0 if is_null(g) else g[verbose_element] for g in lhs[pq] ]);
+        print(pq,"M",[ 0 if is_null(g) else g[verbose_element] for g in rhs[pq] ]);
+        print(pq,"C",[ 0 if is_null(g) else g[verbose_element] for g in corr ]);
+        print(pq,"R",[ 0 if is_null(g) else g[verbose_element] for g in res ]);
     return res;
 
   def apply (self,lhs,pq,index=True,cache=False,tiler=None):
@@ -362,8 +362,8 @@ class GainDiag (DataTiler):
       if cache:
         self._apply_cache[pq] = appl;
       if pq in verbose_baselines_corr:
-        print pq,"LHS",[ 0 if is_null(g) else g[verbose_element] for g in lhs ];
-        print pq,"APPL(LHS)",[ 0 if is_null(g) else g[verbose_element] for g in appl ];
+        print(pq,"LHS",[ 0 if is_null(g) else g[verbose_element] for g in lhs ]);
+        print(pq,"APPL(LHS)",[ 0 if is_null(g) else g[verbose_element] for g in appl ]);
     return appl;
 
   def apply_inverse (self,rhs,pq,cache=False,regularize=0,tiler=None):

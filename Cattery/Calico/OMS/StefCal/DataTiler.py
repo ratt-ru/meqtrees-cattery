@@ -1,7 +1,8 @@
 import numpy
 import operator
-from MatrixOps import *
+from .MatrixOps import *
 from Timba.Meq import meq
+from functools import reduce
 
 
 class DataTiler (object):
@@ -75,7 +76,7 @@ class DataTiler (object):
       x = x.reshape(self.tiled_shape);
       return x.astype(dtype) if ( dtype and dtype != x.dtype ) else x
     except:
-      print 'tile_data exception, tiled_shape:',self.tiled_shape,', arg:',getattr(x,'shape',());
+      print('tile_data exception, tiled_shape:',self.tiled_shape,', arg:',getattr(x,'shape',()));
       raise;
     
   def untile_data (self,x):
@@ -83,7 +84,7 @@ class DataTiler (object):
     try:
       return x.reshape(self.datashape) if not (numpy.isscalar(x) or x.size == 1) else x;
     except:
-      print 'untile_data exception, datashape:',self.datashape,', arg:',getattr(x,'shape',());
+      print('untile_data exception, datashape:',self.datashape,', arg:',getattr(x,'shape',()));
       raise;
     
   def tile_subshape (self,x):
@@ -98,7 +99,7 @@ class DataTiler (object):
           x = getattr(x,method)(ax);
       return x;
     except:
-      print 'reduce_tiles exception, axes:',self.subtiled_axes,', arg:',getattr(x,'shape',());
+      print('reduce_tiles exception, axes:',self.subtiled_axes,', arg:',getattr(x,'shape',()));
       raise;
     
   def expand_subshape (self,x,datashape=None,data_subset=None):

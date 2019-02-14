@@ -21,7 +21,7 @@ class ClippedSincBeam(pynode.PyNode):
   def get_result (self,request,*children):
     try:
       if len(children) < 1:
-        raise TypeError,"at least one child is expected";
+        raise TypeError("at least one child is expected");
       # now, figure out the lms 
       # lm may be a 2/3-vector or an Nx2/3 tensor
       lm = children[0];
@@ -33,12 +33,12 @@ class ClippedSincBeam(pynode.PyNode):
         nsrc,nlm = 1,dims[0];
         tensor = False;
       else:
-        raise TypeError,"expecting a 2/3-vector or an Nx2/3 matrix for child 0 (lm)";
+        raise TypeError("expecting a 2/3-vector or an Nx2/3 matrix for child 0 (lm)");
       # pointing offsets (child 1) are optional
       if len(children) > 1:
         dlm = children[1];
         if len(dlm.vellsets) != 2:
-          raise TypeError,"expecting a 2-vector for child 1 (dlm)";
+          raise TypeError("expecting a 2-vector for child 1 (dlm)");
         dl,dm = dlm.vellsets[0].value,dlm.vellsets[1].value;
       else:
         dl = dm = None;

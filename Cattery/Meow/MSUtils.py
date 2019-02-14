@@ -46,7 +46,7 @@ try:
   _addImagingColumns = pyrap.tables.addImagingColumns
 except:
   Meow.dprint("  Meow.MSUtils: import pyrap.tables failed. Is pyrap installed?");
-  raise RuntimeError,"failed to import pyrap.tables. Please install pyrap!";
+  raise RuntimeError("failed to import pyrap.tables. Please install pyrap!");
 
 def find_exec (execname):
   path = os.environ.get('PATH') or os.defpath;
@@ -111,7 +111,7 @@ LINEAR_CORRS = set(["XX", "XY", "YX", "YY"]);
 # queue size parameter for MS i/o record
 ms_queue_size = 500;
 
-FLAGBITS = range(31);
+FLAGBITS = list(range(31));
 FLAG_ADD = "add to set";
 FLAG_REPLACE = "replace set";
 FLAG_REPLACE_ALL = "replace all sets";
@@ -277,7 +277,7 @@ class MSContentSelector (object):
   def _update_ms_options (self):
     # DDID selector
     if self.ms_ddid_numchannels is not None:
-      self.ddid_option.set_option_list(range(len(self.ms_ddid_numchannels)));
+      self.ddid_option.set_option_list(list(range(len(self.ms_ddid_numchannels))));
       if len(self.ms_ddid_numchannels) < 2:
         self.ddid_option.hide();
     # Field selector
@@ -785,7 +785,7 @@ class MSSelector (object):
   def is_linear_pol (self):
     return self.ms_corr_names[0] in LINEAR_CORRS;
 
-  def setup_observation_context (self,ns,antennas=range(3),prefer_baseline_uvw=False):
+  def setup_observation_context (self,ns,antennas=list(range(3)),prefer_baseline_uvw=False):
     """Sets up the contents of Meow.Context based on the content of this MS.
     Returns a tuple of array,observation (Meow.Context.array,Meow.Context.observation)
     'ns' is a NodeScope object.
@@ -878,7 +878,7 @@ class MSSelector (object):
       # if NAME column is missing, use indices
       if not antnames:
         Meow.dprint("Warning! This MS does not define ANTENNA names. Using antenna indices instead.")
-        self.ms_antenna_names = map(str,range(anttable.nrows()));
+        self.ms_antenna_names = list(map(str,list(range(anttable.nrows()))));
       # else use name, but trim off longest common prefix (so that RT0,RT1,..RTD become 0,1,...,D
       else:
         prefix = len(longest_prefix(*antnames));
@@ -939,7 +939,7 @@ class MSSelector (object):
       ms.close();
       return True;
     except:
-      print "error reading MS",msname;
+      print("error reading MS",msname);
       traceback.print_exc();
       return False;
 
@@ -964,7 +964,7 @@ class MSSelector (object):
   def create_inputrec (self,tiling=None,time_step=1):
     """Creates an input record with the selected options""";
     if self.msname is None:
-      raise ValueError,"Measurement Set not specified";
+      raise ValueError("Measurement Set not specified");
     rec = record();
     rec.ms_name          = self.msname
     if self.input_column and self.ms_has_input:
@@ -974,7 +974,7 @@ class MSSelector (object):
     tiling = tiling or self.tile_size;
     if isinstance(tiling,(list,tuple)):
       if len(tiling) != 2:
-        raise TypeError,"tiling: 2-list or 2-tuple expected";
+        raise TypeError("tiling: 2-list or 2-tuple expected");
       (tile_segments,tile_size) = tiling;
       if tile_segments is not None:
         rec.tile_segments    = tile_segments;
@@ -1174,7 +1174,7 @@ class ImagingSelector (object):
     self.imaging_arcmin = self.imaging_cellsize = None;
     if arcmin or not cellsize:
       if cellsize:
-        raise ValueError,"ImagingSelector: specify either 'arcmin' or 'cellsize', not both";
+        raise ValueError("ImagingSelector: specify either 'arcmin' or 'cellsize', not both");
       if not arcmin:
         arcmin = [ 5 ];
       elif not isinstance(arcmin,(list,tuple)):
@@ -1275,16 +1275,16 @@ class ImagingSelector (object):
       selector = self.mssel.subset_selector;
     # check MS name and column
     if not self.mssel.msname:
-      raise ValueError,"make_dirty_image: MS not set up";
+      raise ValueError("make_dirty_image: MS not set up");
     col = self.imaging_column;
     if not col:
-      raise ValueError,"make_dirty_image: output column not set up";
+      raise ValueError("make_dirty_image: output column not set up");
     # image size
     npix = npix or self.imaging_npix;
     # see if arcmin or cellsize is supplied; if neither, then use TDLOption values
     if arcmin or cellsize:
       if arcmin and cellsize:
-          raise ValueError,"ImagingSelector: specify either 'arcmin' or 'cellsize', not both";
+          raise ValueError("ImagingSelector: specify either 'arcmin' or 'cellsize', not both");
     else:
       arcmin = self.imaging_arcmin;
       cellsize = self.imaging_cellsize;
@@ -1394,7 +1394,7 @@ class ImagingSelector (object):
     taqls = [taql] if taql else [];
     # add baseline selection string
     if not self.mssel.ms_ifrset:
-      raise RuntimeError,"Can't select baselines since we don't appear to have read the MS!";
+      raise RuntimeError("Can't select baselines since we don't appear to have read the MS!");
     img_ifrset  = self.mssel.get_ifr_subset();
     if self.imaging_ifrs and self.imaging_ifrs.strip().upper() not in ["","*","ALL"]:
       img_ifrset = img_ifrset.subset(self.imaging_ifrs,strict=False);
@@ -1441,7 +1441,7 @@ class ImagingSelector (object):
           os.system("/bin/rm -fr "+modelname);
         except:
           pass;
-    print "MSUtils: imager args are"," ".join(args);
+    print("MSUtils: imager args are"," ".join(args));
     # # add imaging columns, if necessary
     # try:
     #   _addImagingColumns and _addImagingColumns(self.mssel.msname);
@@ -1488,17 +1488,17 @@ class Flagsets (object):
           if isinstance(bit,int):
             self.bits[name] = bit;
           else:
-            print "Warning: unexpected type (%s) for %s keyword of BITFLAG column, ignoring"%(type(order),kw);
+            print("Warning: unexpected type (%s) for %s keyword of BITFLAG column, ignoring"%(type(order),kw));
       # have we found any FLAGSET_ specs?
       if self.bits:
         order = 'FLAGSETS' in kws and ms.getcolkeyword('BITFLAG','FLAGSETS');
         if isinstance(order,str):
           order = order.split(',');
         else:
-          print "Warning: unexpected type (%s) for FLAGSETS keyword of BITFLAG column, ignoring"%type(order);
+          print("Warning: unexpected type (%s) for FLAGSETS keyword of BITFLAG column, ignoring"%type(order));
           order = [];
         # form up "natural" order by comparing bitmasks
-        bitwise_order = list(self.bits.iterkeys());
+        bitwise_order = list(self.bits.keys());
         bitwise_order.sort(lambda a,b:cmp(self.bits[a],self.bits[b]));
         # if an order is specified, make sure it is actually valid,
         # and add any elements from bitwise_order that are not present
@@ -1512,14 +1512,14 @@ class Flagsets (object):
       elif 'NAMES' in kws:
         names = ms.getcolkeyword('BITFLAG','NAMES');
         if isinstance(names,(list,tuple)):
-          self.order = map(str,names);
+          self.order = list(map(str,names));
           bit = 1;
           for name in self.order:
             self.bits[name] = bit;
             bit <<= 1;
           if ms.iswritable():
             ms._putkeyword('BITFLAG','FLAGSETS',-1,False,','.join(self.order));
-            for name,bit in self.bits.iteritems():
+            for name,bit in self.bits.items():
               ms._putkeyword('BITFLAG','FLAGSET_%s'%name,-1,False,bit);
             ms.flush();
       else:
@@ -1542,17 +1542,17 @@ class Flagsets (object):
     """;
     # lookup flagbit, return if found
     if self.order is None:
-      raise TypeError,"MS does not contain a BITFLAG column. Please run the addbitflagcol utility on this MS.""";
+      raise TypeError("MS does not contain a BITFLAG column. Please run the addbitflagcol utility on this MS.""");
     bit = self.bits.get(name,None);
     if bit is not None:
       return bit;
     # raise exception if not allowed to create a new one
     if not create:
-      raise ValueError,"Flagset '%s' not found"%name;
+      raise ValueError("Flagset '%s' not found"%name);
     # find empty bit
     for bitnum in range(32):
       bit = 1<<bitnum;
-      if bit not in self.bits.values():
+      if bit not in list(self.bits.values()):
         self.order.append(name);
         self.bits[name] = bit;
         ms = TABLE(self.msname,readonly=False);
@@ -1563,19 +1563,19 @@ class Flagsets (object):
           callback();
         return bit;
     # no free bit found, bummer
-    raise ValueError,"Too many flagsets in MS, cannot create another one";
+    raise ValueError("Too many flagsets in MS, cannot create another one");
 
   def remove_flagset (self,*fsnames):
     """Removes the named flagset(s). Returns flagmask corresponding to the removed
     flagsets.""";
     # lookup all flagsets, raise error if any not found
     if self.bits is None:
-      raise TypeError,"MS does not contain a BITFLAG column, cannot use flagsets""";
+      raise TypeError("MS does not contain a BITFLAG column, cannot use flagsets""");
     removing = [];
     for fs in fsnames:
       bit = self.bits.get(fs,None);
       if bit is None:
-        raise ValueError,"Flagset '%s' not found"%fs;
+        raise ValueError("Flagset '%s' not found"%fs);
       removing.append((fs,bit));
     if not removing:
       return;
@@ -1605,7 +1605,7 @@ def parse_antenna_spec (spec,names=None):
         return number;
     elif names and name in names:
       return names.index(name);
-  raise ValueError,"illegal antenna specifier '%s'"%spec;
+  raise ValueError("illegal antenna specifier '%s'"%spec);
 
 def parse_antenna_subset (value,names=None):
   if not value:
@@ -1635,7 +1635,7 @@ def parse_antenna_subset (value,names=None):
       if not names:
         nant = max(nant,index1+1,index2+1);
       if index1>index2:
-        raise ValueError,"illegal antenna specifier '%s'"%spec;
+        raise ValueError("illegal antenna specifier '%s'"%spec);
       # add to subset
-      subset += range(index1,index2+1);
+      subset += list(range(index1,index2+1));
   return subset;

@@ -234,7 +234,7 @@ class Sixpack:
        return self.__type=='point';
 
     def display(self, txt=None,full=False):
-        print self.__label
+        print(self.__label)
         return self.__label
 
     # Generic string
@@ -257,7 +257,7 @@ def newstar_source (ns=0, predefine=False, flux_att=1.0, slave=False, simul=Fals
    # Make the Sixpack and get its ParmSet object:
    punit = pp['punit']
    sixpack = Sixpack(label=punit, **pp)
-   if pp.has_key('parmtable'):
+   if 'parmtable' in pp:
        sixpack.parmtable(pp['parmtable'])
  
    return sixpack
@@ -293,10 +293,10 @@ if __name__=='__main__':
     my_sp.display()
 
     # Conversion to 2x2  cohaerency matrix
-    print my_sp.coh22(ns)
-    print my_sp.coh22(ns)
-    print my_sp.coh22(ns, 'circular')
-    print
+    print(my_sp.coh22(ns))
+    print(my_sp.coh22(ns))
+    print(my_sp.coh22(ns, 'circular'))
+    print()
   
     my_name='patch0'
     stubR=ns[my_name]<<1.1*Meq.Sin(ns.f+ns.t)+2.0*Meq.Cos(ns.f)-2.1*Meq.Sin(ns.f-2)
@@ -305,24 +305,24 @@ if __name__=='__main__':
 
     # resolve the forest
     ns.Resolve()
-    print "========================= Point "
-    print dir(my_sp)
+    print("========================= Point ")
+    print(dir(my_sp))
     my_sp.display()
     my_sp.decompose()
-    print my_sp.stokesI()
-    print my_sp.stokesQ()
-    print my_sp.stokesU()
-    print my_sp.stokesV()
-    print my_sp.root()
-    print my_sp.type()
-    print "========================= Patch"
-    print dir(my_sp_patch)
+    print(my_sp.stokesI())
+    print(my_sp.stokesQ())
+    print(my_sp.stokesU())
+    print(my_sp.stokesV())
+    print(my_sp.root())
+    print(my_sp.type())
+    print("========================= Patch")
+    print(dir(my_sp_patch))
     my_sp_patch.display()
     my_sp_patch.decompose()
-    print my_sp_patch.stokesI()
-    print my_sp_patch.stokesQ()
-    print my_sp_patch.stokesU()
-    print my_sp_patch.stokesV()
-    print my_sp_patch.root()
+    print(my_sp_patch.stokesI())
+    print(my_sp_patch.stokesQ())
+    print(my_sp_patch.stokesU())
+    print(my_sp_patch.stokesV())
+    print(my_sp_patch.root())
 
 #############################################################################################

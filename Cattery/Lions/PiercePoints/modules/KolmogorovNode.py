@@ -64,14 +64,14 @@ class KolmogorovNode (pynode.PyNode):
 
     def get_result(self, request, *children):
         if len(children) < 1:
-            raise TypeError, "this is NOT a leaf node, At least 1  child with piercepoints expected!"
+            raise TypeError("this is NOT a leaf node, At least 1  child with piercepoints expected!")
         res1 = children[0]
         vs1 = res1.vellsets
         # pierce_points, vector of length 2 or 3 (x,y(,z))
         vector_size = len(vs1)
         # for now use fist two:
         if vector_size < 2:
-            raise TypeError, "vector size of child 1 too small, at leat x/y expected"
+            raise TypeError("vector size of child 1 too small, at leat x/y expected")
         xv = vs1[0].value[0]
         yv = vs1[1].value[0]
 

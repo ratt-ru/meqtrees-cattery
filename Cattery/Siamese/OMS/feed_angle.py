@@ -52,7 +52,7 @@ def _read_ms_feed (enabled):
         angle_opt.set_value(" ".join(["%g"%(p/DEG) for p in angles]));
     except:
       traceback.print_exc();
-      print "Error reading %s/FEED subtable. Feed angles not filled."%Context.mssel.msname;
+      print("Error reading %s/FEED subtable. Feed angles not filled."%Context.mssel.msname);
 
 def _select_ms (msname):
   """This is called when a new MS is selected. Reads the FEED table if that option is enabled""";
@@ -87,7 +87,7 @@ re_whitespace = re.compile("\s+");
 
 def _validate_angle (ang):
   # this fill throw an exception if any of the angle components cannot be converted to a float
-  return map(float,re_whitespace.split(ang));
+  return list(map(float,re_whitespace.split(ang)));
 angle_opt.set_validator(_validate_angle);
 
 # helper function, convert string to float, return 0 on error
@@ -105,7 +105,7 @@ def compute_jones (Jones,stations=None,**kw):
     xyz = Context.array.xyz();
 
   # get the feed angles
-  angles = map(_str_to_float,re_whitespace.split(feed_angle));
+  angles = list(map(_str_to_float,re_whitespace.split(feed_angle)));
 
   for p in stations:
     # get feed angle for this antenna number. If list contains fewer angles than stations, the last angle is reused

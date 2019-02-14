@@ -168,7 +168,7 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,**kw):
         # matrix (and B*S will need to be a Meq.MatrixMultiply)
         filename = make_filename(station);
         if not os.path.exists(filename):
-          raise RuntimeError,"Cannot find station layout file %s"%filename;
+          raise RuntimeError("Cannot find station layout file %s"%filename);
         S << Meq.StationBeam(filename=filename,
                               azel_0=obs.phase_center.azel(Context.array.xyz(station)),
                               azel=src.direction.azel(Context.array.xyz(station)),

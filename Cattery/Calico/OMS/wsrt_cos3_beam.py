@@ -39,7 +39,7 @@ from Meow import ParmGroup
 import math
 from math import sqrt,atan2
 
-import solvable_pointing_errors
+from . import solvable_pointing_errors
 
 DEG = math.pi/180.;
 ARCMIN = DEG/60;

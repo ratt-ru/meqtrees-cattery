@@ -4,7 +4,7 @@ import time
 import os.path
 import sys
 import traceback
-import cPickle
+import pickle
 import copy
 import numpy
 import numpy.ma
@@ -31,7 +31,7 @@ def _int_or_str(x):
 
 def cmp_qualified_names (a,b):
   """compares two qualified names: splits them at ':', and comparing the subfields in a numeric sense""";
-  return cmp(map(_int_or_str,a.split(':')),map(_int_or_str,b.split(':')));
+  return cmp(list(map(_int_or_str,a.split(':'))),list(map(_int_or_str,b.split(':'))));
 
 def sort_qualified_names (inlist):
   """Sorts qualified names as follows: splits into fields at ':', and sorts according to fields.
@@ -55,7 +55,7 @@ class _AxisStats (object):
   def update (self):
     if self.cells:
       # axis range
-      self.minmax = min([x0-dx/2 for x0,dx in self.cells.iteritems()]),max([x0+dx/2 for x0,dx in self.cells.iteritems()]);
+      self.minmax = min([x0-dx/2 for x0,dx in self.cells.items()]),max([x0+dx/2 for x0,dx in self.cells.items()]);
       # grid is simply a sorted list of cell values
       self.grid = list(self.cells.keys());
       self.grid.sort();
@@ -89,7 +89,7 @@ class FunkSlice (object):
     self.funklets = funklist;
     self.slice_index = index;
     self.slice_iaxes = iaxes;
-    self.slice_axes = axes or map(mequtils.get_axis_id,iaxes);
+    self.slice_axes = axes or list(map(mequtils.get_axis_id,iaxes));
     self.rank = len(iaxes);
   def __len__ (self):
     return len(self.funklets);
@@ -128,13 +128,13 @@ class FunkSlice (object):
     for funk in self.funklets:
       if numpy.isscalar(funk.coeff):
         if coeff is not None:
-          raise IndexError,"invalid coeff index %s (funklet is scalar)"%coeff;
+          raise IndexError("invalid coeff index %s (funklet is scalar)"%coeff);
         val = funk.coeff;
       else:
         try:
           val = funk.coeff[coeff];
         except:
-          raise IndexError,"invalid coeff index %s (funklet coeffs are %s)"%(coeff,funk.coeff.shape);
+          raise IndexError("invalid coeff index %s (funklet coeffs are %s)"%(coeff,funk.coeff.shape));
       # funk.slice_index is the global index of this funklet. We want to use just the axes
       # found in our slice for assigning to the array
       for iaxis in self.slice_iaxes:
@@ -179,7 +179,7 @@ class FunkSet (object):
     else:
       index = list(index);
     # set additional indices from keywords
-    for axis,num in axes.iteritems():
+    for axis,num in axes.items():
       index[mequtils.get_axis_number(axis)] = num;
     # build up list of full indices corresponding to specified slice
     slice_iaxis = [];
@@ -188,7 +188,7 @@ class FunkSet (object):
       stats = self.pt.axis_stats(iaxis);
       # for empty axes, or axes specifed in our call, append number to all indices as is
       if axis_idx is not None or stats.empty():
-        map(lambda idx:idx.append(axis_idx),indices);
+        list(map(lambda idx:idx.append(axis_idx),indices));
       # non-empty axes NOT specified in our call will be part of the slice
       else:
         slice_iaxis.append(iaxis);
@@ -220,7 +220,7 @@ class FunkSet (object):
     arr = None;
     if os.path.exists(cachefile) and os.path.getmtime(cachefile) >= self.pt.mtime:
       try:
-        arr = cPickle.load(file(cachefile));
+        arr = pickle.load(file(cachefile));
         dprintf(2,"read cache %s\n"%cachefile);
       except:
         dprintf(0,"error reading cached array %s, will regenerate\n"%cachefile);
@@ -233,7 +233,7 @@ class FunkSet (object):
       arr = fullslice.array(coeff,fill_value=0,masked=True,collapse=False);
       # write to cache
       try:
-        cPickle.dump(arr,file(cachefile,"w"));
+        pickle.dump(arr,file(cachefile,"w"));
       except:
         if verbosity.get_verbose() > 0:
           traceback.print_exc();
@@ -471,7 +471,7 @@ class ParmTab (object):
         dprintf(2,"loading index cache\n");
         self._funklet_names,self._domain_list,self._axis_stats,self._name_components, \
         self._domain_fullset,self._domain_cell_index,self._domain_reverse_index \
-          = cPickle.load(file(cachepath));
+          = pickle.load(file(cachepath));
         dprintf(2,"elapsed time: %f seconds\n",time.time()-t0); t0 = time.time();
         return;
       except:
@@ -489,7 +489,7 @@ class ParmTab (object):
       dprintf(2,"collecting axis stats\n");
       self._axes = {};
       for domain in self._domain_list:
-        for axis,rng in domain.iteritems():
+        for axis,rng in domain.items():
           if str(axis) != 'axis_map':
             self._axis_stats[mequtils.get_axis_number(axis)].add_cell(*rng);
       dprintf(2,"elapsed time: %f seconds\n",time.time()-t0); t0 = time.time();
@@ -498,7 +498,7 @@ class ParmTab (object):
       for iaxis,stats in enumerate(self._axis_stats):
         stats.update();
         if not stats.empty():
-          self._domain_fullset[iaxis] = range(len(stats.cells));
+          self._domain_fullset[iaxis] = list(range(len(stats.cells)));
           dprintf(2,"axis %s: %d unique cells from %g to %g\n",stats.name,len(stats.cells),*stats.minmax);
       dprintf(2,"elapsed time: %f seconds\n",time.time()-t0); t0 = time.time();
       dprintf(2,"making subdomain indices\n");
@@ -507,7 +507,7 @@ class ParmTab (object):
       self._domain_reverse_index = {};
       for idom,domain in enumerate(self._domain_list):
         index = [None]*mequtils.max_axis;
-        for axis,rng in domain.iteritems():
+        for axis,rng in domain.items():
           if str(axis) != 'axis_map':
             iaxis = mequtils.get_axis_number(axis);
             index[iaxis] = self._axis_stats[iaxis].lookup_cell(*rng);
@@ -532,7 +532,7 @@ class ParmTab (object):
 
       dprintf(2,"writing cache\n");
       try:
-        cPickle.dump((
+        pickle.dump((
             self._funklet_names,self._domain_list,self._axis_stats,self._name_components, \
             self._domain_fullset,self._domain_cell_index,self._domain_reverse_index \
           ),file(cachepath,'w')
@@ -610,9 +610,9 @@ def open (*args,**kw):
 
 if __name__ == '__main__':
   import sys
-  import FunkOps
+  from . import FunkOps
   if len(sys.argv) < 2:
-    print "Pass in an fmep table to read its stats";
+    print("Pass in an fmep table to read its stats");
   else:
     verbose(3);
     pt = ParmTab(sys.argv[1]);

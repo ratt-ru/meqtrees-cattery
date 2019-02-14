@@ -23,7 +23,7 @@ def expand_axis (x,axis,n):
   if x.shape[axis] == n:
     return x;
   elif x.shape[axis] != 1:
-    raise TypeError,"array must have length 1 along axis %d, it has %d"%(axis,x.shape[axis]);
+    raise TypeError("array must have length 1 along axis %d, it has %d"%(axis,x.shape[axis]));
   return numpy.concatenate([x]*n,axis);
 
 def unite_shapes (a,b):
@@ -49,7 +49,7 @@ def unite_shapes (a,b):
       elif nb == 1:
         b = expand_axis(b,axis,na);
       else:
-        raise TypeError,"error: trying to unite incompatible shapes %s and %s"%(sa,sb);
+        raise TypeError("error: trying to unite incompatible shapes %s and %s"%(sa,sb));
   return a,b;
 
 class FITSAxes (object):
@@ -93,7 +93,7 @@ class FITSAxes (object):
   def grid (self,axis):
     iaxis = self.iaxis(axis);
     if iaxis < 0:
-      raise TypeError,"missing axis '%s'"%axis;
+      raise TypeError("missing axis '%s'"%axis);
     return (numpy.arange(0.,float(self._naxis[iaxis])) - self._rpix[naxis])*self._delta[naxis] + self._rval[naxis];
 
   def type (self,axis):
@@ -144,7 +144,7 @@ class LMVoltageBeam (object):
     if filename_imag:
       im_data = pyfits.open(filename_imag)[0].data;
       if im_data.shape != ff_re.data.shape:
-        raise TypeError,"shape mismatch between FITS files %s and %s"%(filename_real,filename_imag);
+        raise TypeError("shape mismatch between FITS files %s and %s"%(filename_real,filename_imag));
       beam.imag = im_data;
       if self.ampl_interpolation:
         beam_ampl = numpy.abs(beam)
@@ -158,7 +158,7 @@ class LMVoltageBeam (object):
     laxis = axes.iaxis('L');
     maxis = axes.iaxis('M');
     if laxis<0 or maxis<0:
-      raise TypeError,"FITS file %s missing L or M axis"%filename_real;
+      raise TypeError("FITS file %s missing L or M axis"%filename_real);
     # setup conversion functions
     self._lToPixel = Kittens.utils.curry(axes.toPixel,laxis);
     self._mToPixel = Kittens.utils.curry(axes.toPixel,maxis);
@@ -176,7 +176,7 @@ class LMVoltageBeam (object):
     # other_axes is all that remains, and they had better be all trivial
     other_axes = sorted(set(range(axes.ndim())) - set(used_axes));
     if any([axes.naxis(i)>1 for i in other_axes]):
-      raise TypeError,"FITS file %s has other non-trivial axes besides L/M"%filename_real;
+      raise TypeError("FITS file %s has other non-trivial axes besides L/M"%filename_real);
     # setup units
     for ax in laxis,maxis:
       dprint(1,"%s axis unit is %s"%(axes.type(ax),axes.unit(ax)));
@@ -258,11 +258,11 @@ class LMVoltageBeam (object):
     # Do we have a frequency axis in the beam? (case A,B,C):
     if self.beam.hasFrequencyAxis():
       if freq is None:
-        raise ValueError,"frequencies not specified, but beam has a frequency dependence";
+        raise ValueError("frequencies not specified, but beam has a frequency dependence");
       freq = numpy.array(freq);
       if not freq.ndim:
         freq = freq.reshape(1);
-        print freq;
+        print(freq);
       freq = self.beam.freqToBeam(freq);
       # case (A): reuse same frequency for every l/m point
       if len(freq) == 1:
@@ -271,7 +271,7 @@ class LMVoltageBeam (object):
       else:
         # first turn freq vector into an array of the proper shape
         if freqaxis is None:
-          raise ValueError,"frequency axis not specified, but beam has a frequency dependence";
+          raise ValueError("frequency axis not specified, but beam has a frequency dependence");
         freqshape = [1]*(freqaxis+1);
         freqshape[freqaxis] = len(freq);
         freq = freq.reshape(freqshape);
@@ -324,26 +324,26 @@ class LMVoltageMultifreqBeam (LMVoltageBeam):
       if filename_imag:
         im_data = pyfits.open(filename_imag)[0].data;
         if im_data.shape != ff_re.data.shape:
-          raise TypeError,"shape mismatch between FITS files %s and %s"%(filename_real,filename_imag);
+          raise TypeError("shape mismatch between FITS files %s and %s"%(filename_real,filename_imag));
         beam.imag = im_data;
       # change order of axis, since FITS has first axis last
       beam = beam.transpose();
       # figure out axes
       axes = FITSAxes(ff_re.header);
-      used_axes = [ axes.iaxis(x) for x in "L","M","FREQ" ];
+      used_axes = [ axes.iaxis(x) for x in ("L","M","FREQ") ];
       if any([x<0 for x in used_axes]):
-        raise TypeError,"FITS file %s missing L, M or FREQ axis";
+        raise TypeError("FITS file %s missing L, M or FREQ axis");
       laxis,maxis,freqaxis = used_axes;
       # check the other axes
       other_axes = sorted(set(range(axes.ndim())) - set(used_axes));
       if any([axes.naxis(i)>1 for i in other_axes]):
-        raise TypeError,"FITS file %s has other non-trivial axes besides L/M"%filename_real;
+        raise TypeError("FITS file %s has other non-trivial axes besides L/M"%filename_real);
       # setup frequency grid 
       freqgrid = axes.grid(freqaxis);
       if len(freqgrid) > 1:
-        raise TypeError,"FITS file %s has >1 frequency points";
+        raise TypeError("FITS file %s has >1 frequency points");
       if freqs and freqgrid[0] < freqs[-1]:
-        raise TypeError,"FITS file %s has lower frequency than previous file -- monotonically increasing frequencies are expected";
+        raise TypeError("FITS file %s has lower frequency than previous file -- monotonically increasing frequencies are expected");
       freqs.append(freqgrid[0]);
       # check if it matches previous image
       if not ifreq:
@@ -360,7 +360,7 @@ class LMVoltageMultifreqBeam (LMVoltageBeam):
             self._axes.setUnitScale(ax,DEG);
       else:
         if baseshape != beam.shape:
-          raise TypeError,"FITS file %s has differing dimensions"%filename_real;
+          raise TypeError("FITS file %s has differing dimensions"%filename_real);
       beam = beam.transpose(used_axes+other_axes);
       beam = beam.reshape(beam.shape[:len(used_axes)]);
       beamcube[:,:,ifreq] = beam[:,:,0];
@@ -370,7 +370,7 @@ class LMVoltageMultifreqBeam (LMVoltageBeam):
     dprint(2,"m grid is",self._axes.grid(maxis));
     dprint(2,"freq grid is",freqs);
     self._freqaxis = freqs; 
-    self._freq_interpolator = interpolate.interp1d(freqs,range(len(freqs)),'linear');
+    self._freq_interpolator = interpolate.interp1d(freqs,list(range(len(freqs))),'linear');
     # prefilter beam for interpolator
     self._beam = beamcube;
     self._beam_ampl = numpy.abs(beamcube) if self.ampl_interpolation else None;
@@ -427,7 +427,7 @@ class FITSBeamInterpolatorNode (pynode.PyNode):
     elif  len(self.filename_real) == 4 and len(self.filename_imag) == 4:
       self._vb_key = tuple(zip(self.filename_real,self.filename_imag));
     else:
-      raise ValueError,"filename_real/filename_imag: either a single filename, or a list of 4 filenames expected";
+      raise ValueError("filename_real/filename_imag: either a single filename, or a list of 4 filenames expected");
     # other init
     mequtils.add_axis('l');
     mequtils.add_axis('m');
@@ -528,9 +528,9 @@ if __name__ == "__main__":
   b = vb.interpolate(l,l.T,freq=[1.456e+9,1.457e+9,1.458e+9],freqaxis=2);
   c = vb.interpolate(l,l.T,freq=[1.455e+9,1.457e+9,1.458e+9,1.46e+9],freqaxis=2);
 
-  print "C",c.shape,c;
-  print "B",b.shape,b;
-  print "A",a.shape,a;
+  print("C",c.shape,c);
+  print("B",b.shape,b);
+  print("A",a.shape,a);
   sys.exit(1);
 
 
@@ -540,7 +540,7 @@ if __name__ == "__main__":
   l0 = numpy.array([-2,-1,0,1,2])*DEG;
   l = numpy.vstack([l0]*len(l0));
 
-  print vb.interpolate(l,l.T);
+  print(vb.interpolate(l,l.T));
 
   vb = LMVoltageBeam(spline_order=3);
   vb.read("XX_0_Re.fits","XX_0_Im.fits");
@@ -552,7 +552,7 @@ if __name__ == "__main__":
   b = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9],freqaxis=2);
   c = vb.interpolate(l,l.T,freq=[1e+9,1.1e+9,1.2e+9,1.3e+9,1.4e+9],freqaxis=1);
 
-  print "A",a.shape,a;
-  print "B",b.shape,b;
-  print "C",c.shape,c;
+  print("A",a.shape,a);
+  print("B",b.shape,b);
+  print("C",c.shape,c);
 

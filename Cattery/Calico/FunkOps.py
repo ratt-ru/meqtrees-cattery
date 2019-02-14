@@ -40,7 +40,7 @@ def linear_interpol (funkslice):
   if len(funkslice) < 2:
     return funkslice;
   if funkslice.rank > 1:
-    raise TypeError,"linear interpolation only available for rank-1 slices";
+    raise TypeError("linear interpolation only available for rank-1 slices");
   iaxis0 = funkslice.slice_iaxes[0];
   axis0 = funkslice.slice_axes[0];
   output = [];

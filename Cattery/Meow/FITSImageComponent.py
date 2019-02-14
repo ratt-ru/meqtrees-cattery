@@ -25,7 +25,7 @@
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from SixpackComponent import *
+from .SixpackComponent import *
 
 class FITSImageComponent (SixpackComponent):
   """FitsImageComponent is a sixpack component that uses the FITSImage node 

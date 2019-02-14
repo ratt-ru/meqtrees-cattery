@@ -26,9 +26,9 @@
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from Direction import Direction,lm_to_radec
-from Parameterization import Parameterization
-import Context
+from .Direction import Direction,lm_to_radec
+from .Parameterization import Parameterization
+from . import Context
 import math
 
 class AzElDirection (Direction):

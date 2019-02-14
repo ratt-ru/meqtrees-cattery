@@ -26,9 +26,9 @@
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from Parameterization import *
-import Jones
-import Context
+from .Parameterization import *
+from . import Jones
+from . import Context
 from math import cos,sin,acos,asin,atan2,sqrt,pi
 
 def radec_to_lmn (ra,dec,ra0,dec0):

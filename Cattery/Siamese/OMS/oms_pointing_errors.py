@@ -29,7 +29,7 @@ from Meow import Context
 
 import math
 
-import ErrorGens
+from . import ErrorGens
 
 DEG = math.pi/180.;
 ARCMIN = DEG/60;

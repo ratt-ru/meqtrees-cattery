@@ -99,7 +99,7 @@ TDLCompileOptions(*meqmaker.compile_options())
 
 def _define_forest(ns):
     # make pynodes, xyzcomponent for sources
-    ANTENNAS = mssel.get_antenna_set(range(1, 15))
+    ANTENNAS = mssel.get_antenna_set(list(range(1, 15)))
     array = Meow.IfrArray(ns, ANTENNAS, mirror_uvw=False)
     observation = Meow.Observation(ns)
     Meow.Context.set(array, observation)

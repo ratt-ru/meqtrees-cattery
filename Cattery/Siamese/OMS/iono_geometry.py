@@ -98,8 +98,8 @@ def compute_zeta_jones_from_tecs (zeta,tecs,source_list,stations):
   """Creates the Z Jones for ionospheric phase, given TECs (per source, 
   per station).""";
   stations = stations or Context.array.stations();
-  print [src.name for src in source_list];
-  print stations;
+  print([src.name for src in source_list]);
+  print(stations);
   for src in source_list:
     for p in stations:
       zeta(src.name,p) << Meq.Polar(1,-25*Lightspeed*tecs(src.name,p)/Meq.Freq());

@@ -23,7 +23,7 @@ class PyGetRMAngle (pynode.PyNode):
     # Check filename arguments
     if isinstance(self.albus_filename,str):
       self.getdata(self.albus_filename)
-      print 'Siamese/AGW/PyGetRMAngle albus_filename = ',self.albus_filename
+      print('Siamese/AGW/PyGetRMAngle albus_filename = ',self.albus_filename)
 
   def getdata(self,filename):
     global _albus_time

@@ -47,7 +47,7 @@ def source_list (ns,basename="S",l0=0,m0=0):
   sources = model_func(ns,basename,l0,m0,
                        grid_step*ARCMIN,grid_step*ARCMIN,
                        (grid_size-1)/2,tburst,duration,source_flux);
-  return filter(lambda x:x,sources);
+  return [x for x in sources if x];
 
 # model options
 model_option = TDLCompileOption("model_func","Sky model type",

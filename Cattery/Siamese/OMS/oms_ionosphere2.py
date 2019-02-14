@@ -26,7 +26,7 @@
 
 from Timba.TDL import *
 import math
-import iono_geometry2 as iono_geometry
+from . import iono_geometry2 as iono_geometry
 from Meow import Context
 from Meow import StdTrees
 
