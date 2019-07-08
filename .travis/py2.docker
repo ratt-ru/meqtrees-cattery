@@ -19,6 +19,7 @@ RUN docker-apt-install \
     python-qwt5-qt4 \
     build-essential \
     libboost-all-dev \
+    libwcs5 \
     makems
 
 RUN docker-apt-install \
