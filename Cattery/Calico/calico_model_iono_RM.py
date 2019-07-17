@@ -1,6 +1,7 @@
 #
-# A MeqTrees script to rotate or de-rotate ionosphere effects from 
-# synthesis telescope data in Measurement Set format
+# A MeqTrees script to rotate or de-rotate the effects of Rotation
+# Measure due to the Ionosphere from synhesis telescope data in 
+# Measurement Set format
 
 #% $Id$
 #
