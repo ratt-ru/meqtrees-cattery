@@ -29,7 +29,9 @@ FITS files and interpolated via a PyNode. Multiple beam patterns are read
 in and added together.</P>
 
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.TDL import *
 import Meow
 from Meow import Context

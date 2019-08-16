@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 import os.path
 import math
 import numpy
@@ -109,11 +111,13 @@ class FITSAxes (object):
 
   def toPixel (self,axis,world):
     """Converts array of world coordinates to pixel coordinates""";
+    # warning: this makes a narrow field approximation assumption for the cosines
     iaxis = self.iaxis(axis);
-    return self._rpix[iaxis] + (world - self._rval[iaxis])/self._delta[iaxis];
+    return self._rpix[iaxis] + (world - self._rval[iaxis])/self._delta[iaxis]; #float pix as per FITS def?
 
   def toWorld (self,axis,pixel):
     """Converts array of pixel coordinates to world coordinates""";
+    # warning: this makes a narrow field approximation assumption for the cosines
     iaxis = self.iaxis(axis);
     return (pixel - self._rpix[iaxis])*self._delta[iaxis] + self._rval[iaxis];
 

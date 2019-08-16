@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 import os.path
 
 ## ugly hack to get around UGLY FSCKING ARROGNAT (misspelling fully intentional) pyfits-2.3 bug
@@ -71,7 +74,7 @@ class FITSAxes (object):
   def toPixel (self,axis,world):
     """Converts array of world coordinates to pixel coordinates""";
     iaxis = self.iaxis(axis);
-    pix = self._rpix[iaxis] + (world - self._rval[iaxis])/self._delta[iaxis];
+    pix = self._rpix[iaxis] + (world - self._rval[iaxis])/self._delta[iaxis]; #float px as per FITS def?
 #    print "toPixel",axis,world,pix;
     return pix
 

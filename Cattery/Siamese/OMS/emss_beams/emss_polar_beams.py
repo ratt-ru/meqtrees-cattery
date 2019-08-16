@@ -29,7 +29,9 @@ via a PyNode. This implementation allows for a lot of flexibility in how the bea
 interpolated.</P>
 
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.TDL import *
 from Timba import pynode
 from Timba.Meq import meq

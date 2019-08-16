@@ -29,7 +29,9 @@ FITS files and interpolated via a PyNode. Multiple beam patterns are read
 in and added together.</P>
 
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.TDL import *
 import Meow
 from Meow import Context
@@ -203,11 +205,11 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
     # norm towards source is average per-station norm
     if per_station:
       for src in sources:
-        Jones(src,"norm") << Meq.Add(*[Jones(src,p,"norm") for p in stations])/len(stations);
+        Jones(src,"norm") << Meq.Add(*[Jones(src,p,"norm") for p in stations])/len(stations); #average, float
   elif not do_correct:
     if per_station:
       for src in sources:
-        Jones(sources[0],"norm") << Meq.Add(*[Jones(sources[0],p,"norm") for p in stations])/len(stations);
+        Jones(sources[0],"norm") << Meq.Add(*[Jones(sources[0],p,"norm") for p in stations])/len(stations); # average, float
     for src in sources[1:]:
       Jones(src,"norm") << Meq.Identity(Jones(sources[0],"norm"));
   else:

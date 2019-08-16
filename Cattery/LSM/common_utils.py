@@ -23,6 +23,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 import math
 from Timba.Meq import meq
@@ -117,7 +120,7 @@ def bin_search(xarr,x,i_start,i_end):
     return -2
 
   # compare with the mid point
-  i=(i_start+i_end)/2
+  i=(i_start+i_end)//2
   if x >=xarr[i] and\
      x<xarr[i+1]:
    return i
@@ -526,7 +529,7 @@ def node_extract_polarization_parms(sixpack,ns,absolute=0):
  
  if Q_name in allnodes:
    qq=allnodes[Q_name]
-   myqq=get_default_parms(qq)*myii/100
+   myqq=get_default_parms(qq)*myii/100 # percentage, float
  elif sQ_name in allnodes:
    qq=allnodes[sQ_name]
    myqq=get_default_parms(qq)

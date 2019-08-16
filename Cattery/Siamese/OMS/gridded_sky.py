@@ -27,7 +27,9 @@
 such as a grid.</P> 
 
 <P>Author: O. Smirnov</P>""";
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.TDL import *
 import Meow
 import math
@@ -155,7 +157,7 @@ def source_list (ns,basename="S",l0=None,m0=None):
     center_source_flux = source_flux;
   sources = model_func(ns,basename,l0,m0,
                        grid_step*ARCMIN,grid_step*ARCMIN,
-                       (grid_size-1)/2,source_flux,center_source_flux);
+                       (grid_size-1)//2,source_flux,center_source_flux);
   return [x for x in sources if x];
 
 # model options

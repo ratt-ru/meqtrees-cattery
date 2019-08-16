@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Timba.TDL import *
 import Meow
 import math
@@ -27,6 +31,7 @@ def cross_model (ns,basename,l0,m0,dl,dm,nsrc,tburst,duration,I):
   """Returns sources arranged in a cross""";
   model = [transient_source(ns,basename+"+0+0",l0,m0,tburst,duration,I)];
   dy = 0;
+  nsrc = int(nsrc)
   for dx in range(-nsrc,nsrc+1):
     if dx:
       name = "%s%+d%+d" % (basename,dx,dy);

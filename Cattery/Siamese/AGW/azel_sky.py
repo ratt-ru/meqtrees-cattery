@@ -27,7 +27,9 @@
 a fixed position on the sky). This is typical of RFI sources.</P> 
 
 <P>Author: T. WIllis</P>""";
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.TDL import *
 import Meow
 import math

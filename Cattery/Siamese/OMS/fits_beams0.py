@@ -28,7 +28,9 @@
 It is recommended that you use small tile sizes (8~16) with this module.</P>
 
 <P align="right">Authors: T. Willis &lt;<tt>Tony.Willis@nrc-cnrc.gc.ca</tt>&gt; & O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.TDL import *
 import Meow
 from Meow import Context

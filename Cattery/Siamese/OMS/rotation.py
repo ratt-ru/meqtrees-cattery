@@ -15,6 +15,9 @@ that has been rotated by &rho;:</P>
 </P>
 
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 __default_label__ = "P";
 __default_name__  = "parallactic angle and feed rotation";

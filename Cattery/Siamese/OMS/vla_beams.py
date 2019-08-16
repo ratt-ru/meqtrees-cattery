@@ -29,6 +29,9 @@
 
 Authors: Fred Dulwich and Shannon Jaeger"""
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Meow import Context

@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 import os.path
 import math
 import numpy
@@ -105,7 +107,8 @@ class FITSAxes (object):
     """Internal helper to set up the grid based on rval/rpix/delta"""
     nx,rpix,rval,delta = self._naxis[i],self._rpix[i],self._rval[i],self._delta[i];
     self._grid[i] = (numpy.arange(0.,float(nx))-rpix)*delta+rval;
-    self._w2p[i] =  lambda world,rpix=rpix,rval=rval,delta=delta:rpix+(world-rval)/delta;
+    # warning: small angle approximation
+    self._w2p[i] =  lambda world,rpix=rpix,rval=rval,delta=delta:rpix+(world-rval)/delta; # float delta
     self._p2w[i] =  lambda pix,rpix=rpix,rval=rval,delta=delta:(pix-rpix)*delta+rval;
 
   def ndim (self):

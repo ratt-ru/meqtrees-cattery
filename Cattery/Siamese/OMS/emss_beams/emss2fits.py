@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 if __name__ == "__main__":
 
   # setup some standard command-line option parsing

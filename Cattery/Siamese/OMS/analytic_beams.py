@@ -29,8 +29,11 @@ model is provided, but readers are encouraged to contribute models of their own.
 <P>See also Calico.OMS.wsrt_beams for a WSRT beam model with solvable pointing and scale.</P> 
 
 <P>Author: O. Smirnov</P>""";
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.TDL import *
+from .AnalyticBeams import ClippedSincBeam
 from Meow.Direction import radec_to_lmn
 import Meow
 from Meow import Context
@@ -151,8 +154,6 @@ class circular_aperture_beam (WSRT_cos3_beam):
 #  def compute_tensor (self,E,lm,pointing=None,p=0):
 #    return self.compute(E,lm,pointing,p);
 
-from . import AnalyticBeams.ClippedSincBeam
-
 class clipped_sinc_beam (WSRT_cos3_beam):
   label = "clipped_sinc";
   name  = "Clipped sinc function beam model";
@@ -174,7 +175,7 @@ class clipped_sinc_beam (WSRT_cos3_beam):
     children = [lm,pointing] if pointing else [lm];
     E << Meq.PyNode(scale=scale,
       class_name="ClippedSincBeam",
-      module_name=AnalyticBeams.ClippedSincBeam.__file__,
+      module_name=ClippedSincBeam.__file__,
       *children);
     return E;
 

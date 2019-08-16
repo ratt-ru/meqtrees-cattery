@@ -5,6 +5,9 @@ refraction, byt offseting each source's elevation by h*(el-el0), where el0 is el
 centre.</P>
 
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 __default_label__ = "R";
 __default_name__  = "position shifts";

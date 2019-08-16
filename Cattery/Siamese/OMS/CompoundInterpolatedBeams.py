@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 import os.path
 import math
 import numpy
@@ -86,8 +88,8 @@ class FITSCompoundBeamInterpolatorNode (pynode.PyNode):
           vb = None;
         # work out norm of beam
         vbs.append(vb);
-      xx = [ vb.beam() if vb else numpy.array([0]) for vb in vbs[:len(vbs)/2] ];
-      yy = [ vb.beam() if vb else numpy.array([0]) for vb in vbs[len(vbs)/2:] ];
+      xx = [ vb.beam() if vb else numpy.array([0]) for vb in vbs[:len(vbs)//2] ];
+      yy = [ vb.beam() if vb else numpy.array([0]) for vb in vbs[len(vbs)//2:] ];
       beam_max = math.sqrt(max([ (abs(x)**2+abs(y)**2).max() for x,y in zip(xx,yy)]));
       _voltage_beams[self._vb_key] = vbs,beam_max;
     return vbs,beam_max;
@@ -126,7 +128,7 @@ class FITSCompoundBeamInterpolatorNode (pynode.PyNode):
     cells = request.cells if hasfreq else getattr(lm,'cells',None);
     result = meq.result(vellsets[0],cells=cells);
     result.vellsets[1:] = vellsets[1:];
-    result.dims = (2,len(vellsets)/2);
+    result.dims = (2,len(vellsets)//2);
     return result;
 
 
