@@ -19,6 +19,8 @@ RUN docker-apt-install \
     python-qwt5-qt4 \
     build-essential \
     libboost-all-dev \
+    wcslib-dev \
+    libcfitsio-dev \
     makems
 
 RUN docker-apt-install \
