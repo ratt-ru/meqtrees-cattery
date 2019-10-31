@@ -324,7 +324,7 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
         if nfreq>1:
           x = list(range(ntime));
           pylab.fill_between(x,abs(sols[j][:,0]),abs(sols[j][:,-1]),color='grey')
-          pylab.plot(abs(sols[j][:,nfreq/2]))
+          pylab.plot(abs(sols[j][:,nfreq//2]))
         else:
           pylab.plot(abs(sols[j][:,0]))
         pylab.subplot(8,ncols,(j*2+1)*ncols+i+1)
@@ -332,7 +332,7 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
         if nfreq>1:
           pylab.plot(ph[:,0],'.',ms=0.5,mec='0.2')
           pylab.plot(ph[:,-1],'.',ms=0.5,mec='0.2')
-          pylab.plot(ph[:,nfreq/2],'.b',ms=0.5)
+          pylab.plot(ph[:,nfreq//2],'.b',ms=0.5)
         else:
           pylab.plot(ph[:,0],'.',ms=0.5)
         pylab.title("%s:%s:%s:phase (deg)"%(src,ant,xx));
@@ -357,7 +357,7 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
       if nfreq>1:
         x = list(range(ntime));
         pylab.fill_between(x,abs(sols[:,0]),abs(sols[:,-1]),color='grey')
-        pylab.plot(abs(sols[:,nfreq/2]))
+        pylab.plot(abs(sols[:,nfreq//2]))
       else:
         pylab.plot(abs(sols[:,0]))
       pylab.xticks([]);
@@ -738,7 +738,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ylim_off
         pylab.title("%s:%s:ampl - %s"%(ant,feed,label));
         tickstep = 10**int(math.log10(nx)-1);
         labstep = 10**int(math.log10(nx));
-        if nx/labstep < 5:
+        if nx//labstep < 5:
           labstep /= 2.;
         ax.xaxis.set_major_locator(MultipleLocator(labstep));
         ax.xaxis.set_minor_locator(MultipleLocator(tickstep));

@@ -35,8 +35,8 @@ import Meow
 import math
 
 DEG = math.pi/180.;
-ARCMIN = DEG/60;
-ARCSEC = ARCMIN/60;
+ARCMIN = DEG/60.;
+ARCSEC = ARCMIN/60.;
 
 def make_source (ns,name,az,el,I=1):
   """Makes a source with a fixed azimuth/elevation direction """

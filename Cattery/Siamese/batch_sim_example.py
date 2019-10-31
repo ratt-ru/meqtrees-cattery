@@ -3,6 +3,10 @@
 #
 # This shows how to run a TDL script in a pipeline (aka batch-mode, aka headless mode)
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 if __name__ == '__main__':
   from Timba.Apps import meqserver
   from Timba.TDL import Compile

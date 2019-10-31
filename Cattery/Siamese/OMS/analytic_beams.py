@@ -44,8 +44,8 @@ import math
 from math import sqrt,atan2
 
 DEG = math.pi/180.;
-ARCMIN = DEG/60;
-ARCSEC = DEG/3600;
+ARCMIN = DEG/60.;
+ARCSEC = DEG/3600.;
 
 class WSRT_cos3_beam (object):
   label = "wsrt_cos3";
