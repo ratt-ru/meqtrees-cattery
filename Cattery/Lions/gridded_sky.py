@@ -23,12 +23,16 @@
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Timba.TDL import *
 import Meow
 import math
 
 DEG = math.pi / 180.
-ARCMIN = DEG / 60
+ARCMIN = DEG / 60.
 
 
 def estimate_image_size(**kw):
@@ -185,7 +189,7 @@ def double_grid_model(ns, basename, l0, m0, dl, dm, nsrc, I):
             # need them to be both smaller than 0 for the first source
             # if dx or dy:
             name = "%s%+d%+d" % (basename + "P", dx, dy)
-            model.append(point_source(ns, name, (l0 - (dl / 2)) + dl * dx, (m0 - (dm / 2)) + dm * dy, I))
+            model.append(point_source(ns, name, (l0 - (dl / 2.)) + dl * dx, (m0 - (dm / 2.)) + dm * dy, I))
     return model
 
 
@@ -212,11 +216,11 @@ def source_list(ns, basename="S", l0=None, m0=None):
     """Creates and returns selected model"""
     l0 = l0 or grid_l0 * ARCMIN
     m0 = m0 or grid_m0 * ARCMIN
-    if grid_size == 1 and not l0 and not m0:
+    if grid_size == 1 and not l0 and not m0: # grid_size is int
         l0 = m0 = 1e-20
     sources = model_func(ns, basename, l0, m0,
                          grid_step * ARCMIN, grid_step * ARCMIN,
-                         (grid_size - 1) / 2, source_flux)
+                         (grid_size - 1) // 2, source_flux)
     return [x for x in sources if x]
 
 

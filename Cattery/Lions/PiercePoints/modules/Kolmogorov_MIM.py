@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Timba.TDL import *
 from Timba.Meq import meq
 from Lions.PiercePoints.PiercePoints import *
@@ -46,8 +50,8 @@ class MIM(PiercePoints):
             print('Using longlat')
             R = height + 6365.0  # hardcoded Earth radius to same value as other MIM
             # convert velocity in [km/h] to angular velocity
-            vx = ((speedx / 3600) / R) + 7.272205E-05  # correct for PP velocity in longitude
-            vy = (speedy / 3600) / R
+            vx = ((speedx / 3600.0) / R) + 7.272205E-05  # correct for PP velocity in longitude
+            vy = (speedy / 3600.0) / R
             # convert size in [km] to angular size in radians
             pixscale = scale / R
         else:

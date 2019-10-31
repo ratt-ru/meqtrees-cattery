@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Timba.TDL import *
 from Timba.Meq import meq
 from Lions.PiercePoints import PiercePoints
@@ -58,8 +62,8 @@ class MIM(PiercePoints.PiercePoints):
             # convert km to rad and km/h to rad/s
             W1 = Wavelength_1 / (earth_radius + height)
             W2 = Wavelength_2 / (earth_radius + height)
-            Sp1 = (Speed_1 / (earth_radius + height)) / 3600
-            Sp2 = (Speed_2 / (earth_radius + height)) / 3600
+            Sp1 = (Speed_1 / (earth_radius + height)) / 3600.
+            Sp2 = (Speed_2 / (earth_radius + height)) / 3600.
         else:
             # convert km to m and km/h to m/s
             W1 = Wavelength_1 * 1000
