@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import numpy
 import Timba.dmi
 import re
@@ -988,7 +992,7 @@ class Flagger (Timba.dmi.verbosity):
         chanstep = chanstep or 1;
         chanend  = chanend or chanstart;
         totchan = chanend-chanstart+1;
-        nchan = totchan/chanstep;
+        nchan = totchan//chanstep;
         if totchan%chanstep:
           nchan += 1;
         args += [ "mode='channel'","nchan=%d"%nchan,"start=%d"%(start+1),"step=%d"%step ];

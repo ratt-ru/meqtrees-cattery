@@ -1,4 +1,7 @@
 #!/usr/bin/env python
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 import time
 import os.path
@@ -49,13 +52,14 @@ class _AxisStats (object):
     return not self.cells;
 
   def add_cell (self,x1,x2):
-    x0 = (x1+x2)/2;
+    assert x1 is int and x2 is int
+    x0 = (x1+x2)//2;
     self.cells[x0] = max(x2-x1,self.cells.get(x0,0));
 
   def update (self):
     if self.cells:
       # axis range
-      self.minmax = min([x0-dx/2 for x0,dx in self.cells.items()]),max([x0+dx/2 for x0,dx in self.cells.items()]);
+      self.minmax = min([x0-dx//2 for x0,dx in self.cells.items()]),max([x0+dx//2 for x0,dx in self.cells.items()]);
       # grid is simply a sorted list of cell values
       self.grid = list(self.cells.keys());
       self.grid.sort();

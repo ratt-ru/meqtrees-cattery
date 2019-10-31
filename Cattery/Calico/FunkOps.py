@@ -6,6 +6,9 @@ Each function here is compatible with ParmTab.apply().
 Input argument is a ParmTab.FunkSlie object.
 Return value is a list of output funklets.
 """;
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 import copy
 
@@ -27,7 +30,7 @@ def average (funkslice):
     for axis in funkslice.slice_axes:
       outfunk.domain[axis] = (min(outfunk.domain[axis][0],funk.domain[axis][0]),
                               max(outfunk.domain[axis][1],funk.domain[axis][1]));
-  outfunk.coeff /= len(funkslice);
+  outfunk.coeff /= len(funkslice); #mean, float
   return [ outfunk ];
 
 def linear_interpol (funkslice):

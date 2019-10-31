@@ -23,6 +23,11 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 """<P>This module implements one solvable instance of the WSRTCos3Beam class from wsrt_cos3_beam. It is preferable to
 use the latter module directly -- this module is only retained for backwards compatibility with old scripts.</P>
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
