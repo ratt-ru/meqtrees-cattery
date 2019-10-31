@@ -1,4 +1,7 @@
 #from memory_profiler import profile
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 import sys
 import Kittens.utils
@@ -284,7 +287,7 @@ class GainOpts (object):
     # lcm_tiling along each axis now contains the LCM of each gain term's tiling, or 0 if all were 0
     # expand datashape as needed
     expanded_datashape = \
-      tuple([ (nd/np+(1 if nd%np else 0))*np if np else nd for nd,np in zip(datashape,lcm_tiling) ]);
+      tuple([ (nd//np+(1 if nd%np else 0))*np if np else nd for nd,np in zip(datashape,lcm_tiling) ]);
     dprint(1,"datashape",datashape,"expanded datashape is",expanded_datashape);
     
     # now, for any zeroes left in the tilings, replace with full solution interval,

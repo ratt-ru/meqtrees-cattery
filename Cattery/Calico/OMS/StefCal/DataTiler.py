@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import numpy
 import operator
 from .MatrixOps import *
@@ -36,7 +40,7 @@ class DataTiler (object):
     """
     self.datashape   = datashape;  
     self.subtiling   = subtiling;
-    self.subshape    = tuple([ nd/nt for nd,nt in zip(datashape,subtiling) ]);
+    self.subshape    = tuple([ nd//nt for nd,nt in zip(datashape,subtiling) ]);
     # work out various stats
     # total number of slots in subshape
     self.total_slots  = reduce(operator.mul,self.subshape);

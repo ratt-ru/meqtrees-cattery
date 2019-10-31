@@ -1,4 +1,7 @@
 #from memory_profiler import profile
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba import pynode
 from Timba.Meq import meq
@@ -553,7 +556,7 @@ class StefCalNode (pynode.PyNode):
         self._expansion_mask = numpy.zeros(expanded_datashape);
         self._datashape = datashape = [ int(math.ceil(ds/float(st))) for ds,st in zip(datashape,downsample_subtiling) ];
         self._expansion_mask[tuple([ slice(0,nd) for nd in datashape ])] =True;
-        self._expanded_datashape = expanded_datashape = [ ds/st for ds,st in zip(expanded_datashape,downsample_subtiling) ];
+        self._expanded_datashape = expanded_datashape = [ ds//st for ds,st in zip(expanded_datashape,downsample_subtiling) ];
         self._datasize /= downsample_factor;
         self._expanded_size /= downsample_factor;
     
