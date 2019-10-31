@@ -1301,7 +1301,7 @@ class StefCalNode (pynode.PyNode):
       if delta != 0 or gopt.max_diverge or converged or niter == gopt.max_iter-1:
         chisq,chisq_unnorm,chisq_arr,chisq_unnorm_arr = self.compute_chisq(model,data,gopt.solver,weight=weight,bitflags=bitflags);
       if delta != 0:
-        dchi = (chisq0-chisq)/chisq;
+        dchi = (chisq0-chisq)/chisq if chisq != 0 else numpy.inf; #fully flagged tile
         gain_dchi.append(dchi);
         dprint(3,"iter %d: ||%s||=%g max update is %g chisq is %.8g (%.8g) diff %.3g, %d/%d conv"%(
           niter+1,gopt.label,float(gopt.solver.gainnorm),float(gopt.solver.delta_max),
@@ -1309,6 +1309,7 @@ class StefCalNode (pynode.PyNode):
         if niter:
           # check chisq convergence
           dchi_arr = (chisq0_arr-chisq_arr)/chisq0_arr;
+          dchi_arr[chisq0_arr == 0] = -numpy.inf
           diverging_mask = (dchi_arr<0);       # mask of diverging chi-squares
           diverging_sig_mask = (dchi_arr<-1e-2*chisq0_arr);       # mask of significantly diverging chi-squares
           nd = diverging_mask.sum();
