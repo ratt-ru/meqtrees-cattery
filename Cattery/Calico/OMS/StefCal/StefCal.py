@@ -17,8 +17,8 @@ import traceback
 import gc
 import scipy.ndimage.measurements
 
-from .MatrixOps import *
-from . import DataTiler
+from Cattery.Calico.OMS.StefCal.MatrixOps import *
+import Cattery.Calico.OMS.StefCal.DataTiler as DataTiler
 from functools import reduce
 
 _verbosity = Kittens.utils.verbosity(name="stefcal");
@@ -126,7 +126,7 @@ class StefCalVisualizer (pynode.PyNode):
     return res;
 
     
-from .GainOpts import *
+from Cattery.Calico.OMS.StefCal.GainOpts import *
     
 # TERMINOLOGY
 # self._datashape:           original shape of input data, e.g. (NT,NF)
