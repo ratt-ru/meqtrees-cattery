@@ -529,7 +529,7 @@ def node_extract_polarization_parms(sixpack,ns,absolute=0):
  
  if Q_name in allnodes:
    qq=allnodes[Q_name]
-   myqq=get_default_parms(qq)*myii/100 # percentage, float
+   myqq=get_default_parms(qq)*myii/100. # percentage, float
  elif sQ_name in allnodes:
    qq=allnodes[sQ_name]
    myqq=get_default_parms(qq)
@@ -537,7 +537,7 @@ def node_extract_polarization_parms(sixpack,ns,absolute=0):
    myqq=0
  if U_name in allnodes:
    uu=allnodes[U_name]
-   myuu=get_default_parms(uu)*myii/100
+   myuu=get_default_parms(uu)*myii/100.
  elif sU_name in allnodes:
    uu=allnodes[sU_name]
    myuu=get_default_parms(uu)
@@ -545,7 +545,7 @@ def node_extract_polarization_parms(sixpack,ns,absolute=0):
    myuu=0
  if V_name in allnodes:
    vv=allnodes[V_name]
-   myvv=get_default_parms(vv)*myii/100
+   myvv=get_default_parms(vv)*myii/100.
  elif sV_name in allnodes:
    vv=allnodes[sV_name]
    myvv=get_default_parms(vv)

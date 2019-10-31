@@ -24,6 +24,10 @@
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Timba.TDL import *
 from Timba.Meq import meq
 
@@ -1385,7 +1389,7 @@ class ImagingSelector (object):
     elif isinstance(self.imaging_chanmode,int):
       img_nchan     = self.imaging_chanmode;
       img_chanstart = chanstart;
-      img_chanstep  = nchan/self.imaging_chanmode;
+      img_chanstep  = nchan//self.imaging_chanmode;
     args += [ 'img_nchan='+str(img_nchan),
               'img_chanstart='+str(img_chanstart),
               'img_chanstep='+str(img_chanstep) ];

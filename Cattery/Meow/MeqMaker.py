@@ -24,6 +24,10 @@
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
  # standard preamble
 from Timba.TDL import *
 from Timba.Meq import meq
@@ -36,7 +40,7 @@ import fnmatch
 import Meow
 from Meow import StdTrees,ParmGroup,Parallelization,MSUtils
 
-DEG = math.pi/180;
+DEG = math.pi/180.;
 
 _annotation_label_doc = """The following directives may be embedded in the format string:
   '%N':       source name
@@ -1275,7 +1279,7 @@ class SourceSubsetSelector (object):
     '.gt.' :lambda x,y:x>y,
     '.lt.' :lambda x,y:x<y
   };
-  _units = dict(d=DEG,m=DEG/60,s=DEG/3600);
+  _units = dict(d=DEG,m=DEG/60.,s=DEG/3600.);
 
   # regex matching the tag**value[dms] operation
   # the initial "=" is allowed for backwards compatibility with =tag=value constructs
