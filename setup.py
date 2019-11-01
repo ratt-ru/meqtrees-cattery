@@ -47,6 +47,7 @@ install_requires = [
     'scipy',
     'astro_kittens',
     'astro_pyxis',
+    'six'
     # 'Timba' is not on pypi
 ] if six.PY3 else [
     'numpy<=1.16', # last python 2.7 version
@@ -56,6 +57,7 @@ install_requires = [
     'scipy',
     'astro_kittens',
     'astro_pyxis',
+    'six'
 ]
 
 
