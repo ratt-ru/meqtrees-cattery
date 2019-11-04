@@ -130,7 +130,7 @@ class Flagger (Timba.dmi.verbosity):
     
   def _reopen (self):
     if self.ms is None:
-      self.ms = ms = TABLE(self.msname,readonly=False);
+      self.ms = ms = TABLE(str(self.msname),readonly=False);
       self.dprintf(1,"opened MS %s, %d rows\n",ms.name(),ms.nrows());
       self.has_bitflags = 'BITFLAG' in ms.colnames();
       self.flagsets = Meow.MSUtils.get_flagsets(ms);
@@ -236,7 +236,7 @@ class Flagger (Timba.dmi.verbosity):
     sub_mss = [];
     nrows = 0;
     if ddids is None:
-      ddids = list(range(TABLE(ms.getkeyword('DATA_DESCRIPTION')).nrows()));
+      ddids = list(range(TABLE(str(ms.getkeyword('DATA_DESCRIPTION'))).nrows()));
     for ddid in ddids:
       subms = ms.query("DATA_DESC_ID==%d"%ddid);
       sub_mss.append((ddid,nrows,subms));
@@ -300,7 +300,7 @@ class Flagger (Timba.dmi.verbosity):
  
     # get DDIDs
     if ddid is None:
-      ddids = list(range(TABLE(ms.getkeyword('DATA_DESCRIPTION'),readonly=True).nrows()));
+      ddids = list(range(TABLE(str(ms.getkeyword('DATA_DESCRIPTION')),readonly=True).nrows()));
     elif isinstance(ddid,int):
       ddids = [ ddid ];
     elif isinstance(ddid,(tuple,list)):
@@ -658,7 +658,7 @@ class Flagger (Timba.dmi.verbosity):
     nvis_C = nvis_D = nvis_E = 0;
     # get DDIDs and FIELD_IDs
     if ddid is None:
-      ddids = list(range(TABLE(ms.getkeyword('DATA_DESCRIPTION'),readonly=True).nrows()));
+      ddids = list(range(TABLE(str(ms.getkeyword('DATA_DESCRIPTION')),readonly=True).nrows()));
     elif isinstance(ddid,int):
       ddids = [ ddid ];
     elif isinstance(ddid,(tuple,list)):

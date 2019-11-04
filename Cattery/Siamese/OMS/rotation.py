@@ -115,7 +115,7 @@ class Rotation (object):
     if enabled and Context.mssel and Context.mssel.msname and MSUtils.TABLE:
       try:
         # read angles and antenna IDs from table
-        feed = MSUtils.TABLE(os.path.join(Context.mssel.msname,"FEED"));
+        feed = MSUtils.TABLE(str(os.path.join(Context.mssel.msname,"FEED")));
         angle_col = feed.getcol('RECEPTOR_ANGLE');
         ant_col = list(feed.getcol('ANTENNA_ID'));
         feed = None;

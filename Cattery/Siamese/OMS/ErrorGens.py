@@ -156,7 +156,7 @@ class RandomPolc (ErrorGenerator):
     Meow.Context.mssel.when_changed(self.set_ms);
 
   def set_ms (self,msname):
-    times = Meow.MSUtils.TABLE(msname).getcol("TIME");
+    times = Meow.MSUtils.TABLE(str(msname)).getcol("TIME");
     t0,t1 = min(times),max(times);
     self._offset_opt.set_custom_value(t0/(24*3600));
     self._scale_opt.set_custom_value((t1-t0)/3600);

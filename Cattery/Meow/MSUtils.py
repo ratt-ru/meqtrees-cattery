@@ -263,16 +263,16 @@ class MSContentSelector (object):
     object. Fills ddid/field/channel selectors from the MS.
     """;
     # DDIDs
-    ddid_tab = TABLE(ms.getkeyword('DATA_DESCRIPTION'),lockoptions='autonoread');
+    ddid_tab = TABLE(str(ms.getkeyword('DATA_DESCRIPTION')),lockoptions='autonoread');
     self.ms_spws = list(ddid_tab.getcol('SPECTRAL_WINDOW_ID'));
     self.ms_polarization_ids = list(ddid_tab.getcol('POLARIZATION_ID'));
     ddid_tab = None;
     # channels per spectral window
-    numchans = TABLE(ms.getkeyword('SPECTRAL_WINDOW'),
+    numchans = TABLE(str(ms.getkeyword('SPECTRAL_WINDOW')),
                                   lockoptions='autonoread').getcol('NUM_CHAN');
     self.ms_ddid_numchannels = [ numchans[spw] for spw in self.ms_spws ];
     # Fields
-    field = TABLE(ms.getkeyword('FIELD'),lockoptions='autonoread');
+    field = TABLE(str(ms.getkeyword('FIELD')),lockoptions='autonoread');
     self.ms_field_names = list(field.getcol('NAME'));
     self.ms_field_phase_dir = field.getcol('PHASE_DIR');
     # update selectors
@@ -807,7 +807,7 @@ class MSSelector (object):
     if Meow.Context.discover_max_abs_w:
       # add baseline selection string
       if TABLE:
-        ms = TABLE(self.msname,lockoptions='autonoread');
+        ms = TABLE(str(self.msname),lockoptions='autonoread');
         subset = self.get_ifr_subset();
         if len(subset.ifrs()) < len(self.ms_ifrset.ifrs()):
 #          print "Applying TaQL subset",subset.taql_string();
@@ -869,7 +869,7 @@ class MSSelector (object):
     if msname == getattr(self,'_msname',None):
       return True;
     try:
-      ms = TABLE(msname,lockoptions='autonoread');
+      ms = TABLE(str(msname),lockoptions='autonoread');
       # data columns
       self.ms_data_columns = [ name for name in ms.colnames() if name.endswith('DATA') ];
       self.input_col_option.set_option_list(self.ms_data_columns);
@@ -877,7 +877,7 @@ class MSSelector (object):
       outcols = [ col for col in self.ms_data_columns if col not in self._forbid_output ];
       self.output_col_option.set_option_list(outcols);
       # antennas
-      anttable = TABLE(ms.getkeyword('ANTENNA'),lockoptions='autonoread');
+      anttable = TABLE(str(ms.getkeyword('ANTENNA')),lockoptions='autonoread');
       antnames = anttable.getcol('NAME');
       # if NAME column is missing, use indices
       if not antnames:
@@ -894,7 +894,7 @@ class MSSelector (object):
       self.ms_antenna_positions = anttable.getcol('POSITION');
       # observatory is from observation subtable
       try:
-        self.ms_observatory = TABLE(ms.getkeyword("OBSERVATION")).getcol("TELESCOPE_NAME")[0];
+        self.ms_observatory = TABLE(str(ms.getkeyword("OBSERVATION"))).getcol("TELESCOPE_NAME")[0];
       except:
         Meow.dprint("Warning! This MS does have a valid OBSERVATION table, can't establish telescope name");
         self.ms_observatory = "Unknown";
@@ -911,7 +911,7 @@ class MSSelector (object):
         self.ifrsel_option.set_doc(self.ms_ifrset.subset_doc);
       # correlations
       # polarization IDs
-      pol_tab = TABLE(ms.getkeyword('POLARIZATION'),lockoptions='autonoread');
+      pol_tab = TABLE(str(ms.getkeyword('POLARIZATION')),lockoptions='autonoread');
       # get list of corrype enums for each row of polarizxation table, and convert
       # to strings via MS_STOKES_ENUMS. self._corrnames is now a list of lists of strings
       self._corrnames = [ [ (ctype >= 0 and ctype < len(MS_STOKES_ENUMS) and MS_STOKES_ENUMS[ctype]) or
@@ -1559,7 +1559,7 @@ class Flagsets (object):
       if bit not in list(self.bits.values()):
         self.order.append(name);
         self.bits[name] = bit;
-        ms = TABLE(self.msname,readonly=False);
+        ms = TABLE(str(self.msname),readonly=False);
         ms._putkeyword('BITFLAG','FLAGSETS',-1,False,','.join(self.order));
         ms._putkeyword('BITFLAG','FLAGSET_%s'%name,-1,False,bit);
         ms.flush();
@@ -1584,7 +1584,7 @@ class Flagsets (object):
     if not removing:
       return;
     # remove items, form up mask of bitflags to be cleared
-    ms = TABLE(self.msname,readonly=False);
+    ms = TABLE(str(self.msname),readonly=False);
     mask = 0;
     for name,bit in removing:
       mask |= bit;
