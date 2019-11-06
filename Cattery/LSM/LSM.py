@@ -2222,7 +2222,9 @@ class LSM:
   f.write("## name h m s d m s I Q U V spectral_index RM extent_X(rad) extent_Y(rad) pos_angle(rad) freq0\n");
   # sort list by I fluxes
   plist = [ (pu,pu.getEssentialParms(ns)[2]) for pu in plist ];
-  plist.sort(lambda a,b:cmp(b[1],a[1]));
+  from past.builtins import cmp
+  from functools import cmp_to_key
+  plist.sort(key=cmp_to_key(lambda a,b:cmp(b[1],a[1])));
   for pu,iflux in plist:
      (ra,dec,sI,sQ,sU,sV,SIn,f0,RM)=pu.getEssentialParms(ns)
      (eX,eY,eP)=pu.getExtParms()

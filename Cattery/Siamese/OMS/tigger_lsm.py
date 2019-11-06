@@ -20,7 +20,7 @@ def importTigger (verbose=0):
         Tigger.svn_revision_string,os.path.dirname(Tigger.__file__)));
     return Tigger.SiameseInterface.TiggerSkyModel;
   except ImportError:
-    pass;
+    traceback.print_exc();
   # try to find "tigger" binary, and append its directory to search path
   for path in os.getenv('PATH').split(':') + Locations:
     path = os.path.normpath(path);  # clean off trailing "/", etc.
@@ -38,10 +38,7 @@ def importTigger (verbose=0):
         del sys.path[0];
         return Tigger.SiameseInterface.TiggerSkyModel;
       except ImportError:
-        if verbose>1:
-          traceback.print_exc();
-        del sys.path[0];
-        pass;
+        traceback.print_exc();
   raise ImportError("Cannot locate Tigger package");
 
 def TiggerSkyModel (verbose=0,**kw):

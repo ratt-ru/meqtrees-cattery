@@ -29,7 +29,7 @@ from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-import Meow
+from Cattery import Meow
 
 class ListOptionParser (object):
   def __init__ (self,minval=None,maxval=None,name=""):

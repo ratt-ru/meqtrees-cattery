@@ -30,8 +30,8 @@ from __future__ import division
 from Timba.TDL import *
 import math
 import os.path
-import Meow
-from Meow import Context
+from Cattery import Meow
+from Cattery.Meow import Context
 
 dirname = os.path.dirname(__file__);
 libname = os.path.join(dirname,"lofar_beams_lib.so");

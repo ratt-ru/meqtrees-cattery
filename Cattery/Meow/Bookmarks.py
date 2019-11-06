@@ -171,8 +171,10 @@ def make_node_folder (name,nodes,sorted=False,ncol=2,nrow=2,folder=None,maxmenu=
   if not sorted:
     nodes = list(nodes);
     global _int_or_str;
-    nodes.sort(lambda a,b:
-      cmp(list(map(_int_or_str,a.name.split(':'))),list(map(_int_or_str,b.name.split(':')))));
+    from past.builtins import cmp
+    from functools import cmp_to_key
+    nodes.sort(key=cmp_to_key(lambda a,b:
+      cmp(list(map(_int_or_str,a.name.split(':'))),list(map(_int_or_str,b.name.split(':'))))));
   # place in top-level folder or in subfolder
   if folder is None:
     folder = Folder(name);

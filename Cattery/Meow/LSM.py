@@ -35,9 +35,9 @@ from Timba.TDL import *
 from Cattery.LSM.LSM import LSM as LSMClass
 from Timba.utils import curry
 import traceback
-import Meow
-import Meow.OptionTools
-import Meow.Context
+from Cattery import Meow
+from Cattery import Meow.OptionTools
+from Cattery import Meow.Context
 import math
 from math import *
 
@@ -254,7 +254,9 @@ class MeowLSM (object):
       # append to list
       srclist.append((pu.name,direction,pu,I,Iapp));
     # sort list by decreasing apparent flux
-    srclist.sort(lambda a,b:cmp(b[4],a[4]));
+    from past.builtins import cmp
+    from functools import cmp_to_key
+    srclist.sort(key=cmp_to_key(lambda a,b:cmp(b[4],a[4])));
     
     srclist_full = srclist;
     # extract active subset

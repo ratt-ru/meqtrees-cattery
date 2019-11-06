@@ -36,12 +36,12 @@ from Timba.dmi import hiid
 import os
 import random
 
-import Meow
+from Cattery import Meow
 
-from Meow import Bookmarks
+from Cattery.Meow import Bookmarks
 from Kittens import utils
 
-from Calico import ParmTables
+from Cattery.Calico import ParmTables
 parmtab = parmtab_name = None;
 
 
@@ -132,7 +132,8 @@ def _define_forest (ns,**kw):
 
   # sort nodes by qualified name
   nodes = list(parmnodes.items());
-  nodes.sort(lambda a,b:ParmTables.cmp_qualified_names(a[0],b[0]));
+  from functools import cmp_to_key
+  nodes.sort(key=cmp_to_key(lambda a,b:ParmTables.cmp_qualified_names(a[0],b[0])));
   nodes = [ namenode[1] for namenode in nodes ];
   
   # make intermediate math node

@@ -248,6 +248,7 @@ document_globals(stefcal,"MS LSM mqt.TDLCONFIG STEFCAL_* ms.DDID ms.CHANRANGE ms
 
 def _cmp_antenna (sa,sb):
   """Helper function to sort antenna names. Try numeric compare first, fall back to text compare if failed""";
+  from past.builtins import cmp
   try:
     return cmp(int(sa),int(sb));
   except:
@@ -279,8 +280,9 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
   DG0 = pickle.load(file(filename))
 
   DG = DG0['gains']
+  from functools import cmp_to_key
   srcnames = sorted(DG.keys())
-  antennas = sorted(list(DG[srcnames[0]]['solutions'].keys()),_cmp_antenna);
+  antennas = sorted(list(DG[srcnames[0]]['solutions'].keys()),key=cmp_to_key(_cmp_antenna));
   
   ylim = ylim or DIFFGAIN_PLOT_AMPL_YLIM;
   
@@ -571,7 +573,8 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[0]),'blue',rr));
       igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[1]),'red',ll));
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[1]),'red',ll));
-    content = [ (p,igpa[p]) for p in sorted(list(igpa.keys()),cmp=_cmp_antenna) ];
+      from functools import cmp_to_key
+    content = [ (p,igpa[p]) for p in sorted(list(igpa.keys()),key=cmp_to_key(_cmp_antenna)) ];
     pylab.subplot(NR,NC,2);
     plot_ants(content,"IFR %s %s gain amplitudes per antenna"%feeds[:2]);
     if baseline:
@@ -581,7 +584,8 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     pylab.savefig(II("$IFRGAIN_PLOT"),dpi=75)
     info("generated plot $IFRGAIN_PLOT")
     # make per-antenna figure
-    antennas = sorted(list(igpa0.keys()),_cmp_antenna);
+    from functools import cmp_to_key
+    antennas = sorted(list(igpa0.keys()),key=cmp_to_key(_cmp_antenna));
     NC = 4;
     NR = int(math.ceil(len(antennas)/float(NC)));
     offset = numpy.median(igpa0_means);
@@ -589,7 +593,7 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     for iant,pant in enumerate(antennas):
       pylab.subplot(NR,NC,iant+1);
       ig = igpa0[pant];
-      ants1 = sorted(list(ig.keys()),_cmp_antenna);
+      ants1 = sorted(list(ig.keys()),key=cmp_to_key(_cmp_antenna));
       rr,ll = ig[ants1[0]];
       for i,qant in enumerate(ants1):
         rr,ll = ig[qant];
@@ -626,7 +630,8 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[2]),'blue',rr));
       igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[3]),'red',ll));
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[3]),'red',ll));
-    content = [ (p,igpa[p]) for p in sorted(list(igpa.keys()),cmp=_cmp_antenna) ];
+    from functools import cmp_to_key
+    content = [ (p,igpa[p]) for p in sorted(list(igpa.keys()),key=cmp_to_key(_cmp_antenna)) ];
     pylab.subplot(NR,NC,2);
     plot_ants(content,"IFR %s %s offset amplitudes per antenna"%feeds[2:]);
     if baseline:
@@ -666,10 +671,11 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ylim_off
   solkeys = list(G.keys())
   # solutions are stored either as [antenna,{0,1}] for diagonal Jones, or [antenna][{0,1,2,3}] for 2x2 Jones
   diagonal = all([ type(k) is tuple and len(k)==2 and k[1] in (0,1) for k in solkeys ])
+  from functools import cmp_to_key
   if diagonal:
-      antennas = antennas0 = sorted(set([k[0] for k in solkeys]),_cmp_antenna)
+      antennas = antennas0 = sorted(set([k[0] for k in solkeys]),key=cmp_to_key(_cmp_antenna))
   else:
-      antennas = antennas0 = sorted(solkeys,_cmp_antenna)
+      antennas = antennas0 = sorted(solkeys,key=cmp_to_key(_cmp_antenna))
   
   info("loaded solutions for %d antennas, diagonal=$diagonal"%len(antennas));
    

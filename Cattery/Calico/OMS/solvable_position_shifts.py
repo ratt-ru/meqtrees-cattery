@@ -13,9 +13,9 @@ __default_name__  = "solvable position shifts";
 
 from Timba.TDL import *
 import math
-import Meow
-from Meow import Context
-from Meow import StdTrees,ParmGroup
+from Cattery import Meow
+from Cattery.Meow import Context
+from Cattery.Meow import StdTrees,ParmGroup
 
 def compute_jones (Jones,sources,stations=None,inspectors=[],meqmaker=None,label='R',**kw):
   """Creates the Z Jones for ionospheric phase, given TECs (per source, 

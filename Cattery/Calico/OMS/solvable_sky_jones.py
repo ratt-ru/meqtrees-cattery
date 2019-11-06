@@ -38,11 +38,11 @@ for this type of matrix decomposition, so FullRealImag is preferred.
 """;
 
 from Timba.TDL import *
-import Meow
-from Meow import Context
-from Meow import Jones,ParmGroup,Bookmarks
-from Meow.Parameterization import resolve_parameter
-import Meow.MeqMaker
+from Cattery import Meow
+from Cattery.Meow import Context
+from Cattery.Meow import Jones,ParmGroup,Bookmarks
+from Cattery.Meow.Parameterization import resolve_parameter
+import Cattery.Meow as Meow
 
 class DiagAmplPhase (object):
   def __init__ (self,label):
@@ -195,8 +195,10 @@ class FullRealImag (object):
       subgroups_offdiag.append(ParmGroup.Subgroup(src.name,sgoff));
 
     # re-sort by name
-    subgroups_diag.sort(lambda a,b:cmp(a.name,b.name));
-    subgroups_offdiag.sort(lambda a,b:cmp(a.name,b.name));
+    from past.builtins import cmp
+    from functools import cmp_to_key
+    subgroups_diag.sort(key=cmp_to_key(lambda a,b:cmp(a.name,b.name)));
+    subgroups_offdiag.sort(key=cmp_to_key(lambda a,b:cmp(a.name,b.name)));
 
     # make parmgroups for diagonal and off-diagonal terms
     self.pg_diag  = ParmGroup.ParmGroup(label+"_diag",parms_diag,

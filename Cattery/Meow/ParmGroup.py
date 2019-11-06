@@ -4,8 +4,8 @@ from __future__ import print_function
 from __future__ import division
 
 from Timba.TDL import *
-from Meow import Context
-from Meow import Bookmarks
+from Cattery.Meow import Context
+from Cattery.Meow import Bookmarks
 from .SolverControl import SolverControl
 
 import os.path
@@ -298,8 +298,10 @@ class ParmGroup (object):
     def int_or_str(x):
       try: return int(x);
       except: return x;
-    sorted_members.sort(lambda a,b:
-        cmp(list(map(int_or_str,a.name.split(':'))),list(map(int_or_str,b.name.split(':')))));
+    from past.builtins import cmp
+    from functools import cmp_to_key
+    sorted_members.sort(key=cmp_to_key(lambda a,b:
+        cmp(list(map(int_or_str,a.name.split(':'))),list(map(int_or_str,b.name.split(':'))))));
     return sorted_members;
   _sort_members = staticmethod(_sort_members);
 

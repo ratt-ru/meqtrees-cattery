@@ -4,8 +4,8 @@ from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from Meow.Parameterization import *
-import Meow
+from Cattery.Meow.Parameterization import *
+from Cattery import Meow
 
 
 class xyzComponent (Parameterization):

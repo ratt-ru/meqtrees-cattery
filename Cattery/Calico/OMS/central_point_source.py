@@ -32,7 +32,7 @@ This implements a sky model with a single central point source.
 """;
 
 from Timba.TDL import *
-import Meow
+from Cattery import Meow
 
 TDLCompileOption("spectral_index","Spectral index",[None,0.],more=float,
     doc="""Spectral index of source, use None for a flat spectrum""");

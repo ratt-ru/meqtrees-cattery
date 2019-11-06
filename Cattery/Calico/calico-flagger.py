@@ -34,11 +34,11 @@ import os
 import time
 import signal
 
-import Meow
+from Cattery import Meow
 
-from Meow import Bookmarks,Context
-import Meow.StdTrees
-import Calico.Flagger
+from Cattery.Meow import Bookmarks,Context
+from Cattery.Meow import StdTrees
+import Cattery.Calico.Flagger as Flagger
 
 # MS options first
 mssel = Context.mssel = Meow.MSUtils.MSSelector(has_input=True,read_flags=True,write_flags=True,has_output=False,tile_sizes=[10,100,200]);\
@@ -548,7 +548,7 @@ flagger = None;
 def _open_ms (msname):
   global flagger;
   # init a flagger
-  flagger = Calico.Flagger.Flagger(msname,verbose=5,chunksize=50000);
+  flagger = Flagger.Flagger(msname,verbose=5,chunksize=50000);
   # show/hide bitflag-related options
   add_bitflag_opt.show(not flagger.has_bitflags);
   for opt in flag_menu,remove_menu,fill_opt,transfer_menu:

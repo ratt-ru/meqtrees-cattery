@@ -28,7 +28,7 @@ from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from Meow import Parameterization
+from . import Parameterization
 from . import Context
 
 

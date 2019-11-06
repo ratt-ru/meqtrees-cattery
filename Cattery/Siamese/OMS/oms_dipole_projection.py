@@ -40,8 +40,8 @@ __default_label__ = "L";
 __default_name__  = "dipole projection matrix";
 
 from Timba.TDL import *
-from Meow import Context
-from Meow import StdTrees
+from Cattery.Meow import Context
+from Cattery.Meow import StdTrees
 
 def proj_matrix (src,xyz):
   az,el = src.direction.az(xyz),src.direction.el(xyz);

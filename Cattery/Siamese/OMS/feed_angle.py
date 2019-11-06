@@ -18,7 +18,7 @@ __default_label__ = "P";
 __default_name__  = "parallactic angle and feed orientation";
 
 from Timba.TDL import *
-from Meow import Context,MSUtils
+from Cattery.Meow import Context,MSUtils
 
 import math
 import cmath

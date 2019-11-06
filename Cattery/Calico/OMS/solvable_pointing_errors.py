@@ -31,8 +31,8 @@ from __future__ import division
 """;
 
 from Timba.TDL import *
-from Meow import Context
-from Meow import ParmGroup
+from Cattery.Meow import Context
+from Cattery.Meow import ParmGroup
 
 import math
 

@@ -32,10 +32,10 @@ from Timba.array import *
 import os
 import random
 
-import Meow
+from Cattery import Meow
 
-from Meow import Bookmarks,Context
-import Meow.StdTrees
+from Cattery.Meow import Bookmarks,Context
+
 
 # MS options first
 mssel = Context.mssel = Meow.MSUtils.MSSelector(has_input=True,read_flags=True,has_output=False,tile_sizes=[10,100,200]);

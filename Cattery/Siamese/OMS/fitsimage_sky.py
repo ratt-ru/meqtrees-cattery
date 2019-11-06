@@ -27,10 +27,10 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 from Timba.TDL import *
-import Meow
+from Cattery import Meow
 import math
-from Meow import FITSImageComponent
-from Meow import Context
+from Cattery.Meow import FITSImageComponent
+from Cattery.Meow import Context
 
 DEG = math.pi/180.;
 ARCMIN = DEG/60;

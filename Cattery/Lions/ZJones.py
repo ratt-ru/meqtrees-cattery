@@ -3,14 +3,14 @@ from __future__ import print_function
 from __future__ import division
 
 from Timba.TDL import *
-import Meow
-from Meow import Context
-from Meow import Jones, ParmGroup, Bookmarks
-from Lions.PiercePoints.modules.KL import KL_MIM
-from Lions.PiercePoints.modules import TID_MIM
-from Lions.PiercePoints.modules import Poly_MIM
-from Lions.PiercePoints.modules import Kolmogorov_MIM
-from Lions.PiercePoints.modules import VLSS_MIM
+from Cattery import Meow
+from Cattery.Meow import Context
+from Cattery.Meow import Jones, ParmGroup, Bookmarks
+from Cattery.Lions.PiercePoints.modules.KL import KL_MIM
+from Cattery.Lions.PiercePoints.modules import TID_MIM
+from Cattery.Lions.PiercePoints.modules import Poly_MIM
+from Cattery.Lions.PiercePoints.modules import Kolmogorov_MIM
+from Cattery.Lions.PiercePoints.modules import VLSS_MIM
 
 
 def _modname(obj):

@@ -30,7 +30,7 @@ from __future__ import division
 from Timba.TDL import *
 from Timba.Meq import meq
 from Timba.array import *
-import Meow
+from . import Parm
 
 def create_polc(c00=0.0,deg_f=0,deg_t=0):
   """helper function to create a t/f polc with the given c00 coefficient,
@@ -49,7 +49,7 @@ def resolve_parameter (name,node,value,tags=[],solvable=True,solvables=None):
   'value' specifies the parameter.
       (a) If value is numeric, creates a Meq.Constant() and binds it to 'node'.
       (b) If value is a node, returns it as-is.
-      (c) If value is a Meow.Parm specification, creates a Meq.Parm(), and binds it to 'node'. If
+      (c) If value is a Parm specification, creates a Meq.Parm(), and binds it to 'node'. If
           'solvable' is True, create Meq.Parm will have a 'solvable' tag.
   'solvables' may be None, or a list. If it is a list, then any solvable parameters 
       will be appended to this list. In case (c) this is the created Parm (if solvable=True). In
@@ -67,7 +67,7 @@ def resolve_parameter (name,node,value,tags=[],solvable=True,solvables=None):
     if solvables is not None:
       solvables += value.search(tags="solvable");
     return value;
-  elif isinstance(value,Meow.Parm):
+  elif isinstance(value,Parm):
     if solvable:
       tags.append("solvable");
     node << value.make(tags);
@@ -75,7 +75,7 @@ def resolve_parameter (name,node,value,tags=[],solvable=True,solvables=None):
       solvables.append(node);
     return node;
   else:
-    raise TypeError("Parameter '"+name+"' can only be defined as a constant, a node, or a Meow.Parm");
+    raise TypeError("Parameter '"+name+"' can only be defined as a constant, a node, or a Parm");
   
 
 class Parameterization (object):
@@ -120,15 +120,15 @@ class Parameterization (object):
     'value' can be:
     * a numeric constant, in which case a Meq.Constant is created
     * an actual node, in which case that node is used as is
-    * a Meow.Parm, in which case a Meq.Parm is defined, with the given tags
+    * a Parm, in which case a Meq.Parm is defined, with the given tags
       added on.
     If solvable=True, a "solvable" tag will be added on. This marks 
     potentially solvable parms. This is true by default since everything
     can be solved for; if you want to make a non-solvable parm, use False.
     """;
-    if not isinstance(value,(int,float,complex,Meow.Parm)) and \
+    if not isinstance(value,(int,float,complex,Parm)) and \
        not is_node(value):
-      raise TypeError("argument must be a constant, a node, or a Meow.Parm");
+      raise TypeError("argument must be a constant, a node, or a Parm");
     self._parmdefs[name] = (value,tags,solvable);
     
   def get_value (self,name,default=None):
@@ -140,7 +140,7 @@ class Parameterization (object):
         return default;
     value,tags,solvable = self._parmdefs[name];
     # now figure out the value
-    if isinstance(value,Meow.Parm):
+    if isinstance(value,Parm):
       value = value.value;
     if isinstance(value,(int,float,complex)):
       return value;

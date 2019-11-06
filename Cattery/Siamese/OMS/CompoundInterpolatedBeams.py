@@ -13,7 +13,7 @@ pyfits = Kittens.utils.import_pyfits();
 
 import Siamese.OMS.InterpolatedBeams
 
-from Siamese.OMS.InterpolatedBeams import _verbosity,dprint,dprintf,DEG,LMVoltageBeam
+from Cattery.Siamese.OMS.InterpolatedBeams import _verbosity,dprint,dprintf,DEG,LMVoltageBeam
 
 from Timba import pynode
 from Timba.Meq import meq

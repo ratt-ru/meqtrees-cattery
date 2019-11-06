@@ -10,6 +10,7 @@ import os
 import pickle
 import numpy
 import traceback
+from Timba.TDL import *
 from functools import reduce
 
 MODE_SOLVE_SAVE = "solve-save";
@@ -45,7 +46,6 @@ class GainOpts (object):
     self.desc,self.name,self.label = desc,name,label;
     ### init options on TDL side of things
     if tdl_basespace:
-      from Timba.TDL import *
       self.tdloption_namespace = "%s_%s"%(tdl_basespace,name.lower());
       timeint = TDLOption("timeint","Solution interval, time axis (0 for full axis)",[0,1],more=int,default=1,namespace=self);
       freqint = TDLOption("freqint","Solution interval, freq axis (0 for full axis)",[0,1],more=int,default=1,namespace=self);
@@ -161,7 +161,7 @@ class GainOpts (object):
     # given just X, use X.X
     if self.enable:
       path = self.implementation.split('.');
-      modname,classname = '.'.join(['Calico.OMS.StefCal']+(path[:-1] or path[-1:])),path[-1];
+      modname,classname = '.'.join(['Cattery.Calico.OMS.StefCal']+(path[:-1] or path[-1:])),path[-1];
       __import__(modname);
       module = sys.modules[modname];
       self.impl_class = getattr(module,classname);
@@ -261,7 +261,7 @@ class GainOpts (object):
       if initval:
         struct = dict(description="stefcal gain solutions table",version=2,gains=initval);
         try:
-          pickle.dump(struct,file(table,'w'),2);
+          pickle.dump(struct,open(table,'wb'),2);
           dprint(1,"saved %d gain set(s) to %s"%(len(initval),table));
         except:
           traceback.print_exc();

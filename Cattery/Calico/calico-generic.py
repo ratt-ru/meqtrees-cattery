@@ -34,8 +34,8 @@ from Timba.Meq import meq
 import math
 import fnmatch
 
-import Meow
-from Meow import ParmGroup,Bookmarks,StdTrees
+from Cattery import Meow
+from Cattery.Meow import ParmGroup,Bookmarks,StdTrees
 
 # This defines some ifr subsets that are commonly used for WSRT data,
 # to be offered as defaults in the GUI wherever ifrs are selected.
@@ -186,7 +186,7 @@ def _select_output (output):
 output_option.when_changed(_select_output);
 
 # now load optional modules for the ME maker
-from Meow import TensorMeqMaker
+from Cattery.Meow import TensorMeqMaker
 meqmaker = TensorMeqMaker.TensorMeqMaker(solvable=True,
                             use_correction=True,
                             use_jones_inspectors=True,
@@ -197,12 +197,12 @@ flag_menu.when_changed(mssel.enable_write_flags);
 
 # specify available sky models
 # these will show up in the menu automatically
-from Calico.OMS import central_point_source
-from Siamese.OMS import fitsimage_sky,gridded_sky
+from Cattery.Calico.OMS import central_point_source
+from Cattery.Siamese.OMS import fitsimage_sky,gridded_sky
 models = [central_point_source,fitsimage_sky,gridded_sky]
 
 try:
-  from Siamese.OMS.tigger_lsm import TiggerSkyModel
+  from Cattery.Siamese.OMS.tigger_lsm import TiggerSkyModel
   models.insert(0,TiggerSkyModel());
 except:
   traceback.print_exc();
@@ -212,14 +212,14 @@ meqmaker.add_sky_models(models);
 
 # E - beam
 # add a fixed primary beam first
-from Calico.OMS.wsrt_cos3_beam import WSRTCos3Beam #,wsrt_beams_zernike
+from Cattery.Calico.OMS.wsrt_cos3_beam import WSRTCos3Beam #,wsrt_beams_zernike
 meqmaker.add_sky_jones('E','WSRT cos^3 beam',[WSRTCos3Beam("E",solvable=False)]);
 meqmaker.add_sky_jones('Es','solvable WSRT cos^3 beam',[WSRTCos3Beam("Es",solvable=True)]);
 ## add solvable refraction
-# from Calico.OMS import solvable_position_shifts
+# from Cattery.Calico.OMS import solvable_position_shifts
 # meqmaker.add_sky_jones('R','position shifts',solvable_position_shifts);
 # add differential gains
-from Calico.OMS import solvable_sky_jones
+from Cattery.Calico.OMS import solvable_sky_jones
 meqmaker.add_sky_jones('dE','differential gains',
   [ solvable_sky_jones.DiagRealImag('dE'),
     solvable_sky_jones.FullRealImag('dE'),
@@ -227,11 +227,11 @@ meqmaker.add_sky_jones('dE','differential gains',
   ]);
 
 # P - feed angle
-from Siamese.OMS import feed_angle
+from Cattery.Siamese.OMS import feed_angle
 meqmaker.add_uv_jones('P','feed orientation',[feed_angle]);
 
 # B - bandpass, G - gain
-from Calico.OMS import solvable_jones
+from Cattery.Calico.OMS import solvable_jones
 meqmaker.add_uv_jones('B','bandpass',
   [ solvable_jones.DiagRealImag("B"),
     solvable_jones.FullRealImag("B"),
@@ -241,7 +241,7 @@ meqmaker.add_uv_jones('G','receiver gains/phases',
     solvable_jones.FullRealImag("G"),
     solvable_jones.DiagAmplPhase("G") ],flaggable=True);
 
-from Calico.OMS import ifr_based_errors
+from Cattery.Calico.OMS import ifr_based_errors
 meqmaker.add_vis_proc_module('IG','multiplicative interferometer-based gains (IG)',[ifr_based_errors.IfrGains()]);
 meqmaker.add_vis_proc_module('IC','additive interferometer-based biases (IC)',[ifr_based_errors.IfrBiases()]);
 
@@ -390,15 +390,15 @@ def _define_forest(ns,parent=None,**kw):
     if cal_what == CAL.VIS:
       pass;
     elif cal_what == CAL.AMPL:
-      [ x('ampl',p,q) << Meq.Abs(x(p,q)) for p,q in ifrs for x in rhs,lhs ];
+      [ x('ampl',p,q) << Meq.Abs(x(p,q)) for p,q in ifrs for x in [rhs,lhs] ];
       lhs = lhs('ampl');
       rhs = rhs('ampl');
     elif cal_what == CAL.LOGAMPL:
-      [ x('logampl',p,q) << Meq.Log(Meq.Abs(x(p,q))) for p,q in ifrs for x in rhs,lhs ];
+      [ x('logampl',p,q) << Meq.Log(Meq.Abs(x(p,q))) for p,q in ifrs for x in [rhs,lhs] ];
       lhs = lhs('logampl');
       rhs = rhs('logampl');
     elif cal_what == CAL.PHASE:
-      [ x('phase',p,q) << Meq.Arg(x(p,q)) for p,q in ifrs for x in rhs,lhs ];
+      [ x('phase',p,q) << Meq.Arg(x(p,q)) for p,q in ifrs for x in [rhs,lhs] ];
       [ rhs('ampl',p,q) << Meq.Abs(rhs(p,q)) for p,q in ifrs  ];
       lhs = lhs('phase');
       rhs = rhs('phase');

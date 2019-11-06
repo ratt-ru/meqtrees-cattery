@@ -4,8 +4,8 @@ from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from Lions.PiercePoints import PiercePoints
-import Meow
+from Cattery.Lions.PiercePoints import PiercePoints
+from Cattery import Meow
 
 
 def compile_options():

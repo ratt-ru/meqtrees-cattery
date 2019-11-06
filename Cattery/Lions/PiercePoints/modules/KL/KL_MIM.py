@@ -4,9 +4,9 @@ from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from Lions.PiercePoints.PiercePoints import *
-from Lions.PiercePoints.modules.KL import KLNode
-import Meow
+from Cattery.Lions.PiercePoints.PiercePoints import *
+from Cattery.Lions.PiercePoints.modules.KL import KLNode
+from Cattery import Meow
 
 
 def compile_options():

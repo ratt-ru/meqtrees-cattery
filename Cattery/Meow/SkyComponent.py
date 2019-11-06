@@ -149,7 +149,7 @@ class SkyComponent (Parameterization):
     return visnodes;
 
   def corrupt (self,jones,per_station=True,label=None):
-    from Meow.CorruptComponent import CorruptComponent
+    from Cattery.Meow.CorruptComponent import CorruptComponent
     if per_station:
       return CorruptComponent(self.ns0,self,station_jones=jones,label=label);
     else:

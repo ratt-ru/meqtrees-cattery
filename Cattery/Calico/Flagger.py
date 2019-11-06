@@ -9,12 +9,11 @@ import re
 import tempfile
 import os
 
-import Meow
-import Meow.MSUtils
+from Cattery import Meow
 import Purr.Pipe
 import Timba.Apps
 
-from Meow.MSUtils import TABLE
+from Cattery.Meow.MSUtils import TABLE
 from functools import reduce
     
 _gli = Meow.MSUtils.find_exec('glish');

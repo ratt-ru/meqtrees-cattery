@@ -32,10 +32,10 @@ from __future__ import print_function
 from __future__ import division
 
 from Timba.TDL import *
-import Meow
-from Meow import Context
-from Meow import ParmGroup,Bookmarks
-from Meow.Parameterization import resolve_parameter
+from Cattery import Meow
+from Cattery.Meow import Context
+from Cattery.Meow import ParmGroup,Bookmarks
+from Cattery.Meow.Parameterization import resolve_parameter
 
 class IfrGains (object):
   def __init__ (self):

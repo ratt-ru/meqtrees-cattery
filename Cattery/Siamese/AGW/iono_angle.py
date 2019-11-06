@@ -5,7 +5,7 @@ from __future__ import division
 __default_label__ = "F";
 __default_name__  = "ionospheric Faraday correction";
 from Timba.TDL import *
-from Meow import Context,MSUtils
+from Cattery.Meow import Context,MSUtils
 
 import math
 import cmath
@@ -20,7 +20,7 @@ from Timba.array import *
 import os
 import random
 
-import Meow
+from Cattery import Meow
 
 #
 # This routine uses the ASCII output file produced by the ALBUS ionsphere

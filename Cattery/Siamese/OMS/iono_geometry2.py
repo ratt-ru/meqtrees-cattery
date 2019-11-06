@@ -28,8 +28,8 @@ from __future__ import print_function
 from __future__ import division
 from Timba.TDL import *
 import math
-from Meow import Jones
-from Meow import Context
+from Cattery.Meow import Jones
+from Cattery.Meow import Context
 
 H = 300000;           # height of ionospheric layer, in meters
 Lightspeed = 3e+8;

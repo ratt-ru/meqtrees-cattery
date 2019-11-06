@@ -35,8 +35,8 @@ import math
 import os
 import os.path
 
-import Meow
-from Meow import ParmGroup,Bookmarks,StdTrees,Context
+from Cattery import Meow
+from Cattery.Meow import ParmGroup,Bookmarks,StdTrees,Context
 
 # This defines some ifr subsets that are commonly used for WSRT data,
 # to be offered as defaults in the GUI wherever ifrs are selected.
@@ -56,7 +56,7 @@ TDLRuntimeMenu("Data selection & flag handling",*mssel.runtime_options());
 
 
 # now load optional modules for the ME maker
-from Meow import TensorMeqMaker
+from Cattery.Meow import TensorMeqMaker
 meqmaker = TensorMeqMaker.TensorMeqMaker(solvable=True,
                             use_jones_inspectors=True,
                             use_skyjones_visualizers=False,
@@ -65,13 +65,13 @@ meqmaker = TensorMeqMaker.TensorMeqMaker(solvable=True,
 
 ## specify available sky models
 ## these will show up in the menu automatically
-# from Calico.OMS import central_point_source
-# from Siamese.OMS import fitsimage_sky,gridded_sky
+# from Cattery.Calico.OMS import central_point_source
+# from Cattery.Siamese.OMS import fitsimage_sky,gridded_sky
 # models = [central_point_source,fitsimage_sky,gridded_sky]
 
 models = [];
 try:
-  from Siamese.OMS.tigger_lsm import TiggerSkyModel
+  from Cattery.Siamese.OMS.tigger_lsm import TiggerSkyModel
   models.insert(0,TiggerSkyModel());
 except:
   traceback.print_exc();
@@ -91,20 +91,20 @@ read_ms_model_opt = TDLCompileOption("read_ms_model","Read additional uv-model v
   """);
 
 
-from Siamese.OMS.rotation import Rotation
-from Siamese.OMS import oms_dipole_projection
+from Cattery.Siamese.OMS.rotation import Rotation
+from Cattery.Siamese.OMS import oms_dipole_projection
 meqmaker.add_sky_jones('L','parallactic angle or dipole rotation',[Rotation('L',feed_angle=False),oms_dipole_projection])
 
 # E - beam
 # add a fixed primary beam first
-from Calico.OMS import wsrt_beams  #,wsrt_beams_zernike
-from Siamese.OMS import pybeams_fits
-from Siamese.OMS.emss_beams import emss_polar_beams
+from Cattery.Calico.OMS import wsrt_beams  #,wsrt_beams_zernike
+from Cattery.Siamese.OMS import pybeams_fits
+from Cattery.Siamese.OMS.emss_beams import emss_polar_beams
 
 meqmaker.add_sky_jones('E','primary beam',[wsrt_beams,pybeams_fits,emss_polar_beams]); # ,wsrt_beams_zernike]);
 
 # P - feed angle
-from Siamese.OMS import feed_angle
+from Cattery.Siamese.OMS import feed_angle
 meqmaker.add_uv_jones('P','feed orientation',[feed_angle]);
 
 # very important -- insert meqmaker's options properly
@@ -150,7 +150,7 @@ output_option = TDLCompileOption('do_output',"Output visibilities",
 diffgain_tag = 'dE';
 diffgain_group = 'cluster';
 
-from Calico.OMS.StefCal.GainOpts import GainOpts,MODE_SOLVE_SAVE,MODE_SOLVE_NOSAVE,MODE_SOLVE_APPLY
+from Cattery.Calico.OMS.StefCal.GainOpts import GainOpts,MODE_SOLVE_SAVE,MODE_SOLVE_NOSAVE,MODE_SOLVE_APPLY
 
 gopts = GainOpts("direction-independent gain","gain","G","stefcal");
 TDLCompileOptions(*gopts.tdl_options);
@@ -236,7 +236,9 @@ def _define_forest(ns,parent=None,**kw):
     dg_groups += [ (src.name,[src]) for src in dg_sources if not src.get_attr(diffgain_group,None) ];
     # now sort by brightness
     flux_dgg = [ (sum([src.get_attr('Iapp',0) or src.get_attr('I') for src in dgg[1]]),dgg) for dgg in dg_groups ];
-    flux_dgg.sort(lambda a,b:cmp(b[0],a[0]));
+    from past.builtins import cmp
+    from functools import cmp_to_key
+    flux_dgg.sort(key=cmp_to_key(lambda a,b:cmp(b[0],a[0])));
     diffgain_labels = [ dgg[0] for flux,dgg in flux_dgg ];
     groups += [ dgg[1] for flux,dgg in flux_dgg ];
     num_diffgains = len(flux_dgg);
@@ -263,7 +265,8 @@ def _define_forest(ns,parent=None,**kw):
   solve_ifrs  = array.subset(calibrate_ifrs,strict=False).ifrs();
   downsample_subtiling = [ stefcal_downsample_timeint,stefcal_downsample_freqint ] if stefcal_downsample else [1,1];
 
-  import Calico.OMS.StefCal.StefCal
+  import Cattery.Calico.OMS.StefCal.StefCal
+  from Cattery import Calico
   kwopts = {}
   gopts.set_stefcal_node_options(kwopts,visualize=stefcal_visualize);
   bopts.set_stefcal_node_options(kwopts,visualize=stefcal_visualize);
@@ -352,7 +355,7 @@ def _define_forest(ns,parent=None,**kw):
   meqmaker.close();
   
   # add options to clear all solutions 
-  from Calico.OMS.StefCal import StefCal
+  from Cattery.Calico.OMS.StefCal import StefCal
   TDLRuntimeOption("stefcal_reset_all","Remove all existing solutions",False);
   for opt in gopts,bopts,deopts:
     if opt.enabled:

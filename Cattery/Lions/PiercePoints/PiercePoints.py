@@ -4,9 +4,9 @@ from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from Lions.MIM_model import *
+from Cattery.Lions.MIM_model import *
 
-import Meow
+from Cattery import Meow
 
 
 class PiercePoints(MIM_model):

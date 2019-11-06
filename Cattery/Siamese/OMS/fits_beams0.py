@@ -32,9 +32,9 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 from Timba.TDL import *
-import Meow
-from Meow import Context
-from Meow import StdTrees
+from Cattery import Meow
+from Cattery.Meow import Context
+from Cattery.Meow import StdTrees
 
 
 import os

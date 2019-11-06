@@ -246,7 +246,9 @@ class StefCalNode (pynode.PyNode):
     self._ifrs = [ tuple(x.split(':')) for x in self.ifrs ];
     # make list of ifrs sorted by baselines
     self.ifr_by_baseline = list(zip(self._ifrs,self.baselines));
-    self.ifr_by_baseline.sort(lambda x,y:cmp(x[1],y[1]));
+    from past.builtins import cmp
+    from functools import cmp_to_key
+    self.ifr_by_baseline.sort(key=cmp_to_key(lambda x,y:cmp(x[1],y[1])));
     # parse set of solvable ifrs
     self._solvable_ifrs = set([ tuple(x.split(":")) for x in (self.solve_ifrs or self.ifrs) ]);
     # other init
@@ -1186,7 +1188,9 @@ class StefCalNode (pynode.PyNode):
     
     if _verbosity.verbose>3:
       dprint(4,"noise estimates by baseline:");
-      npq = sorted([ (n,pq) for pq,n in noise.items() ],cmp=lambda x,y:cmp(numpy.mean(x[0]),numpy.mean(y[0])));
+      from past.builtins import cmp
+      from functools import cmp_to_key
+      npq = sorted([ (n,pq) for pq,n in noise.items() ],key=cmp_to_key(lambda x,y:cmp(numpy.mean(x[0]),numpy.mean(y[0]))));
       for n,pq in npq:
         dprint(4,"  %s-%s"%pq," ".join(["%.2g"%float(x) for x in n.ravel()[:20]]));
         

@@ -34,12 +34,14 @@ def _int_or_str(x):
 
 def cmp_qualified_names (a,b):
   """compares two qualified names: splits them at ':', and comparing the subfields in a numeric sense""";
+  from past.builtins import cmp
   return cmp(list(map(_int_or_str,a.split(':'))),list(map(_int_or_str,b.split(':'))));
 
 def sort_qualified_names (inlist):
   """Sorts qualified names as follows: splits into fields at ':', and sorts according to fields.
   If field is a numbers, sorts in the numeric sense."""
-  return sorted(inlist,cmp_qualified_names);
+  from functools import cmp_to_key
+  return sorted(inlist,key=cmp_to_key(cmp_qualified_names));
 
 class _AxisStats (object):
   """_AxisStats represents information about one axis in the parmtable. It is created internally

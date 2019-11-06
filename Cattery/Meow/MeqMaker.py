@@ -37,9 +37,8 @@ import types
 import re
 import fnmatch
 
-import Meow
-from Meow import StdTrees,ParmGroup,Parallelization,MSUtils
-
+from Cattery.Meow import StdTrees,ParmGroup,Parallelization,MSUtils,SkyComponent,IfrArray
+import Cattery.Meow as Meow
 DEG = math.pi/180.;
 
 _annotation_label_doc = """The following directives may be embedded in the format string:
@@ -158,7 +157,7 @@ class MeqMaker (object):
         *self.smearing_options())
     );
 
-    other_opt += Meow.IfrArray.compile_options();
+    other_opt += IfrArray.compile_options();
     self._compile_options += [ TDLMenu("Measurement Equation options",*other_opt),TDLOptionSeparator("Image-plane components") ];
     # will be True once a uv-plane module has been added
     self._have_uvplane_modules = False;
@@ -526,9 +525,9 @@ class MeqMaker (object):
       return [];
 
   def estimate_image_size (self):
-    max_estimate = None;
+    max_estimate = 0;
     for module in self._get_selected_modules('sky',self._sky_models):
-      estimate = getattr(module,'estimate_image_size',None);
+      estimate = getattr(module,'estimate_image_size', 0);
       if callable(estimate):
         max_estimate = max(max_estimate,estimate());
     return max_estimate;
@@ -993,7 +992,7 @@ class MeqMaker (object):
       sky = Meow.Patch(ns,'sky1' if dec_sky else 'sky',Meow.Context.observation.phase_centre,components=sky_sources);
       skyvis = sky.visibilities();
     else:
-      skyvis = sky_sources[0].visibilities() if isinstance(sky_sources[0],Meow.SkyComponent) else sky_sources[0];
+      skyvis = sky_sources[0].visibilities() if isinstance(sky_sources[0],SkyComponent) else sky_sources[0];
 
     # add uv-plane effects
     # first make list of Jones basenodes
@@ -1293,7 +1292,7 @@ class SourceSubsetSelector (object):
       None;
 
   @staticmethod
-  def filter_subset (subset,srclist0,tag_accessor=Meow.SkyComponent.get_attr):
+  def filter_subset (subset,srclist0,tag_accessor=SkyComponent.get_attr):
     all = set([src.name for src in srclist0]);
     srcs = set();
     for ispec,spec0 in enumerate(re.split("[\s,]+",subset)):
@@ -1415,7 +1414,9 @@ def export_karma_annotations (sources,filename,
         attrs['Rs'] = R*3600;
       # sort attributes by decreasing length (to make sure that %xyz is replaced before %xy).
       attrkeys = list(attrs.keys());
-      attrkeys.sort(lambda a,b:cmp(len(b),len(a)));
+      from past.builtins import cmp
+      from functools import cmp_to_key
+      attrkeys.sort(key=cmp_to_key(lambda a,b:cmp(len(b),len(a))));
       # now for each attribute, replace entry in format string
       for key in attrkeys:
         # replace simple %attr directives

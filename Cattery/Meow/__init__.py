@@ -47,27 +47,27 @@ else:
     if level <= _verbosity:
       print(msg);
 
-  from .CorruptComponent import CorruptComponent
-  from .Position import Position
-  from .Direction import Direction
-  from .LMDirection import LMDirection
-  from .AzElDirection import AzElDirection
-  from .LMApproxDirection import LMApproxDirection
-  from .IfrArray import IfrArray
-  from .Observation import Observation
-  from .Parameterization import Parameterization
-  from .Patch import Patch
-  from .SkyComponent import SkyComponent
-  from .PointSource import PointSource
-  from .KnownVisComponent import KnownVisComponent
-  from .GaussianSource import GaussianSource
-  from .SixpackComponent import SixpackComponent
-  from .FITSImageComponent import FITSImageComponent
-  from .Parm import Parm
-  
-  from . import Bookmarks
-  from . import MSUtils
-  from . import Utils
+  from Cattery.Meow.CorruptComponent import CorruptComponent
+  from Cattery.Meow.Position import Position
+  from Cattery.Meow.Direction import Direction
+  from Cattery.Meow.LMDirection import LMDirection
+  from Cattery.Meow.AzElDirection import AzElDirection
+  from Cattery.Meow.LMApproxDirection import LMApproxDirection
+  from Cattery.Meow.IfrArray import IfrArray
+  from Cattery.Meow.Observation import Observation
+  from Cattery.Meow.Parameterization import Parameterization
+  from Cattery.Meow.Patch import Patch
+  from Cattery.Meow.SkyComponent import SkyComponent
+  from Cattery.Meow.PointSource import PointSource
+  from Cattery.Meow.KnownVisComponent import KnownVisComponent
+  from Cattery.Meow.GaussianSource import GaussianSource
+  from Cattery.Meow.SixpackComponent import SixpackComponent
+  from Cattery.Meow.FITSImageComponent import FITSImageComponent
+  from Cattery.Meow.Parm import Parm
+  from Cattery.Meow import StdTrees
+  from Cattery.Meow import Bookmarks
+  from Cattery.Meow import MSUtils
+  from Cattery.Meow import Utils
 
   __all__ = [
               CorruptComponent,
@@ -83,5 +83,10 @@ else:
               Patch,
               PointSource,
               SixpackComponent,
-              SkyComponent
+              SkyComponent,
+              Bookmarks,
+              MSUtils,
+              Utils,
+              _meow_path,
+              StdTrees,
   ];

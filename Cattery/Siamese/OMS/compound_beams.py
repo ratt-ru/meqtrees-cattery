@@ -33,9 +33,9 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 from Timba.TDL import *
-import Meow
-from Meow import Context
-from Meow import StdTrees
+from Cattery import Meow
+from Cattery.Meow import Context
+from Cattery.Meow import StdTrees
 
 
 import os
@@ -83,8 +83,8 @@ CORRS = Context.correlations;
 REIM = "re","im";
 REALIMAG = dict(re="real",im="imag");
 
-from Siamese.OMS import Utils
-from Siamese.OMS.pybeams_fits import make_beam_filename
+from Cattery.Siamese.OMS import Utils
+from Cattery.Siamese.OMS.pybeams_fits import make_beam_filename
 
 def make_beam_node (beam,pattern,l_offset,m_offset,*children):
   """Makes beam interpolator node for the given filename pattern.""";
