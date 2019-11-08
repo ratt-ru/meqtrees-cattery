@@ -40,7 +40,7 @@ import os
 import os.path
 import math
 import fnmatch
-
+import Cattery.Meow
 _addImagingColumns = None;
 # figure out which table implementation to use -- try pyrap/casacore first
 try:
@@ -1043,7 +1043,7 @@ class MSSelector (object):
                      wait=False):
     """helper method to run a solution with a bunch of solvables""";
     # set solvables list in solver
-    solver_defaults = Meow.Utils.create_solver_defaults(solvables,options=options)
+    solver_defaults = Cattery.Meow.Utils.create_solver_defaults(solvables,options=options)
     mqs.setnodestate(mqs,solver_node,solver_defaults,sync=True,wait=wait)
     req = self.create_io_request(tiling);
     mqs.execute(vdm_node,req,wait=wait);
@@ -1305,12 +1305,12 @@ class ImagingSelector (object):
     # form up initial argument list to run imaging script
     if self.imager_type == "lwimager":
       _IMAGER = "python";
-      script_name = os.path.join(Meow._meow_path,'make_dirty_image.py');
+      script_name = os.path.join(Cattery.Meow._meow_path,'make_dirty_image.py');
       args = [ 'python',script_name,'data='+col ];
       offset = 0;
     else:
       _IMAGER = "glish";
-      script_name = os.path.join(Meow._meow_path,'make_dirty_image.g');
+      script_name = os.path.join(Cattery.Meow._meow_path,'make_dirty_image.g');
       script_name = os.path.realpath(script_name);  # glish don't like symlinks...
       args = [ 'glish','-l',
         script_name,

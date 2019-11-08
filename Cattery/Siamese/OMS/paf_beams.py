@@ -184,8 +184,8 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
 
 
   # now load weights
-  wx = pickle.load(open(weight_filename_x));
-  wy = pickle.load(open(weight_filename_y));
+  wx = pickle.load(open(weight_filename_x, "rb"));
+  wy = pickle.load(open(weight_filename_y, "rb"));
   if wx.shape[1] != num_elements or wy.shape[1] != num_elements:
     raise ValueError("""weights files contain weights for %d (X) and %d (Y) complex
                       elements, %d expected"""%(wx.shape[1],wy.shape[1],num_elements));

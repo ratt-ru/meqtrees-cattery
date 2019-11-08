@@ -7,7 +7,6 @@ from Timba.Meq import meq
 import math
 
 from Cattery import Meow
-from Cattery import Meow.StdTrees
 from Cattery.Meow import ParmGroup, Bookmarks
 
 
@@ -72,7 +71,7 @@ meqmaker = MeqMaker.MeqMaker(solvable=do_solve and run_option == 'calibrate')
 # these will show up in the menu automatically
 from Cattery.Siamese.OMS import fitsimage_sky
 from Cattery.Lions import gridded_sky
-from Cattery import Meow.LSM
+from Cattery import Meow
 lsm = Meow.LSM.MeowLSM(include_options=False)
 meqmaker.add_sky_models([lsm, fitsimage_sky, gridded_sky])
 

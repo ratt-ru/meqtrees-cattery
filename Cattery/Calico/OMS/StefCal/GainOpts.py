@@ -224,7 +224,7 @@ class GainOpts (object):
     try:
       struct = GainOpts._incoming_tables.get(self.table);
       if not struct:
-        struct = GainOpts._incoming_tables[self.table] = pickle.load(file(self.table));
+        struct = GainOpts._incoming_tables[self.table] = pickle.load(open(self.table, "rb"));
       if not isinstance(struct,dict) or struct.get('version',0) < 2:
         dprint(0,"error loading %s solutions: %s format or version not known"%(self.label,self.table));
         return;

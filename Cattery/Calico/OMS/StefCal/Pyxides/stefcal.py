@@ -277,7 +277,7 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
     dir = ".";
 
   info("loading diffgain solutions from $filename");
-  DG0 = pickle.load(file(filename))
+  DG0 = pickle.load(open(filename, "rb"))
 
   DG = DG0['gains']
   from functools import cmp_to_key
@@ -433,7 +433,7 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
   # feed labels
   feeds = ("RR","LL","RL","LR") if FEED_TYPE.upper() == "RL" else ("XX","YY","XY","YX");  
 
-  ig = pickle.load(file(filename))         
+  ig = pickle.load(open(filename, "rb"))         
 
   def plot_xy (content,title):
     """Plots x vs y""";
@@ -665,7 +665,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ylim_off
   _GAIN_PREFIX = prefix;
 
   info("loading gain solutions from $filename");
-  G0 = pickle.load(file(filename))
+  G0 = pickle.load(open(filename, "rb"))
 
   G = G0['gains'][prefix]['solutions'];
   solkeys = list(G.keys())

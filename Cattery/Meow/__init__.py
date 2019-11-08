@@ -68,6 +68,7 @@ else:
   from Cattery.Meow import Bookmarks
   from Cattery.Meow import MSUtils
   from Cattery.Meow import Utils
+  from Cattery.Meow import LSM, OptionTools, Context
 
   __all__ = [
               CorruptComponent,
@@ -76,6 +77,9 @@ else:
               LMDirection,
               LMApproxDirection,
               FITSImageComponent,
+              LSM,
+              OptionTools,
+              Context,
               GaussianSource,
               IfrArray,
               Observation,
