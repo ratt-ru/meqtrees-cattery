@@ -212,11 +212,11 @@ class FullRealImag (object):
     # make bookmarks
     Bookmarks.make_node_folder("%s diagonal terms"%label,
       [ jones(src,p,zz) for src in sources
-        for p in stations for zz in "xx","yy" ],sorted=True);
+        for p in stations for zz in ["xx","yy"] ],sorted=True);
     if self._offdiag:
       Bookmarks.make_node_folder("%s off-diagonal terms"%label,
         [ jones(src,p,zz) for src in sources
-          for p in stations for zz in "xy","yx" ],sorted=True);
+          for p in stations for zz in ["xy","yx"] ],sorted=True);
 
     # make solvejobs
     ParmGroup.SolveJob("cal_"+label+"_diag","Calibrate %s diagonal terms"%label,self.pg_diag);

@@ -136,7 +136,7 @@ class FullRealImag (object):
             table_name="%s_diag.fmep"%label,bookmark=False);
     # make bookmarks
     Bookmarks.make_node_folder("%s diagonal terms"%label,
-      [ jones(p,zz) for p in stations for zz in xx,yy ],sorted=True);
+      [ jones(p,zz) for p in stations for zz in [xx,yy] ],sorted=True);
     # make solvejobs
     ParmGroup.SolveJob("cal_"+label+"_diag","Calibrate %s diagonal terms"%label,self.pg_diag);
     
@@ -157,7 +157,7 @@ class FullRealImag (object):
               table_name="%s_offdiag.fmep"%label,bookmark=False);
       # make bookmarks
       Bookmarks.make_node_folder("%s off-diagonal terms"%label,
-        [ jones(p,zz) for p in stations for zz in xy,yx ],sorted=True);
+        [ jones(p,zz) for p in stations for zz in [xy,yx] ],sorted=True);
       # make solvejobs
       ParmGroup.SolveJob("cal_"+label+"_offdiag","Calibrate %s off-diagonal terms"%label,self.pg_offdiag);
 
