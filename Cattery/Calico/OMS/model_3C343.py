@@ -32,8 +32,8 @@ This module is a relic of earlier times and not supported.
 """;
 
 from Timba.TDL import *
-from Cattery import Meow
-from Cattery.Meow import ParmGroup
+import Meow
+from Meow import ParmGroup
 
 TDLCompileOption("spectral_index","Spectral index, 3C343",[None,0.],more=float,
     doc="""Spectral index of source, use None for a flat spectrum""");

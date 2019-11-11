@@ -3,7 +3,7 @@ from __future__ import print_function
 from __future__ import division
 
 from Timba.TDL import *
-from Cattery import Meow
+import Meow
 import math
 
 DEG = math.pi/180.;

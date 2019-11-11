@@ -7,7 +7,7 @@ from Timba.Meq import meq
 import numpy
 import traceback
 
-from Cattery.Siamese.OMS.emss_beams.InterpolatedVoltageBeam import unite_multiple_shapes
+from Siamese.OMS.emss_beams.InterpolatedVoltageBeam import unite_multiple_shapes
 
 
 

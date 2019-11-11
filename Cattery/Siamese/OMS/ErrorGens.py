@@ -29,7 +29,8 @@ from __future__ import division
 from Timba.TDL import *
 import random
 import math
-from Cattery import Meow
+import Meow.Context
+import Meow.MSUtils
 from Timba.Meq import meq
 
 class ErrorGenerator (object):

@@ -34,11 +34,11 @@ from __future__ import print_function
 from __future__ import division
 from Timba.TDL import *
 from .AnalyticBeams import ClippedSincBeam
-from Cattery.Meow.Direction import radec_to_lmn
-from Cattery import Meow
-from Cattery.Meow import Context
-from Cattery.Meow import StdTrees
-from Cattery.Meow import ParmGroup
+from Meow.Direction import radec_to_lmn
+import Meow
+from Meow import Context
+from Meow import StdTrees
+from Meow import ParmGroup
 
 import math
 from math import sqrt,atan2

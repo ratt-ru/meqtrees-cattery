@@ -4,11 +4,11 @@ from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from Cattery.Meow.Parameterization import *
-from Cattery import Meow
-from Cattery.Meow import SkyComponent
-from Cattery.Meow import ParmGroup
-from Cattery.Lions.xyzComponent import xyzComponent
+from Meow.Parameterization import *
+import Meow
+from Meow import SkyComponent
+from Meow import ParmGroup
+from Lions.xyzComponent import xyzComponent
 
 
 class MIM_model(Parameterization):

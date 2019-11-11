@@ -6,8 +6,9 @@ from Timba.TDL import *
 from Timba.Meq import meq
 import math
 
-from Cattery import Meow
-from Cattery.Meow import ParmGroup, Bookmarks
+import Meow
+import Meow.StdTrees
+from Meow import ParmGroup, Bookmarks
 
 
 Settings.forest_state.cache_policy = 20
@@ -64,26 +65,26 @@ run_model.when_changed(change_run_option)
 
 
 # now load optional modules for the ME maker
-from Cattery.Meow import MeqMaker
+from Meow import MeqMaker
 meqmaker = MeqMaker.MeqMaker(solvable=do_solve and run_option == 'calibrate')
 
 # specify available sky models
 # these will show up in the menu automatically
-from Cattery.Siamese.OMS import fitsimage_sky
-from Cattery.Lions import gridded_sky
-from Cattery import Meow
+from Siamese.OMS import fitsimage_sky
+from Lions import gridded_sky
+import Meow.LSM
 lsm = Meow.LSM.MeowLSM(include_options=False)
 meqmaker.add_sky_models([lsm, fitsimage_sky, gridded_sky])
 
-from Cattery.Lions import ZJones
+from Lions import ZJones
 meqmaker.add_sky_jones('Z', 'iono', [ZJones.ZJones()])
-from Cattery.Calico.OMS import solvable_sky_jones
+from Calico.OMS import solvable_sky_jones
 
 meqmaker.add_sky_jones('GD', 'directional receiver gains/phases',
                        [solvable_sky_jones.DiagAmplPhase("GD"),
                         solvable_sky_jones.FullRealImag("GD")])
 
-from Cattery.Calico.OMS import solvable_jones
+from Calico.OMS import solvable_jones
 meqmaker.add_uv_jones('G', 'receiver gains/phases',
                       [solvable_jones.DiagAmplPhase("G"),
                        solvable_jones.FullRealImag("G")])
@@ -92,7 +93,7 @@ meqmaker.add_uv_jones('B', 'bandpass',
                       [solvable_jones.DiagAmplPhase("B")])
 
 # simulate G Jones
-from Cattery.Siamese.OMS import oms_gain_models
+from Siamese.OMS import oms_gain_models
 meqmaker.add_uv_jones('G_sim', 'simulate receiver gains/phases',
                       [oms_gain_models])
 

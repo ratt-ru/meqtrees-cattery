@@ -15,7 +15,7 @@ __default_label__ = "D";
 __default_name__  = "direction-independent leakage";
 
 from Timba.TDL import *
-from Cattery.Meow import Context,MSUtils
+from Meow import Context,MSUtils
 
 import math
 import traceback

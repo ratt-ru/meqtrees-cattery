@@ -28,9 +28,10 @@ from __future__ import print_function
 from __future__ import division
 
  # standard preamble
-from Cattery.Meow.MeqMaker import *
-from Cattery.Meow import StdTrees,ParmGroup,Parallelization,MSUtils
-import Cattery.Meow as Meow
+from Meow.MeqMaker import *
+import Meow
+from Meow import StdTrees,ParmGroup,Parallelization,MSUtils
+
 import itertools
 
 TDLCompileOption("psv_class","Use which node for PSV tensors",["PSVTensor","CUDAPointSourceVisibility","ThrustPointSourceVisibility"]);

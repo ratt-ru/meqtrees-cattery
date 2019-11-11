@@ -38,10 +38,10 @@ for this type of matrix decomposition, so FullRealImag is preferred.
 """;
 
 from Timba.TDL import *
-from Cattery import Meow
-from Cattery.Meow import Context
-from Cattery.Meow import Jones,ParmGroup,Bookmarks
-from Cattery.Meow.Parameterization import resolve_parameter
+import Meow
+from Meow import Context
+from Meow import Jones,ParmGroup,Bookmarks
+from Meow.Parameterization import resolve_parameter
 
 class DiagAmplPhase (object):
   def __init__ (self,label):

@@ -35,7 +35,9 @@ from Timba.TDL import *
 from Cattery.LSM.LSM import LSM as LSMClass
 from Timba.utils import curry
 import traceback
-import Cattery.Meow
+import Meow
+import Meow.OptionTools
+import Meow.Context
 import math
 from math import *
 
@@ -121,12 +123,12 @@ class MeowLSM (object):
 
       subset_opt = TDLOption('lsm_subset',"Use subset of LSM sources",
           ["all"],more=str,namespace=self,doc=subset_doc);
-      self._subset_parser = Cattery.Meow.OptionTools.ListOptionParser(minval=0,name="source");
+      self._subset_parser = Meow.OptionTools.ListOptionParser(minval=0,name="source");
       subset_opt.set_validator(self._subset_parser.validator);
       self._compile_opts.append(subset_opt);
       solve_subset_opt = TDLOption("solve_subset","For which sources",["all"],
             more=str,namespace=self,doc=subset_doc);
-      self._solve_subset_parser = Cattery.Meow.OptionTools.ListOptionParser(minval=0,name="source");
+      self._solve_subset_parser = Meow.OptionTools.ListOptionParser(minval=0,name="source");
       self._compile_opts.append(
         TDLMenu("Make solvable source parameters",
           solve_subset_opt,
@@ -233,14 +235,14 @@ class MeowLSM (object):
       beam_func = None;
     
     # make list of direction,punit,I,I_apparent tuples
-    parm = Cattery.Meow.Parm(tags="source solvable");
+    parm = Meow.Parm(tags="source solvable");
     srclist = [];
     for pu in plist:
       ra,dec,I,Q,U,V,spi,freq0,RM = pu.getEssentialParms(ns);
       if self.solve_pos:
         ra = parm.new(ra);
         dec = parm.new(dec);
-      direction = Cattery.Meow.Direction(ns,pu.name,ra,dec,static=not self.solve_pos);
+      direction = Meow.Direction(ns,pu.name,ra,dec,static=not self.solve_pos);
       Iapp = I;
       if beam_func is not None:
       # if phase centre is already set (i.e. static), then lmn will be computed here, and we
@@ -322,7 +324,7 @@ class MeowLSM (object):
         kwdict = kw_nonsolve;
       for key,value in src.items():
         meowparm = kwdict.get(key);
-        if isinstance(meowparm,Cattery.Meow.Parm):
+        if isinstance(meowparm,Meow.Parm):
           src[key] = meowparm.new(value);
         elif meowparm is not None:
           src[key] = value;
@@ -333,13 +335,13 @@ class MeowLSM (object):
           size,phi = [src['sx'],src['sy']],src['phi'];
         else:
           size,phi = src['sx'],None;
-        src = Cattery.Meow.GaussianSource(ns,name=pu.name,
+        src = Meow.GaussianSource(ns,name=pu.name,
                 I=src['I'],Q=src['Q'],U=src['U'],V=src['V'],
                 direction=direction,
                 spi=src['spi'],freq0=src['freq0'],RM=src['RM'],
                 size=size,phi=phi);
       else:
-        src = Cattery.Meow.PointSource(ns,name=pu.name,
+        src = Meow.PointSource(ns,name=pu.name,
                 I=src['I'],Q=src['Q'],U=src['U'],V=src['V'],
                 direction=direction,
                 spi=src['spi'],freq0=src['freq0'],RM=src['RM']);

@@ -37,9 +37,9 @@ from Timba import pynode
 from Timba.Meq import meq
 from Timba import mequtils
 
-from Cattery import Meow
-from Cattery.Meow import Context
-from Cattery.Meow import StdTrees
+import Meow
+from Meow import Context
+from Meow import StdTrees
 
 import os
 import os.path
@@ -442,7 +442,7 @@ class EMSSPolarBeamRaDecInterpolatorNode (EMSSPolarBeamInterpolatorNode):
     return result;
 
 
-from Cattery.Siamese.OMS import Utils
+from Siamese.OMS import Utils
 XY2HV = dict(x='v',y='h');
 
 def make_beam_filename (filename_pattern,xy,label,freq):

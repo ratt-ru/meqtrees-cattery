@@ -14,9 +14,9 @@ __default_name__  = "position shifts";
 
 from Timba.TDL import *
 import math
-from Cattery import Meow
-from Cattery.Meow import Context
-from Cattery.Meow import StdTrees,ParmGroup
+import Meow
+from Meow import Context
+from Meow import StdTrees,ParmGroup
 
 DEG = math.pi/180;
 ARCMIN = DEG/60;

@@ -1,10 +1,8 @@
 #!/usr/bin/env python
-from setuptools import setup
-from setuptools import setup
-from setuptools.command.install import install
-from setuptools.command.sdist import sdist
-from distutils.command.build import build
+
 import os
+from distutils.core import setup
+from distutils.command.install import INSTALL_SCHEMES
 import six
 
 def fullsplit(path, result=None):
@@ -20,6 +18,12 @@ def fullsplit(path, result=None):
     if head == path:
         return result
     return fullsplit(head, [tail] + result)
+
+# Tell distutils not to put the data_files in platform-specific installation
+# locations. See here for an explanation:
+# http://groups.google.com/group/comp.lang.python/browse_thread/thread/35ec7b2fed36eaec/2105ee4d9e8042cb
+for scheme in list(INSTALL_SCHEMES.values()):
+    scheme['data'] = scheme['purelib']
 
 packages = []
 data_files = []

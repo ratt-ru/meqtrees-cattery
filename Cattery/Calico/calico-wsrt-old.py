@@ -32,8 +32,8 @@ from Timba.TDL import *
 from Timba.Meq import meq
 import math
 
-from Cattery import Meow
-from Cattery.Meow import ParmGroup,Bookmarks,StdTrees
+import Meow
+from Meow import ParmGroup,Bookmarks,StdTrees
 
 # This defines some ifr subsets that are commonly used for WSRT data,
 # to be offered as defaults in the GUI wherever ifrs are selected.
@@ -188,7 +188,7 @@ def _select_output (output):
 output_option.when_changed(_select_output);
 
 # now load optional modules for the ME maker
-from Cattery.Meow import MeqMaker
+from Meow import MeqMaker
 meqmaker = MeqMaker.MeqMaker(solvable=True,
                             use_jones_inspectors=True,
                             use_skyjones_visualizers=False,
@@ -199,12 +199,12 @@ flag_menu.when_changed(mssel.enable_write_flags);
 
 # specify available sky models
 # these will show up in the menu automatically
-from Cattery.Calico.OMS import central_point_source
-from Cattery.Siamese.OMS import fitsimage_sky,gridded_sky
+from Calico.OMS import central_point_source
+from Siamese.OMS import fitsimage_sky,gridded_sky
 models = [central_point_source,fitsimage_sky,gridded_sky]
 
 try:
-  from Cattery.Siamese.OMS.tigger_lsm import TiggerSkyModel
+  from Siamese.OMS.tigger_lsm import TiggerSkyModel
   models.insert(0,TiggerSkyModel());
 except:
   traceback.print_exc();
@@ -214,13 +214,13 @@ meqmaker.add_sky_models(models);
 
 # E - beam
 # add a fixed primary beam first
-from Cattery.Calico.OMS import wsrt_beams  #,wsrt_beams_zernike
+from Calico.OMS import wsrt_beams  #,wsrt_beams_zernike
 meqmaker.add_sky_jones('E','primary beam',[wsrt_beams]); # ,wsrt_beams_zernike]);
 ## add solvable refraction
-# from Cattery.Calico.OMS import solvable_position_shifts
+# from Calico.OMS import solvable_position_shifts
 # meqmaker.add_sky_jones('R','position shifts',solvable_position_shifts);
 # add differential gains
-from Cattery.Calico.OMS import solvable_sky_jones
+from Calico.OMS import solvable_sky_jones
 meqmaker.add_sky_jones('dE','differential gains',
   [ solvable_sky_jones.DiagRealImag('dE'),
     solvable_sky_jones.FullRealImag('dE'),
@@ -228,11 +228,11 @@ meqmaker.add_sky_jones('dE','differential gains',
   ]);
 
 # P - feed angle
-from Cattery.Siamese.OMS import feed_angle
+from Siamese.OMS import feed_angle
 meqmaker.add_uv_jones('P','feed orientation',[feed_angle]);
 
 # B - bandpass, G - gain
-from Cattery.Calico.OMS import solvable_jones
+from Calico.OMS import solvable_jones
 meqmaker.add_uv_jones('B','bandpass',
   [ solvable_jones.DiagRealImag("B"),
     solvable_jones.FullRealImag("B"),
@@ -242,7 +242,7 @@ meqmaker.add_uv_jones('G','receiver gains/phases',
     solvable_jones.FullRealImag("G"),
     solvable_jones.DiagAmplPhase("G") ]);
 
-from Cattery.Calico.OMS import ifr_based_errors
+from Calico.OMS import ifr_based_errors
 meqmaker.add_vis_proc_module('IG','multiplicative IFR errors',[ifr_based_errors.IfrGains()]);
 meqmaker.add_vis_proc_module('IC','additive IFR errors',[ifr_based_errors.IfrBiases()]);
 

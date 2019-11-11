@@ -34,9 +34,9 @@ from __future__ import print_function
 from __future__ import division
 
 from Timba.TDL import *
-from Cattery import Meow
-from Cattery.Meow import Context
-from Cattery.Meow import StdTrees
+import Meow
+from Meow import Context
+from Meow import StdTrees
 
 
 import os
@@ -105,7 +105,7 @@ CORRS = Context.correlations;
 REIM = "re","im";
 REALIMAG = dict(re="real",im="imag");
 
-from Cattery.Siamese.OMS import Utils
+from Siamese.OMS import Utils
 
 def make_beam_filename (filename_pattern,elem,xy,reim):
   """Makes beam filename for the given x/y, element (0-based), and real/imaginary component (one of "re" or "im")"""

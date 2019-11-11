@@ -31,7 +31,8 @@ from __future__ import division
 from Timba.TDL import *
 from Timba.Meq import meq
 
-from . import Context, dprint, IfrArray, Context, Observation
+import Meow
+import Meow.Context
 
 import re
 import traceback
@@ -40,7 +41,7 @@ import os
 import os.path
 import math
 import fnmatch
-import Cattery.Meow
+
 _addImagingColumns = None;
 # figure out which table implementation to use -- try pyrap/casacore first
 try:
@@ -48,7 +49,7 @@ try:
   TABLE = pyrap.tables.table
   _addImagingColumns = pyrap.tables.addImagingColumns
 except:
-  dprint("  Meow.MSUtils: import pyrap.tables failed. Is pyrap installed?");
+  Meow.dprint("  Meow.MSUtils: import pyrap.tables failed. Is pyrap installed?");
   raise RuntimeError("failed to import pyrap.tables. Please install pyrap!");
 
 def find_exec (execname):
@@ -62,22 +63,22 @@ def find_exec (execname):
 # figure out if we have an imager
 _lwimager = find_exec('lwimager');
 if _lwimager:
-  dprint("  (Meow.MSUtils: found %s, can use it for imaging.)"%_lwimager);
+  Meow.dprint("  (Meow.MSUtils: found %s, can use it for imaging.)"%_lwimager);
 
 _glish = None;  # deprecating glish
 #find_exec('glish');
 if _glish:
-  dprint("  (Meow.MSUtils: found %s, can use AIPS++ imager.)"%_glish);
+  Meow.dprint("  (Meow.MSUtils: found %s, can use AIPS++ imager.)"%_glish);
 
 if not _lwimager and not _glish:
-  dprint("  (Meow.MSUtils: no imager found. Please install the casarest package.)")
+  Meow.dprint("  (Meow.MSUtils: no imager found. Please install the casarest package.)")
 
 # figure out if we have a visualizer
 _image_viewers = [];
 for viewer in [ "tigger","tigger.py","kvis","ds9" ]:
   vpath = find_exec(viewer);
   if vpath:
-    dprint("  (Meow.MSUtils: found image viewer %s)"%vpath);
+    Meow.dprint("  (Meow.MSUtils: found image viewer %s)"%vpath);
     _image_viewers.append(viewer);
 
 # find addbitflagcol
@@ -86,7 +87,7 @@ _addbitflagcol = find_exec("addbitflagcol");
 # also look in $HOME/Tigger/tigger.py
 vpath = "~/Tigger/tigger";
 if os.access(os.path.expanduser(vpath),os.R_OK|os.X_OK):
-  dprint("  (Meow.MSUtils: found image viewer %s)"%vpath);
+  Meow.dprint("  (Meow.MSUtils: found image viewer %s)"%vpath);
   _image_viewers.insert(0,vpath);
 _image_viewers.append("none");
 
@@ -444,7 +445,7 @@ class MSReadFlagSelector (MSFlagSelector):
         for bit in range(len(self.bitflag_bits)):
           if getattr(self,'read_bitflag_%d'%bit,True):
             flagmask |= self.bitflag_bits[bit];
-    dprint("input flagmask is",flagmask)
+    Meow.dprint("input flagmask is",flagmask)
     return flagmask;
 
   def selected_flagsets (self):
@@ -565,7 +566,7 @@ class MSSelector (object):
     self.ifrsel_option = TDLOption("ms_ifr_subset_str","Interferometers to use",
                                     self.ms_ifr_subsets,
                                     more=str,namespace=self,
-                                    doc=IfrArray.ifr_spec_syntax);
+                                    doc=Meow.IfrArray.ifr_spec_syntax);
     # self.antsel_option.set_validator(self._antenna_sel_validator);
     # hide until an MS is selected
     if TABLE:
@@ -789,21 +790,21 @@ class MSSelector (object):
     return self.ms_corr_names[0] in LINEAR_CORRS;
 
   def setup_observation_context (self,ns,antennas=list(range(3)),prefer_baseline_uvw=False):
-    """Sets up the contents of Context based on the content of this MS.
-    Returns a tuple of array,observation (Context.array,Context.observation)
+    """Sets up the contents of Meow.Context based on the content of this MS.
+    Returns a tuple of array,observation (Meow.Context.array,Meow.Context.observation)
     'ns' is a NodeScope object.
     'antennas' is a default antenna set, to be used if the antenna selector is not available.
     """;
-    array = IfrArray(ns,self.get_ifr_subset() or antennas,prefer_baseline_uvw=prefer_baseline_uvw);
+    array = Meow.IfrArray(ns,self.get_ifr_subset() or antennas,prefer_baseline_uvw=prefer_baseline_uvw);
     # get phase centre from MS, setup observation
-    observation = Observation(ns,phase_centre=self.get_phase_dir(),
+    observation = Meow.Observation(ns,phase_centre=self.get_phase_dir(),
 	    linear=self.is_linear_pol(),circular=self.is_circular_pol());
-    Context.set(array,observation);
+    Meow.Context.set(array,observation);
     # get active correlations from MS
-    Context.correlations = ["XX","XY","YX","YY"] if self.is_linear_pol() else ["RR","RL","LR","LL"];
-    Context.active_correlations = self.get_correlations();
+    Meow.Context.correlations = ["XX","XY","YX","YY"] if self.is_linear_pol() else ["RR","RL","LR","LL"];
+    Meow.Context.active_correlations = self.get_correlations();
     # get max W, if needed
-    if Context.discover_max_abs_w:
+    if Meow.Context.discover_max_abs_w:
       # add baseline selection string
       if TABLE:
         ms = TABLE(str(self.msname),lockoptions='autonoread');
@@ -811,8 +812,8 @@ class MSSelector (object):
         if len(subset.ifrs()) < len(self.ms_ifrset.ifrs()):
 #          print "Applying TaQL subset",subset.taql_string();
           ms = ms.query(subset.taql_string());
-        Context.max_abs_w = max(abs(ms.getcol("UVW")[:,2]));
-#        print "Max w is ",Context.max_abs_w;
+        Meow.Context.max_abs_w = max(abs(ms.getcol("UVW")[:,2]));
+#        print "Max w is ",Meow.Context.max_abs_w;
         ms.close();
     return array,observation;
 
@@ -880,7 +881,7 @@ class MSSelector (object):
       antnames = anttable.getcol('NAME');
       # if NAME column is missing, use indices
       if not antnames:
-        dprint("Warning! This MS does not define ANTENNA names. Using antenna indices instead.")
+        Meow.dprint("Warning! This MS does not define ANTENNA names. Using antenna indices instead.")
         self.ms_antenna_names = list(map(str,list(range(anttable.nrows()))));
       # else use name, but trim off longest common prefix (so that RT0,RT1,..RTD become 0,1,...,D
       else:
@@ -888,18 +889,18 @@ class MSSelector (object):
         self.ms_antenna_names = [ name[prefix:] for name in antnames ];
         # some broken MSs do not have unique antenna names -- replace them with indices if so
         if len(set(self.ms_antenna_names)) < len(self.ms_antenna_names):
-          dprint("Warning! This MS does not define unique ANTENNA names. Using antenna indices instead.")
+          Meow.dprint("Warning! This MS does not define unique ANTENNA names. Using antenna indices instead.")
           self.ms_antenna_names = [ str(i) for i in range(len(self.ms_antenna_names)) ];
       self.ms_antenna_positions = anttable.getcol('POSITION');
       # observatory is from observation subtable
       try:
         self.ms_observatory = TABLE(str(ms.getkeyword("OBSERVATION"))).getcol("TELESCOPE_NAME")[0];
       except:
-        dprint("Warning! This MS does have a valid OBSERVATION table, can't establish telescope name");
+        Meow.dprint("Warning! This MS does have a valid OBSERVATION table, can't establish telescope name");
         self.ms_observatory = "Unknown";
       # make IfrSet object for the full antenna set
-      self.ms_ifrset = IfrArray.IfrSet(self.ms_antenna_names,observatory=self.ms_observatory,
-                                       positions=self.ms_antenna_positions);
+      self.ms_ifrset = Meow.IfrArray.IfrSet(self.ms_antenna_names,observatory=self.ms_observatory,
+                                            positions=self.ms_antenna_positions);
       # show selector
       if self.ifrsel_option:
         stdsets = STD_IFR_SUBSETS.get(self.ms_observatory);
@@ -1001,7 +1002,7 @@ class MSSelector (object):
       rec.flag_mask = self.read_flag_selector.get_flagmask();
     # form top-level record
     iorec = record(ms=rec);
-    iorec.python_init = 'Cattery.Meow.ReadVisHeader';
+    iorec.python_init = 'Meow.ReadVisHeader';
     if isinstance(self.max_tiles,int):
       iorec.max_tiles = self.max_tiles;
     iorec.mt_queue_size = ms_queue_size;
@@ -1043,7 +1044,7 @@ class MSSelector (object):
                      wait=False):
     """helper method to run a solution with a bunch of solvables""";
     # set solvables list in solver
-    solver_defaults = Cattery.Meow.Utils.create_solver_defaults(solvables,options=options)
+    solver_defaults = Meow.Utils.create_solver_defaults(solvables,options=options)
     mqs.setnodestate(mqs,solver_node,solver_defaults,sync=True,wait=wait)
     req = self.create_io_request(tiling);
     mqs.execute(vdm_node,req,wait=wait);
@@ -1305,12 +1306,12 @@ class ImagingSelector (object):
     # form up initial argument list to run imaging script
     if self.imager_type == "lwimager":
       _IMAGER = "python";
-      script_name = os.path.join(Cattery.Meow._meow_path,'make_dirty_image.py');
+      script_name = os.path.join(Meow._meow_path,'make_dirty_image.py');
       args = [ 'python',script_name,'data='+col ];
       offset = 0;
     else:
       _IMAGER = "glish";
-      script_name = os.path.join(Cattery.Meow._meow_path,'make_dirty_image.g');
+      script_name = os.path.join(Meow._meow_path,'make_dirty_image.g');
       script_name = os.path.realpath(script_name);  # glish don't like symlinks...
       args = [ 'glish','-l',
         script_name,

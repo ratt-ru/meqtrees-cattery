@@ -35,11 +35,11 @@ a solvable_jones.FullRealImag for the bandpass, and solve for all coefficients.
 """;
 
 from Timba.TDL import *
-from Cattery import Meow
-from Cattery.Meow import Context
-from Cattery.Meow import Jones
-from Cattery.Meow import ParmGroup
-from Cattery.Meow import StdTrees
+import Meow
+from Meow import Context
+from Meow import Jones
+from Meow import ParmGroup
+from Meow import StdTrees
 
 class DecoupledLeakage (object):
   def __init__ (self):

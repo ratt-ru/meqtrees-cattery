@@ -1079,7 +1079,6 @@ class Flagger (Timba.dmi.verbosity):
         raise RuntimeError("glish not found, so cannot run autoflagger");
       # write commands to temporary file and run glish
       if cmdfile:
-        fobj = open(cmdfile,"wt");
       else:
         fh,cmdfile = tempfile.mkstemp(prefix="autoflag",suffix=".g");
         fobj = os.fdopen(fh,"wt");
@@ -1097,11 +1096,9 @@ class Flagger (Timba.dmi.verbosity):
       return os.spawnvp(waitcode,_GLISH,['glish','-l',cmdfile]);
     
     def save (self,filename='default.af'):
-      open(filename,"w").writelines([line+"\n" for line in self._cmds]);
       self.flagger.dprintf(2,"saved autoflag command sequence to file %s\n",filename);
       
     def load (self,filename='default.af'):
-      self._cmds = open(filename).readlines();
       self.flagger.dprintf(2,"loaded autoflag command sequence from file %s\n",filename);
       self.flagger.dprint(2,"sequence is:");
       for cmd in self._cmds:

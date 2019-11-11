@@ -32,7 +32,12 @@ from Timba.array import *
 import os
 import random
 
-import Cattery.Meow as Meow
+import Meow
+
+import Meow.Bookmarks
+import Meow.Utils
+import Meow.StdTrees
+import Meow.Context
 
 def abs_clip (inputs,maxval=None,minval=None):
   # flag condition is abs(x) >= threshold

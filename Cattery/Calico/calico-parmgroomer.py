@@ -36,12 +36,12 @@ from Timba.dmi import hiid
 import os
 import random
 
-from Cattery import Meow
+import Meow
 
-from Cattery.Meow import Bookmarks
+from Meow import Bookmarks
 from Kittens import utils
 
-from Cattery.Calico import ParmTables
+from Calico import ParmTables
 parmtab = parmtab_name = None;
 
 

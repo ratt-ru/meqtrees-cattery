@@ -29,8 +29,8 @@ from __future__ import division
 from Timba.TDL import *
 import math
 from . import iono_geometry
-from Cattery.Meow import Context
-from Cattery.Meow import StdTrees
+from Meow import Context
+from Meow import StdTrees
 
 """This module now implements the various ionospheric models used for
 simulations. Each model is implemented by a function with the following

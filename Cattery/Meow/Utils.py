@@ -33,6 +33,7 @@ import Timba.Apps
 import Timba.array
 import math
 import random
+import Meow
 
 try:
   import pycasatable
@@ -364,7 +365,7 @@ def create_inputrec (tiling=None):
     if field_index is not None:
       rec.selection.field_index = field_index;
     rec = record(ms=rec);
-  rec.python_init = 'Cattery.Meow.ReadVisHeader';
+  rec.python_init = 'Meow.ReadVisHeader';
   rec.mt_queue_size = ms_queue_size;
   return rec;
 
@@ -485,7 +486,7 @@ def make_dirty_image (npix=None,cellsize=None,arcmin=None,channels=None,**kw):
   # else use the imaging_channels option
   else:
     nchan,chanstart,chanstep = imaging_channels;
-  script_name = os.path.join(_meow_path,'make_dirty_image.g');
+  script_name = os.path.join(Meow._meow_path,'make_dirty_image.g');
   script_name = os.path.realpath(script_name);  # glish don't like symlinks...
   args = [ 'glish','-l',
     script_name,

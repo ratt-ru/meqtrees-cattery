@@ -4,8 +4,8 @@ from __future__ import print_function
 from __future__ import division
 
 from Timba.TDL import *
-from Cattery.Meow import Context
-from Cattery.Meow import Bookmarks
+from Meow import Context
+from Meow import Bookmarks
 from .SolverControl import SolverControl
 
 import os.path

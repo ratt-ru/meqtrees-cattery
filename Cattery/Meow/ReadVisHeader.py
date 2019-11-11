@@ -47,7 +47,7 @@ def process_vis_header (hdr):
     # antenna positions
     pos = hdr.antenna_pos;
     if pos.ndim != 2 or pos.shape[0] != 3:
-	    raise ValueError('incorrectly shaped antenna_pos');
+	raise ValueError('incorrectly shaped antenna_pos');
     nant = pos.shape[1];
     coords = ('x','y','z');
     for iant in range(nant):
@@ -68,7 +68,7 @@ def process_vis_header (hdr):
     # array reference position
     try:
       for (j,label) in enumerate(coords):
-	      set_state(label+'0',value=pos[j,0]);
+	set_state(label+'0',value=pos[j,0]);
     except: pass;
     # time extent
     (t0,t1) = hdr.time_extent;

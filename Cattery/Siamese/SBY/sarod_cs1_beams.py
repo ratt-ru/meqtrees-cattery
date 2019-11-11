@@ -28,12 +28,12 @@
 #
 
 from Timba.TDL import *
-from Cattery.Meow.Utils import *
-from Cattery.Meow.Direction import *
-from Cattery.Meow.PointSource import *
-from Cattery.Meow.GaussianSource import *
-from Cattery.Meow import Context
-from Cattery import Meow
+from Meow.Utils import *
+from Meow.Direction import *
+from Meow.PointSource import *
+from Meow.GaussianSource import *
+from Meow import Context
+import Meow
 
 
 

@@ -18,9 +18,9 @@ __default_name__  = "solvable differential refraction";
 
 from Timba.TDL import *
 import math
-from Cattery import Meow
-from Cattery.Meow import Context
-from Cattery.Meow import StdTrees,ParmGroup
+import Meow
+from Meow import Context
+from Meow import StdTrees,ParmGroup
 
 # import measures tool
 try:
