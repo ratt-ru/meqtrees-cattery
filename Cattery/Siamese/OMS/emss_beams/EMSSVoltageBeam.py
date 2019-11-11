@@ -21,7 +21,7 @@ def _loadPattern (filename,grid=True,rotate_xy=True,proj_theta=False):
     freq is the frequency at which the beam is defined, and gainOffset is the normalized offset at center.
     """
     # Read file
-    lines = file(filename).readlines()
+    lines = open(filename).readlines()
     # Setup regexp to parse one line of pat file
     floatNum = r'([0-9.+\-E]+)'
     complexNum = r'\(\s*' + floatNum + r',\s*' + floatNum + r'\)'

@@ -173,7 +173,7 @@ class RandomPolc (ErrorGenerator):
     ns.offset << Meq.Parm(polc);
     node << ns.offset*self.factor;
     if self.dump:
-      file(self.dump,'a').write("%s %f %f %s\n"%(station,offset,scale,
+      open(self.dump,'a').write("%s %f %f %s\n"%(station,offset,scale,
           " ".join(["%f"%c for c in coeff])));
     return node;
 

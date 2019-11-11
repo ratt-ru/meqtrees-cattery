@@ -53,7 +53,7 @@ def print_variance (variance):
 
 
 def dump_data_model (data,model,ifrs,filename="dump.txt"):
-  ff = file(filename,"w");
+  ff = open(filename,"w");
   print("dumping data/model to",filename);
   numpy.set_printoptions(threshold=1000000000);
   for pq in ifrs:

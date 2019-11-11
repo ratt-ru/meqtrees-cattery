@@ -1368,7 +1368,7 @@ def export_karma_annotations (sources,filename,
   label_format is used to generate source labels.\n"""+_annotation_label_doc;
   if maxlabels is None:
     maxlabels = len(sources);
-  f = file(filename,'wt');
+  f = open(filename,'wt');
   f.write('COORD W\nPA STANDARD\nCOLOR GREEN\nFONT hershey12\n');
   # calculate default size for crosses
   xcross=0.01;
