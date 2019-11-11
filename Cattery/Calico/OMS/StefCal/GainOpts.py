@@ -11,7 +11,7 @@ import pickle
 import numpy
 import traceback
 from functools import reduce
-
+from Timba.TDL import *
 MODE_SOLVE_SAVE = "solve-save";
 MODE_SOLVE_NOSAVE = "solve-nosave"
 MODE_SOLVE_APPLY = "apply"
@@ -45,7 +45,6 @@ class GainOpts (object):
     self.desc,self.name,self.label = desc,name,label;
     ### init options on TDL side of things
     if tdl_basespace:
-      from Timba.TDL import *
       self.tdloption_namespace = "%s_%s"%(tdl_basespace,name.lower());
       timeint = TDLOption("timeint","Solution interval, time axis (0 for full axis)",[0,1],more=int,default=1,namespace=self);
       freqint = TDLOption("freqint","Solution interval, freq axis (0 for full axis)",[0,1],more=int,default=1,namespace=self);
