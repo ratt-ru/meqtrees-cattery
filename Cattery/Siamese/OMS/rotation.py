@@ -15,6 +15,9 @@ that has been rotated by &rho;:</P>
 </P>
 
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 __default_label__ = "P";
 __default_name__  = "parallactic angle and feed rotation";
@@ -112,7 +115,7 @@ class Rotation (object):
     if enabled and Context.mssel and Context.mssel.msname and MSUtils.TABLE:
       try:
         # read angles and antenna IDs from table
-        feed = MSUtils.TABLE(os.path.join(Context.mssel.msname,"FEED"));
+        feed = MSUtils.TABLE(str(os.path.join(Context.mssel.msname,"FEED")));
         angle_col = feed.getcol('RECEPTOR_ANGLE');
         ant_col = list(feed.getcol('ANTENNA_ID'));
         feed = None;
@@ -136,7 +139,7 @@ class Rotation (object):
           self.angle_opt.set_value(" ".join(["%g"%(p/DEG) for p in angles]));
       except:
         traceback.print_exc();
-        print "Error reading %s/FEED subtable. Feed angles not filled."%Context.mssel.msname;
+        print("Error reading %s/FEED subtable. Feed angles not filled."%Context.mssel.msname);
 
   def compute_jones (self,Jones,sources=None,stations=None,**kw):
     """Returns Jones matrices. Note that this can also be used as a sky-Jones,
@@ -145,7 +148,7 @@ class Rotation (object):
     stations = stations or Context.array.stations();
 
     # get the feed angles
-    angles = map(_str_to_float,re_whitespace.split(self.feed_angle)) if self.feed_angle is not None else [0];
+    angles = list(map(_str_to_float,re_whitespace.split(self.feed_angle))) if self.feed_angle is not None else [0];
 
     for p in stations:
       # get feed angle for this antenna number. If list contains fewer angles than stations, the last angle is reused

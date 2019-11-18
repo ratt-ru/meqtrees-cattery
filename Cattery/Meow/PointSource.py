@@ -23,12 +23,15 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from SkyComponent import *
-import Jones
-import Context
+from .SkyComponent import *
+from . import Jones
+from . import Context
 
 STOKES = ("I","Q","U","V");
 
@@ -94,7 +97,7 @@ class PointSource(SkyComponent):
     If flux was defined as a constant, returns constant value, not node!
     """;
     if st not in STOKES:
-      raise ValueError,"st: must be one of 'I','Q','U','V'";
+      raise ValueError("st: must be one of 'I','Q','U','V'");
     if self._constant_flux:
       return self._get_constant(st);
     # rotation measure rotates Q-U with frequency. So if no RM is given,
@@ -188,7 +191,7 @@ class PointSource(SkyComponent):
       return None;
     observation = observation or Context.observation;
     if not observation:
-      raise ValueError,"observation not specified in global Meow.Context, or in this function call";
+      raise ValueError("observation not specified in global Meow.Context, or in this function call");
     # get a list of the coherency elements
     xx,xy,yx,yy = self.coherency_elements(observation);
     return [[xx,xy],[yx,yy]];
@@ -201,7 +204,7 @@ class PointSource(SkyComponent):
     """;
     observation = observation or Context.observation;
     if not observation:
-      raise ValueError,"observation not specified in global Meow.Context, or in this function call";
+      raise ValueError("observation not specified in global Meow.Context, or in this function call");
     coh = nodes or self.ns.brightness;
     if not coh.initialized():
       # if not polarized, just return I

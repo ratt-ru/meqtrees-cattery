@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import os
 import os.path
 import sys
@@ -12,16 +16,16 @@ def importTigger (verbose=0):
   try:
     import Tigger
     import Tigger.SiameseInterface
-    print "Using LSM module from Tigger (%s) %s at %s (in path)"%(Tigger.release_string,
-        Tigger.svn_revision_string,os.path.dirname(Tigger.__file__));
+    print("Using LSM module from Tigger (%s) %s at %s (in path)"%(Tigger.release_string,
+        Tigger.svn_revision_string,os.path.dirname(Tigger.__file__)));
     return Tigger.SiameseInterface.TiggerSkyModel;
   except ImportError:
-    pass;
+    traceback.print_exc();
   # try to find "tigger" binary, and append its directory to search path
   for path in os.getenv('PATH').split(':') + Locations:
     path = os.path.normpath(path);  # clean off trailing "/", etc.
     if verbose>1:
-      print "Looking for Tigger in",path;
+      print("Looking for Tigger in",path);
     if os.access(os.path.join(path,"tigger"),os.X_OK):
       oldpath = sys.path;
       path = os.path.abspath(path);
@@ -29,16 +33,13 @@ def importTigger (verbose=0):
       try:
         import Tigger
         import Tigger.SiameseInterface
-        print "Using LSM module from Tigger (%s) %s at %s"%(Tigger.release_string,
-            Tigger.svn_revision_string,os.path.dirname(Tigger.__file__));
+        print("Using LSM module from Tigger (%s) %s at %s"%(Tigger.release_string,
+            Tigger.svn_revision_string,os.path.dirname(Tigger.__file__)));
         del sys.path[0];
         return Tigger.SiameseInterface.TiggerSkyModel;
       except ImportError:
-        if verbose>1:
-          traceback.print_exc();
-        del sys.path[0];
-        pass;
-  raise ImportError,"Cannot locate Tigger package";
+        traceback.print_exc();
+  raise ImportError("Cannot locate Tigger package");
 
 def TiggerSkyModel (verbose=0,**kw):
   classobj = importTigger(verbose=verbose);

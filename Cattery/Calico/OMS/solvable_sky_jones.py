@@ -23,6 +23,11 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 """This implements generic solvable sky-Jones modules.
   DiagAmplPhase is a diagonal matrix, with separate solvable groups for
       amplitudes and phases
@@ -63,8 +68,8 @@ class DiagAmplPhase (object):
     else:
       x,y,X,Y = 'x','y','X','Y';
     xx,xy,yx,yy = x+x,x+y,y+x,y+y;
-    axx,axy,ayx,ayy = [ q+":a" for q in xx,xy,yx,yy ];
-    pxx,pxy,pyx,pyy = [ q+":p" for q in xx,xy,yx,yy ];
+    axx,axy,ayx,ayy = [ q+":a" for q in (xx,xy,yx,yy) ];
+    pxx,pxy,pyx,pyy = [ q+":p" for q in (xx,xy,yx,yy) ];
 
     ampl_def = phase_def = None;
     parms_phase = [];
@@ -138,8 +143,8 @@ class FullRealImag (object):
     else:
       x,y,X,Y = 'x','y','X','Y';
     xx,xy,yx,yy = x+x,x+y,y+x,y+y;
-    rxx,rxy,ryx,ryy = [ q+":r" for q in xx,xy,yx,yy ];
-    ixx,ixy,iyx,iyy = [ q+":i" for q in xx,xy,yx,yy ];
+    rxx,rxy,ryx,ryy = [ q+":r" for q in (xx,xy,yx,yy) ];
+    ixx,ixy,iyx,iyy = [ q+":i" for q in (xx,xy,yx,yy) ];
     # prepare parm definitions for real and imag parts of diagonal and off-diagonal elements
     tags = NodeTags(tags) + "solvable";
     diag_pdefs = offdiag_pdefs = None;
@@ -190,8 +195,10 @@ class FullRealImag (object):
       subgroups_offdiag.append(ParmGroup.Subgroup(src.name,sgoff));
 
     # re-sort by name
-    subgroups_diag.sort(lambda a,b:cmp(a.name,b.name));
-    subgroups_offdiag.sort(lambda a,b:cmp(a.name,b.name));
+    from past.builtins import cmp
+    from functools import cmp_to_key
+    subgroups_diag.sort(key=cmp_to_key(lambda a,b:cmp(a.name,b.name)));
+    subgroups_offdiag.sort(key=cmp_to_key(lambda a,b:cmp(a.name,b.name)));
 
     # make parmgroups for diagonal and off-diagonal terms
     self.pg_diag  = ParmGroup.ParmGroup(label+"_diag",parms_diag,
@@ -205,11 +212,11 @@ class FullRealImag (object):
     # make bookmarks
     Bookmarks.make_node_folder("%s diagonal terms"%label,
       [ jones(src,p,zz) for src in sources
-        for p in stations for zz in "xx","yy" ],sorted=True);
+        for p in stations for zz in ["xx","yy"] ],sorted=True);
     if self._offdiag:
       Bookmarks.make_node_folder("%s off-diagonal terms"%label,
         [ jones(src,p,zz) for src in sources
-          for p in stations for zz in "xy","yx" ],sorted=True);
+          for p in stations for zz in ["xy","yx"] ],sorted=True);
 
     # make solvejobs
     ParmGroup.SolveJob("cal_"+label+"_diag","Calibrate %s diagonal terms"%label,self.pg_diag);

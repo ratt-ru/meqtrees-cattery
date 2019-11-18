@@ -22,12 +22,15 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 import math
 from Timba.TDL import *
 from Timba.Meq import meq
-from PointSource import *
-import Context
+from .PointSource import *
+from . import Context
 
 STOKES = ("I","Q","U","V");
 

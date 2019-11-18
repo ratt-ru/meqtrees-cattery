@@ -29,8 +29,11 @@ model is provided, but readers are encouraged to contribute models of their own.
 <P>See also Calico.OMS.wsrt_beams for a WSRT beam model with solvable pointing and scale.</P> 
 
 <P>Author: O. Smirnov</P>""";
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.TDL import *
+from .AnalyticBeams import ClippedSincBeam
 from Meow.Direction import radec_to_lmn
 import Meow
 from Meow import Context
@@ -41,8 +44,8 @@ import math
 from math import sqrt,atan2
 
 DEG = math.pi/180.;
-ARCMIN = DEG/60;
-ARCSEC = DEG/3600;
+ARCMIN = DEG/60.;
+ARCSEC = DEG/3600.;
 
 class WSRT_cos3_beam (object):
   label = "wsrt_cos3";
@@ -76,9 +79,9 @@ class WSRT_cos3_beam (object):
     if not self._prepared:
       self.ns = ns;
       try:
-        self._sizes = map(float,str(self.dish_sizes).split());
+        self._sizes = list(map(float,str(self.dish_sizes).split()));
       except:
-        raise RuntimeError,"illegal dish sizes specification";
+        raise RuntimeError("illegal dish sizes specification");
       self._per_station = len(self._sizes)>1;
       if self.ell != 0:
         self._ellnode = ns.ell << Meq.Constant(value=Timba.array.array([self.ell,-self.ell]));
@@ -151,8 +154,6 @@ class circular_aperture_beam (WSRT_cos3_beam):
 #  def compute_tensor (self,E,lm,pointing=None,p=0):
 #    return self.compute(E,lm,pointing,p);
 
-import AnalyticBeams.ClippedSincBeam
-
 class clipped_sinc_beam (WSRT_cos3_beam):
   label = "clipped_sinc";
   name  = "Clipped sinc function beam model";
@@ -174,7 +175,7 @@ class clipped_sinc_beam (WSRT_cos3_beam):
     children = [lm,pointing] if pointing else [lm];
     E << Meq.PyNode(scale=scale,
       class_name="ClippedSincBeam",
-      module_name=AnalyticBeams.ClippedSincBeam.__file__,
+      module_name=ClippedSincBeam.__file__,
       *children);
     return E;
 
@@ -196,7 +197,7 @@ def compute_jones (Jones,sources,stations=None,
     if globals().get('use_%s'%beam_model.label,None):
       break;
   else:
-    raise RuntimeError,"no beam model selected";
+    raise RuntimeError("no beam model selected");
   beam_model.prepare(ns);
   
   # this dict will hold LM tuples (or nodes) for each source.
@@ -241,7 +242,7 @@ def compute_jones_tensor (Jones,sources,stations=None,lmn=None,
     if globals().get('use_%s'%beam_model.label,None):
       break;
   else:
-    raise RuntimeError,"no beam model selected";
+    raise RuntimeError("no beam model selected");
   
   if getattr(beam_model,'compute_tensor',None) is None:
     return None;

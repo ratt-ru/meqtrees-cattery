@@ -27,6 +27,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 import math
 ## class to implement projection
@@ -145,10 +148,10 @@ if __name__=="__main__":
     (l,m)=p.sp_to_rt(rr,dd)
     (ra,dec)=p.rt_to_sp(l,m)
 
-    print "(%f,%f)-->(%f,%f)-->(%f,%f)"%(rr,dd,l,m,ra,dec)
+    print("(%f,%f)-->(%f,%f)-->(%f,%f)"%(rr,dd,l,m,ra,dec))
 
    # check phase centre
    pinf=p.info()
-   print "phase centre map:", pinf['ra0'],pinf['dec0'],p.sp_to_rt(pinf['ra0'],pinf['dec0'])
+   print("phase centre map:", pinf['ra0'],pinf['dec0'],p.sp_to_rt(pinf['ra0'],pinf['dec0']))
 
    

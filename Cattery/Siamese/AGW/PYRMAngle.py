@@ -1,3 +1,6 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.Meq import meq
 from Timba import pynode
 import numpy
@@ -23,7 +26,7 @@ class PyGetRMAngle (pynode.PyNode):
     # Check filename arguments
     if isinstance(self.albus_filename,str):
       self.getdata(self.albus_filename)
-      print 'Siamese/AGW/PyGetRMAngle albus_filename = ',self.albus_filename
+      print('Siamese/AGW/PyGetRMAngle albus_filename = ',self.albus_filename)
 
   def getdata(self,filename):
     global _albus_time

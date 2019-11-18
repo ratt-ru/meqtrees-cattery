@@ -23,6 +23,9 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.dmi import *
 from Timba.TDL import *
@@ -73,7 +76,7 @@ class Page (object):
     if is_node(node):
       node = node.name;
     elif not isinstance(node,str):
-      raise TypeError,"node or node name expected";
+      raise TypeError("node or node name expected");
     # add page to bookmarks
     self._add_pagerec();
     # add bookmark
@@ -168,8 +171,10 @@ def make_node_folder (name,nodes,sorted=False,ncol=2,nrow=2,folder=None,maxmenu=
   if not sorted:
     nodes = list(nodes);
     global _int_or_str;
-    nodes.sort(lambda a,b:
-      cmp(map(_int_or_str,a.name.split(':')),map(_int_or_str,b.name.split(':'))));
+    from past.builtins import cmp
+    from functools import cmp_to_key
+    nodes.sort(key=cmp_to_key(lambda a,b:
+      cmp(list(map(_int_or_str,a.name.split(':'))),list(map(_int_or_str,b.name.split(':'))))));
   # place in top-level folder or in subfolder
   if folder is None:
     folder = Folder(name);

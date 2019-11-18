@@ -23,6 +23,10 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import re
 import math
 import fnmatch
@@ -116,7 +120,7 @@ class IfrSet (object):
     # _ifr_labels is a dict of ip,iq -> IFR labels
     # default label separator is "-", or "" for single-char stations
     if self.label_sep is None:
-      self.label_sep = "-" if max(map(len,map(str,self._stations)))>1 else "";
+      self.label_sep = "-" if max(list(map(len,list(map(str,self._stations)))))>1 else "";
     self._ifr_labels = dict([((ip,iq),"%s%s%s"%(p,self.label_sep,q)) for (ip,p),(iq,q) in self._ifr_index ]);
     # fill in dictionary of aliases for baseline specifications
     if parent:
@@ -272,15 +276,15 @@ class IfrSet (object):
             length = float(match.group(2));
           except:
             if strict:
-              raise ValueError,"invalid ifr specification '%s'"%spec;
-            print "Ignoring invalid ifr specification '%s'"%spec;
+              raise ValueError("invalid ifr specification '%s'"%spec);
+            print("Ignoring invalid ifr specification '%s'"%spec);
             continue;
           pred = self._comparison_predicates[match.group(1).lower()];
           add_or_remove([(px,qx) for px,qx in self._ifr_index if pred(self._baselines[px[0],qx[0]],length)]);
         elif strict:
-          raise ValueError,"can't use ifr specification %s: baseline information not available"%spec;
+          raise ValueError("can't use ifr specification %s: baseline information not available"%spec);
         else:
-          print "Ignoring ifr specification %s: baseline information not available"%spec;
+          print("Ignoring ifr specification %s: baseline information not available"%spec);
         continue;
       # else spit into antenna pair
       if len(spec) == 2:
@@ -290,7 +294,7 @@ class IfrSet (object):
         if len(pq) == 2:
           p,q = pq;
         else:
-          raise ValueError,"illegal interferometer subset: %s"%spec;
+          raise ValueError("illegal interferometer subset: %s"%spec);
       # if first is wildcard, change them around, so X* becomes *X
       if p == "*":
         p,q = q,p;
@@ -298,7 +302,7 @@ class IfrSet (object):
       q = q.upper();
       psubset = fnmatch.filter(self._stations,p);
       qsubset = fnmatch.filter(self._stations,q);
-      print p,psubset,q,qsubset;
+      print(p,psubset,q,qsubset);
       for p in psubset:
         for q in qsubset:
           ip = self._name_to_number.get(p.upper(),None);
@@ -306,8 +310,8 @@ class IfrSet (object):
           # first token must be a valid antenna
           if ip is None:
             if strict:
-              raise ValueError,"invalid ifr specification '%s' (station '%s' not found)"%(spec,p);
-            print "Ignoring invalid ifr specification '%s' (station '%s' not found)"%(spec,p);
+              raise ValueError("invalid ifr specification '%s' (station '%s' not found)"%(spec,p));
+            print("Ignoring invalid ifr specification '%s' (station '%s' not found)"%(spec,p));
     #        traceback.print_stack();
             continue;
           # second token may be a wildcard
@@ -315,8 +319,8 @@ class IfrSet (object):
             add_or_remove([(px,qx) for px,qx in self._ifr_index if px[0]==ip or qx[0]==ip ]);
           elif iq is None:
             if strict:
-              raise ValueError,"invalid ifr specification '%s' (station '%s' not found)"%(spec,q);
-            print "Ignoring invalid ifr specification '%s' (station '%s' not found)"%(spec,q);
+              raise ValueError("invalid ifr specification '%s' (station '%s' not found)"%(spec,q));
+            print("Ignoring invalid ifr specification '%s' (station '%s' not found)"%(spec,q));
             traceback.print_stack();
           elif ip<iq:
             add_or_remove([(px,qx) for px,qx in self._ifr_index if (px[0],qx[0])==(ip,iq)]);
@@ -334,7 +338,7 @@ def from_ms (ms):
     try:
       from pyrap.tables import table,tablecopy,tableexists,tabledelete
     except:
-      print "Failed to import pyrap_tables or pyrap.tables. Please install the pyrap "
+      print("Failed to import pyrap_tables or pyrap.tables. Please install the pyrap ")
       "package from http://code.google.com/p/pyrap/, or from a MeqTrees binary repository "
       "(see http://www.astron.nl/meqwiki/Downloading.)"
       raise;
@@ -342,7 +346,7 @@ def from_ms (ms):
   if isinstance(ms,str):
     ms = table(ms);
   elif not isinstance(ms,table):
-    raise TypeError,"'ms' argument must be an MS name or a table object";
+    raise TypeError("'ms' argument must be an MS name or a table object");
 
   # open ANTENNA subtable
   anttab = table(ms.getkeyword("ANTENNA"));

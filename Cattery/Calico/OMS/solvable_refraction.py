@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 """<P>This module implements a solvable differential refraction Jones matrix. Differential refraction is
 computed by "compressing" the field-of-view in elevation by a solvable factor, relative to the phase
 center or a designated central source.</P>
@@ -21,15 +26,15 @@ from Meow import StdTrees,ParmGroup
 try:
   import pyrap_measures
   dm = pyrap_measures.measures();
-  print "Imported measures tool from pyrap_measures";
+  print("Imported measures tool from pyrap_measures");
 except:
   try:
     import pyrap.measures
     dm = pyrap.measures.measures();
-    print "Imported measures tool from pyrap.measures";
+    print("Imported measures tool from pyrap.measures");
   except:
     dm = None;
-    print "Cannot find pyrap.measures or pyrap_measures, measures tool not available";
+    print("Cannot find pyrap.measures or pyrap_measures, measures tool not available");
 
 TDLCompileOption('ref_source',"Reference direction for diff refraction",[None],more=str,
   doc="""<P>Specify a direction relative to which the field is refracted. This can be a source 
@@ -70,17 +75,17 @@ def compute_jones (Jones,sources,stations=None,inspectors=[],meqmaker=None,label
     if not dir0:
       ff = list(ref_source.split());
       if len(ff) < 2 or len(ff) > 3:
-        raise RuntimeError,"invalid reference dir '%s' specified for %s-Jones"%(ref_source,label);
+        raise RuntimeError("invalid reference dir '%s' specified for %s-Jones"%(ref_source,label));
       global dm;
       if not dm:
-        raise RuntimeError,"pyrap measures module not available, cannot use direction strings for %s-Jones"%label;
+        raise RuntimeError("pyrap measures module not available, cannot use direction strings for %s-Jones"%label);
       if len(ff) == 2:
         ff =  [ 'J2000' ] +ff;
       # treat as direction measure
       try:
         dmdir = dm.direction(*ff);
       except:
-        raise RuntimeError,"invalid reference dir '%s' specified for %s-Jones"%(ref_source,label);
+        raise RuntimeError("invalid reference dir '%s' specified for %s-Jones"%(ref_source,label));
       # convert to J2000 and make direction object
       dmdir = dm.measure(dmdir,'J2000');
       ra,dec = dm.getvalue(dmdir)[0].get_value(),dm.getvalue(dmdir)[1].get_value();

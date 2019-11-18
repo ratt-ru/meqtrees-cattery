@@ -22,6 +22,9 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
@@ -56,14 +59,14 @@ class Parm (object):
       tags = tags.split(" ");
     else:
       if not isinstance(tags,(list,tuple)):
-        raise TypeError,"'tags' argument should be a string, list or tuple";
+        raise TypeError("'tags' argument should be a string, list or tuple");
     self.tags = list(tags);
     # process tiling
     if tiling is not None:
       if isinstance(tiling,int):
         tiling = dmi.record(time=tiling);
       elif not isinstance(tiling,dmi.record):
-        raise TypeError,"'tiling' argument should be an int or dmi.record";
+        raise TypeError("'tiling' argument should be an int or dmi.record");
     # set up dict of default options...
     self.options = dict(tiling=tiling,
             node_groups='Parm',
@@ -86,7 +89,7 @@ class Parm (object):
       tags = tags.split(" ");
     else:
       if not isinstance(tags,(list,tuple)):
-        raise TypeError,"'tags' argument should be a string, list or tuple";
+        raise TypeError("'tags' argument should be a string, list or tuple");
       tags = list(tags);
     # if no extra tags are specified, return cached definition if possible
     if not tags:

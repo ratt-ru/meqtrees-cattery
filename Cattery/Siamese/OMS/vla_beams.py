@@ -29,6 +29,9 @@
 
 Authors: Fred Dulwich and Shannon Jaeger"""
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Meow import Context
@@ -74,7 +77,7 @@ def VLA_beam_squint (E,lm,p):
   # endif
 
   # Find the beam squint (depends on wavelength).
-  ns.squint << ((vla_squint / 3600) * DEG * 2.997925e+8) / Meq.Freq();
+  ns.squint << ((vla_squint / 3600.) * DEG * 2.997925e+8) / Meq.Freq();
 
   # Define k and construct the dx and dy terms, taking squint into account.
   k = 1.496e-9 * (25.0 / d_ant);

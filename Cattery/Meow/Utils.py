@@ -23,6 +23,9 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
@@ -149,7 +152,7 @@ def _select_new_ms (msname):
     numchans = pycasatable.table(ms.getkeyword('SPECTRAL_WINDOW')).getcol('NUM_CHAN');
     global ms_ddid_numchannels;
     ms_ddid_numchannels = [ numchans[spw] for spw in spws ];
-    ddid_option.set_option_list(range(len(ms_ddid_numchannels)));
+    ddid_option.set_option_list(list(range(len(ms_ddid_numchannels))));
     if len(ms_ddid_numchannels) < 2:
       ddid_option.hide();
     # Fields
@@ -159,7 +162,7 @@ def _select_new_ms (msname):
     if len(ms_field_names) < 2:
       field_option.hide();
   except:
-    print "error reading MS",msname;
+    print("error reading MS",msname);
     traceback.print_exc();
     return False;
   
@@ -214,7 +217,7 @@ def imaging_options (npix=None,arcmin=5,cellsize=None,channels=None):
     opts.append(TDLOption('imaging_npix',"Image size, in pixels",npix,more=int));
   if arcmin:
     if cellsize:
-      raise ValueError,"include_imaging_options: specify cellsize or arcmin, not both";
+      raise ValueError("include_imaging_options: specify cellsize or arcmin, not both");
     if not isinstance(arcmin,(list,tuple)):
       arcmin = [ arcmin ];
     opts.append(TDLOption('imaging_arcmin',"Image size, in arcmin",arcmin,more=float));
@@ -287,7 +290,7 @@ def create_solver_defaults (solvables,options=None):
   opts = dict(_solver_opts);
   if options:
     opts.update(options);
-  print opts;
+  print(opts);
   # copy all options into solver defaults with the same name
   solver_defaults = record(**opts);
   # additionally, set epsilon_deriv
@@ -308,7 +311,7 @@ def set_node_state (mqs,node,fields_record):
   elif isinstance(node,int):
     rec.nodeindex = node;
   else:
-    raise TypeError,'illegal node argument';
+    raise TypeError('illegal node argument');
   # pass command to kernel
   mqs.meq('Node.Set.State',rec);
   pass
@@ -323,7 +326,7 @@ def create_inputrec (tiling=None):
   global tile_size;
   global ddid_index;
   if msname is None:
-    raise ValueError,"MS not specified in options";
+    raise ValueError("MS not specified in options");
   boioname = "boio."+msname+".predict."+str(tiling or tile_size);
   # if boio dump for this tiling exists, use it to save time
   if not ms_selection and os.access(boioname,os.R_OK):
@@ -339,7 +342,7 @@ def create_inputrec (tiling=None):
       tiling = tile_size;
     if isinstance(tiling,(list,tuple)):
       if len(tiling) != 2:
-        raise TypeError,"tiling: 2-list or 2-tuple expected";
+        raise TypeError("tiling: 2-list or 2-tuple expected");
       (tile_segments,tile_size) = tiling;
       if tile_segments is not None:
         rec.tile_segments    = tile_segments;
@@ -460,9 +463,9 @@ def make_dirty_image (npix=None,cellsize=None,arcmin=None,channels=None,**kw):
   """;
   col = output_column or imaging_column;
   if not col:
-    raise ValueError,"make_dirty_image: output column not set up";
+    raise ValueError("make_dirty_image: output column not set up");
   if not msname:
-    raise ValueError,"make_dirty_image: MS not set up";
+    raise ValueError("make_dirty_image: MS not set up");
   npix = (npix or imaging_npix);
   arcmin = (arcmin or imaging_arcmin);
   if arcmin is not None:
@@ -496,7 +499,7 @@ def make_dirty_image (npix=None,cellsize=None,arcmin=None,channels=None,**kw):
     'chanstart='+str(chanstart),    
     'chanstep='+str(chanstep)
   ];
-  print args;
+  print(args);
   Timba.Apps.spawnvp_nowait('glish',args);
   
 
@@ -516,7 +519,7 @@ class ListOptionParser (object):
     if self.maxval is None:
       maxval = max(maxval,index);
     if index < minval or index > maxval:
-      raise ValueError,"illegal %s '%d'"%(self.name,index);
+      raise ValueError("illegal %s '%d'"%(self.name,index));
     return index,minval,maxval;
     
   def parse_list (self,value):
@@ -543,23 +546,23 @@ class ListOptionParser (object):
         # [number]:[number]
         match = re.match("^(\d+)?:(\d+)?$",spec);
         if not match:
-          raise ValueError,"illegal %s '%s'"%(self.name,spec);
+          raise ValueError("illegal %s '%s'"%(self.name,spec));
         if match.group(1):
           index1 = int(match.group(1));
         elif self.minval is not None:
           index1 = self.minval;
         else:
-          raise ValueError,"illegal %s '%s'"%(self.name,spec);
+          raise ValueError("illegal %s '%s'"%(self.name,spec));
         if match.group(2):
           index2 = int(match.group(2));
         elif self.maxval is not None:
           index2 = self.maxval;
         else:
-          raise ValueError,"illegal %s '%s'"%(self.name,spec);
+          raise ValueError("illegal %s '%s'"%(self.name,spec));
         index1,minval,maxval = self._validate_index(index1,minval,maxval);
         index2,minval,maxval = self._validate_index(index2,minval,maxval);
         # add to subset
-        subset += range(index1,index2+1);
+        subset += list(range(index1,index2+1));
     return subset;
 
   def validator (self,value):

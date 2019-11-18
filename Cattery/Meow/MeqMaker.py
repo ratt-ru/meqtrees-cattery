@@ -24,6 +24,10 @@
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
  # standard preamble
 from Timba.TDL import *
 from Timba.Meq import meq
@@ -36,7 +40,7 @@ import fnmatch
 import Meow
 from Meow import StdTrees,ParmGroup,Parallelization,MSUtils
 
-DEG = math.pi/180;
+DEG = math.pi/180.;
 
 _annotation_label_doc = """The following directives may be embedded in the format string:
   '%N':       source name
@@ -169,7 +173,7 @@ class MeqMaker (object):
 
   def add_sky_models (self,modules,export_karma=False):
     if self._sky_models:
-      raise RuntimeError,"add_sky_models() may only be called once";
+      raise RuntimeError("add_sky_models() may only be called once");
     self._compile_options.append(
         self._module_selector("Sky model","sky",modules,use_toggle=False,exclusive=False));
     self._sky_models = modules;
@@ -250,7 +254,7 @@ class MeqMaker (object):
         self._compile_options.append(TDLOptionSeparator("UV-plane components"));
     else:
       if self._have_uvplane_modules:
-        raise RuntimeError,"cannot add sky-plane terms after uv-plane terms";
+        raise RuntimeError("cannot add sky-plane terms after uv-plane terms");
     self._compile_options.append(option);
 
   def _add_vpm_modules (self,label,name,modules):
@@ -259,10 +263,10 @@ class MeqMaker (object):
       label = getattr(modules,'__default_label__',None);
       name = getattr(modules,'__default_name__','');
       if label is None:
-        raise RuntimeError,"""Module '%s' does not provide a __default_label__ attribute,
-              so must be added with an explicit label"""%modules.__name__;
+        raise RuntimeError("""Module '%s' does not provide a __default_label__ attribute,
+              so must be added with an explicit label"""%modules.__name__);
     elif not modules:
-      raise RuntimeError,"No modules specified for %s"%name;
+      raise RuntimeError("No modules specified for %s"%name);
     if not isinstance(modules,(list,tuple)):
       modules = [ modules ];
     # Add to internal list
@@ -282,10 +286,10 @@ class MeqMaker (object):
       label = getattr(modules,'__default_label__',None);
       name = getattr(modules,'__default_name__','');
       if label is None:
-        raise RuntimeError,"""Module '%s' does not provide a __default_label__ attribute,
-              so must be added with an explicit label"""%modules.__name__;
+        raise RuntimeError("""Module '%s' does not provide a __default_label__ attribute,
+              so must be added with an explicit label"""%modules.__name__);
       elif not modules:
-        raise RuntimeError,"No modules specified for %s Jones"%label;
+        raise RuntimeError("No modules specified for %s Jones"%label);
     if not isinstance(modules,(list,tuple)):
       modules = [ modules ];
     # extra options for pointing
@@ -522,9 +526,9 @@ class MeqMaker (object):
       return [];
 
   def estimate_image_size (self):
-    max_estimate = None;
+    max_estimate = 0;
     for module in self._get_selected_modules('sky',self._sky_models):
-      estimate = getattr(module,'estimate_image_size',None);
+      estimate = getattr(module,'estimate_image_size', 0);
       if callable(estimate):
         max_estimate = max(max_estimate,estimate());
     return max_estimate;
@@ -653,7 +657,7 @@ class MeqMaker (object):
     for jt in self._uv_jones_list:
       if jt.label == label:
         return jt.base_node;
-    raise KeyError,"uv-Jones term %s not defined"%label;
+    raise KeyError("uv-Jones term %s not defined"%label);
 
   def get_skyjones_nodes (self,label):
     """Returns the Jones nodes associated with the given Jones label.
@@ -663,7 +667,7 @@ class MeqMaker (object):
     for jt in self._sky_jones_list:
       if jt.label == label:
         return jt.base_node;
-    raise KeyError,"sky-Jones term %s not defined"%label;
+    raise KeyError("sky-Jones term %s not defined"%label);
 
   def _get_pointing_error_nodes (self,ns,jt,stations):
     if not jt.pointing_modules:
@@ -813,7 +817,7 @@ class MeqMaker (object):
               Jj(p) << Meq.Identity(Jj(all_stations[0]));
         # if some sources need to map to these Jones nodes, do it here
         if sources_with_jones_node:
-          for src,src0 in jones_mapping.iteritems():
+          for src,src0 in jones_mapping.items():
             for p in all_stations:
               Jj(src,p) << Meq.Identity(Jj(src0,p));
     return jt.base_node,jt.solvable;
@@ -1043,7 +1047,7 @@ class MeqMaker (object):
     return vis;
 
   def make_tree (self,*args,**kw):
-    print "Your script uses the deprecated MeqMaker.make_tree() method. Please change it to use make_predict_tree()";
+    print("Your script uses the deprecated MeqMaker.make_tree() method. Please change it to use make_predict_tree()");
     return self.make_predict_tree(*args,**kw); # alias for compatibility with older code
 
   def corrupt_uv_data (self,ns,uvdata,ifrs=None,label="uvdata"):
@@ -1128,7 +1132,7 @@ class MeqMaker (object):
           # if flagging is in effect, make flaggers
           if flag_jones and jt.flaggable and self.are_advanced_options_enabled(jt.label):
             enable,flagtype,flagmin,flagmax,freqmean = [ getattr(self,self._make_attr(attr,jt.label)) for attr in
-                                                  "flag_jones","flag_jones_type","flag_jones_min","flag_jones_max","flag_jones_freqmean" ];
+                                                  ("flag_jones","flag_jones_type","flag_jones_min","flag_jones_max","flag_jones_freqmean") ];
             Jflag = Jj('flag');
             if enable and (flagmin is not None or flagmax is not None):
               if flagtype == self.JonesTerm.FLAG_ABS or flagtype == self.JonesTerm.FLAG_ABSDIAG:
@@ -1275,11 +1279,11 @@ class SourceSubsetSelector (object):
     '.gt.' :lambda x,y:x>y,
     '.lt.' :lambda x,y:x<y
   };
-  _units = dict(d=DEG,m=DEG/60,s=DEG/3600);
+  _units = dict(d=DEG,m=DEG/60.,s=DEG/3600.);
 
   # regex matching the tag**value[dms] operation
   # the initial "=" is allowed for backwards compatibility with =tag=value constructs
-  _re_tagcomp = re.compile("^(?i)=?([^=<>!.]+)(%s)([^dms]+)([dms])?"%"|".join([key.replace('.','\.') for key in _select_predicates.keys()]));
+  _re_tagcomp = re.compile("^(?i)=?([^=<>!.]+)(%s)([^dms]+)([dms])?"%"|".join([key.replace('.','\.') for key in list(_select_predicates.keys())]));
 
   @staticmethod
   def _parse_float (strval):
@@ -1318,11 +1322,11 @@ class SourceSubsetSelector (object):
         scale = SourceSubsetSelector._units.get(unit,1);
         # ignore invalid selections
         if oper is None or value is None:
-          print "Warning: invalid source subset selection '%s', ignoring"%spec0;
+          print("Warning: invalid source subset selection '%s', ignoring"%spec0);
           continue;
         value *= scale;
         # do the selection
-        print predicate,tag,value;
+        print(predicate,tag,value);
         srctag = [ (src,tag_accessor(src,tag)) for src in srclist0 ];
         selection = [ src.name for src,tag in srctag if tag is not None and predicate(tag,value) ];
       # then, a =tag construct
@@ -1340,7 +1344,7 @@ class SourceSubsetSelector (object):
       else:
         srcs.update(selection);
       # print stats
-      print "applied %s (involving %d sources), %d sources now selected"%(spec0,len(selection),len(srcs));
+      print("applied %s (involving %d sources), %d sources now selected"%(spec0,len(selection),len(srcs)));
     return [ src for src in srclist0 if src.name in srcs ];
 
   def filter (self,srclist0):
@@ -1365,7 +1369,7 @@ def export_karma_annotations (sources,filename,
   label_format is used to generate source labels.\n"""+_annotation_label_doc;
   if maxlabels is None:
     maxlabels = len(sources);
-  f = file(filename,'wt');
+  f = open(filename,'wt');
   f.write('COORD W\nPA STANDARD\nCOLOR GREEN\nFONT hershey12\n');
   # calculate default size for crosses
   xcross=0.01;
@@ -1410,8 +1414,10 @@ def export_karma_annotations (sources,filename,
         attrs['Rm'] = R*60;
         attrs['Rs'] = R*3600;
       # sort attributes by decreasing length (to make sure that %xyz is replaced before %xy).
-      attrkeys = attrs.keys();
-      attrkeys.sort(lambda a,b:cmp(len(b),len(a)));
+      attrkeys = list(attrs.keys());
+      from past.builtins import cmp
+      from functools import cmp_to_key
+      attrkeys.sort(key=cmp_to_key(lambda a,b:cmp(len(b),len(a))));
       # now for each attribute, replace entry in format string
       for key in attrkeys:
         # replace simple %attr directives

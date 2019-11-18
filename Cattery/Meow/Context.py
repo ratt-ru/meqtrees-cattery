@@ -24,6 +24,9 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 array = None;
 observation = None;
@@ -59,7 +62,7 @@ def get_array (array1):
   returns the global array, or throws an error if none is set."""
   arr = array1 or array;
   if not arr:
-    raise ValueError,"'array' must be set in global Meow.Context, or supplied explicitly";
+    raise ValueError("'array' must be set in global Meow.Context, or supplied explicitly");
   return arr;
   
 def get_observation (obs1):
@@ -67,7 +70,7 @@ def get_observation (obs1):
   returns the global observation, or throws an error if none is set."""
   obs = obs1 or observation;
   if not obs:
-    raise ValueError,"'observation' must be set in global Meow.Context, or supplied explicitly";
+    raise ValueError("'observation' must be set in global Meow.Context, or supplied explicitly");
   return obs;
   
 def get_dir0 (dir0):
@@ -77,7 +80,7 @@ def get_dir0 (dir0):
   if dir0:
     return dir0;
   if not observation:
-    raise ValueError,"'observation' must be set in global Meow.Context, or a 'dir0' supplied explicitly";
+    raise ValueError("'observation' must be set in global Meow.Context, or a 'dir0' supplied explicitly");
   return observation.phase_centre;
 
 

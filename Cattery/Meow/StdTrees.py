@@ -23,12 +23,15 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
-import Context
-import Jones
-import Bookmarks
-import Utils
+from . import Context
+from . import Jones
+from . import Bookmarks
+from . import Utils
 
 class _BaseTree (object):
   def __init__ (self,ns,array=None,observation=None):
@@ -36,13 +39,13 @@ class _BaseTree (object):
     self.array = array or Context.array;
     self.observation = observation or Context.observation;
     if not self.array or not self.observation:
-      raise ValueError,"array or observation not specified in global Meow.Context, or in this function call";
+      raise ValueError("array or observation not specified in global Meow.Context, or in this function call");
     self._inputs = self._outputs = None;
 
   def set_inputs (self,inputs):
     if self._inputs is not None:
       if inputs is not None and inputs is not self._inputs:
-        raise ValueError,"this tree is already using a different set of inputs";
+        raise ValueError("this tree is already using a different set of inputs");
     else:
       self._inputs = inputs or self.array.spigots(flag_bit=1);
 
@@ -132,7 +135,7 @@ class SolveTree (ResidualTree):
     # figure out our inputs
     self.set_inputs(inputs);
     if outputs is None:
-      raise TypeError,"mandatory 'outputs' argument missing";
+      raise TypeError("mandatory 'outputs' argument missing");
 
     reqseq = self._outputs = self.ns.reqseq;
     if not reqseq(*self.array.ifrs()[0]).initialized():
@@ -159,7 +162,7 @@ class SolveTree (ResidualTree):
       elif is_node(arg):
         return arg.name;
       else:
-        raise TypeError,"'solvables' contains an object of illegal type '"+str(type(arg))+"'";
+        raise TypeError("'solvables' contains an object of illegal type '"+str(type(arg))+"'");
     solvables = [ namify(x) for x in solvables ];
 
     # init option vars
@@ -174,7 +177,7 @@ class SolveTree (ResidualTree):
     elif is_node(vdm):
       vdm = vdm.name;
     elif not isinstance(vdm,str):
-      raise TypeError,"'vdm' argument must be a node or a node name";
+      raise TypeError("'vdm' argument must be a node or a node name");
 
     # define TDL job to run this solve job
     def run_solve_job (mqs,parent,**kw):
@@ -232,7 +235,7 @@ def inspector (outnode,nodes,bookmark=True):
   for the inspector (use string to give it a non-default name.)
   """
   if not nodes:
-    raise ValueError,"too few nodes specified in list";
+    raise ValueError("too few nodes specified in list");
   outnode << \
     Meq.Composer(
       plot_label=[ node.name for node in nodes ],dims=[0],
@@ -256,7 +259,7 @@ def vis_inspector (outnode,visnodes,ifrs=None,array=None,bookmark=True,**kw):
   if ifrs is None:
     array = array or Context.array;
     if not array:
-      raise ValueError,"array or ifrs not specified in global Meow.Context, or in this function call";
+      raise ValueError("array or ifrs not specified in global Meow.Context, or in this function call");
     ifrs = array.ifrs();
   outnode << \
     Meq.Composer(
@@ -282,7 +285,7 @@ def jones_inspector (outnode,jones,array=None,bookmark=True):
   """
   array = array or Context.array;
   if not array:
-    raise ValueError,"array not specified in global Meow.Context, or in this function call";
+    raise ValueError("array not specified in global Meow.Context, or in this function call");
   outnode << \
     Meq.Composer(
       dims=[0],
@@ -350,14 +353,14 @@ def make_sinks (ns,outputs,array=None,
                 output_col='DATA',**kw):
   array = array or Context.array;
   if not array:
-    raise ValueError,"array not specified in global Meow.Context, or in this function call";
+    raise ValueError("array not specified in global Meow.Context, or in this function call");
   # make sinks
   sink = array.sinks(children=outputs,output_col=output_col,**kw);
   # make vdm
   if vdm is None:
     vdm = ns.VisDataMux;
   elif not is_node(vdm):
-    raise TypeError,"'vdm' argument should be a node";
+    raise TypeError("'vdm' argument should be a node");
   Context.vdm = vdm;
 
   # check 'post' argument, if it's a list, make a ReqMux called vdm:post
@@ -368,7 +371,7 @@ def make_sinks (ns,outputs,array=None,
     else:
       post = None;
   elif post and not is_node(post):
-    raise TypeError,"'post' argument should be a node or a list of nodes, %s given"%type(post);
+    raise TypeError("'post' argument should be a node or a list of nodes, %s given"%type(post));
 
   # figure out optimal poll order for children. We want to poll things 
   # so that per-antenna trees are parallelized as much as possible, so first let's poll

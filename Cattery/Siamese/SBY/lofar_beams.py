@@ -23,6 +23,9 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 import math
@@ -168,7 +171,7 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,**kw):
         # matrix (and B*S will need to be a Meq.MatrixMultiply)
         filename = make_filename(station);
         if not os.path.exists(filename):
-          raise RuntimeError,"Cannot find station layout file %s"%filename;
+          raise RuntimeError("Cannot find station layout file %s"%filename);
         S << Meq.StationBeam(filename=filename,
                               azel_0=obs.phase_center.azel(Context.array.xyz(station)),
                               azel=src.direction.azel(Context.array.xyz(station)),

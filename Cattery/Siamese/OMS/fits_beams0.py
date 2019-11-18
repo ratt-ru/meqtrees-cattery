@@ -28,7 +28,9 @@
 It is recommended that you use small tile sizes (8~16) with this module.</P>
 
 <P align="right">Authors: T. Willis &lt;<tt>Tony.Willis@nrc-cnrc.gc.ca</tt>&gt; & O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.TDL import *
 import Meow
 from Meow import Context
@@ -64,7 +66,7 @@ CORRS = Context.correlations;
 REIM = "re","im";
 REALIMAG = dict(re="real",im="imag");
 
-import Utils
+from . import Utils
 
 def make_beam_filename (corr,reim):
   """Makes beam filename for the given correlation and real/imaginary component (one of "re" or "im")"""
@@ -89,10 +91,10 @@ def make_beam_nodes (beam):
       if os.path.exists(filename):
         beam(corr,reim) << Meq.FITSImage(filename=filename,cutoff=1.0,mode=2);
       elif missing_is_null:
-        print "Can't find %s, using null"%filename;
+        print("Can't find %s, using null"%filename);
         beam(corr,reim) << 0;
       else:
-        raise ValueError,"beam file %s does not exist"%filename;
+        raise ValueError("beam file %s does not exist"%filename);
     # put it together into a complex voltage gain
     beam(corr) << Meq.ToComplex(*[beam(corr,ri) for ri in REIM]);
     if norm_beams:

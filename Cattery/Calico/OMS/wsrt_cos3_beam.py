@@ -23,6 +23,11 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 """<P>This module implements a WSRT beam E-Jones, with optional solvable parameters.</P>
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
 
@@ -39,11 +44,11 @@ from Meow import ParmGroup
 import math
 from math import sqrt,atan2
 
-import solvable_pointing_errors
+from . import solvable_pointing_errors
 
 DEG = math.pi/180.;
-ARCMIN = DEG/60;
-ARCSEC = DEG/3600;
+ARCMIN = DEG/60.;
+ARCSEC = DEG/3600.;
 
 PER_ARRAY = "entire array"
 PER_STATION = "per station";

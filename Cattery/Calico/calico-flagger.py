@@ -23,6 +23,9 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
@@ -142,7 +145,7 @@ def run_autoflagger (mqs,parent,wait=False,**kw):
     start,nchan = None,None;
     if autoflag_setdata_chan != "all":
 #      try:
-        chan = map(int,re.split("[ ,]",autoflag_setdata_chan,1));
+        chan = list(map(int,re.split("[ ,]",autoflag_setdata_chan,1)));
         start,nchan = chan[0],chan[1]-chan[0]+1;
  #     except:
         pass;
@@ -217,14 +220,14 @@ def run_autoflagger (mqs,parent,wait=False,**kw):
 
 def add_bitflags (mqs,parent,**kw):
   if not flagger:
-    raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
+    raise RuntimeError("Flagger not available, perhaps MS was not specified?");
   flagger.add_bitflags();
   mssel.reload();
 
 # The flag_ms job uses Calico.Flagger to flag subsets of the MS
 def flag_ms (mqs,parent,**kw):
   if not flagger:
-    raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
+    raise RuntimeError("Flagger not available, perhaps MS was not specified?");
   arg = dict();
   # form up list of antennas
   if flag_antennas:
@@ -237,7 +240,7 @@ def flag_ms (mqs,parent,**kw):
       index1 = Meow.MSUtils.parse_antenna_subset(spec1,mssel.ms_antenna_names);
       index2 = Meow.MSUtils.parse_antenna_subset(spec2,mssel.ms_antenna_names);
       if index1 > index2:
-        raise ValueError,"Illegal baseline specifier '%s'"%spec;
+        raise ValueError("Illegal baseline specifier '%s'"%spec);
       baselines.append((index1[0],index2[0]));
   # form up time range
   if flag_reltime:
@@ -272,7 +275,7 @@ def flag_ms (mqs,parent,**kw):
 stat_msgbox = None;
 def transfer_legacy_flags (mqs,parent,**kw):
   if not flagger:
-    raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
+    raise RuntimeError("Flagger not available, perhaps MS was not specified?");
   replace = (transfer_flag_policy == "replace");
   # open progress meter if GUI available
   init_progress_dialog(parent,"Transferring legacy flags");
@@ -291,7 +294,7 @@ def transfer_legacy_flags (mqs,parent,**kw):
 # The get_flag_stats job uses Calico.Flagger to get flag statistics and display them
 def get_flag_stats (mqs,parent,**kw):
   if not flagger:
-    raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
+    raise RuntimeError("Flagger not available, perhaps MS was not specified?");
   # open progress meter if GUI available
   init_progress_dialog(parent,"Getting flag statistics");
   # execute flagging
@@ -310,7 +313,7 @@ def get_flag_stats (mqs,parent,**kw):
 # The fill_legacy_flags job uses Calico.Flagger to fill legacy flags from bitflags
 def fill_legacy_flags (mqs,parent,**kw):
   if not flagger:
-    raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
+    raise RuntimeError("Flagger not available, perhaps MS was not specified?");
   # open progress meter if GUI available
   init_progress_dialog(parent,"Filling legacy flag column");
   # execute flagging
@@ -324,7 +327,7 @@ def fill_legacy_flags (mqs,parent,**kw):
 
 def clear_flagset (mqs,parent,**kw):
   if not flagger:
-    raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
+    raise RuntimeError("Flagger not available, perhaps MS was not specified?");
   fsets = remove_flag_selector.selected_flagsets();
   if GUI.warning_box("Clearing flagsets","""<P>This will clear all 
 	flags in the selected flagsets (%s). Click OK to proceed.</P>"""%" ".join(fsets),
@@ -343,7 +346,7 @@ def clear_flagset (mqs,parent,**kw):
 
 def clear_bitflags (mqs,parent,**kw):
   if not flagger:
-    raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
+    raise RuntimeError("Flagger not available, perhaps MS was not specified?");
   fsets = remove_flag_selector.selected_flagsets();
   if GUI.warning_box("Clearing bitflags","""<P>This will clear all bitflags in
 	all flagsets. Click OK to proceed.</P>""",
@@ -362,7 +365,7 @@ def clear_bitflags (mqs,parent,**kw):
 
 def clear_legacy_flags (mqs,parent,**kw):
   if not flagger:
-    raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
+    raise RuntimeError("Flagger not available, perhaps MS was not specified?");
   if GUI.warning_box("Clearing FLAG/FLAG_ROW","""<P>This will clear all 
 	flags from the FLAG/FLAG_ROW columns. Click OK to proceed.</P>""",
 	GUI.Button.Ok|GUI.Button.Cancel,GUI.Button.Cancel) != GUI.Button.Ok:
@@ -379,7 +382,7 @@ def clear_legacy_flags (mqs,parent,**kw):
 
 def remove_flagset (mqs,parent,**kw):
   if not flagger:
-    raise RuntimeError,"Flagger not available, perhaps MS was not specified?";
+    raise RuntimeError("Flagger not available, perhaps MS was not specified?");
   fsets = remove_flag_selector.selected_flagsets();
   if GUI.warning_box("Removing flagsets","""<P>This will completely 
            remove the selected flagsets (%s). Click OK to proceed.</P>"""%" ".join(fsets),

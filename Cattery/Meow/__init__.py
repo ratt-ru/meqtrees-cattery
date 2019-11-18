@@ -23,6 +23,9 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 import sys
 
@@ -42,29 +45,33 @@ else:
 
   def dprint (msg,level=1):
     if level <= _verbosity:
-      print msg;
+      print(msg);
 
-  from CorruptComponent import CorruptComponent
-  from Position import Position
-  from Direction import Direction
-  from LMDirection import LMDirection
-  from AzElDirection import AzElDirection
-  from LMApproxDirection import LMApproxDirection
-  from IfrArray import IfrArray
-  from Observation import Observation
-  from Parameterization import Parameterization
-  from Patch import Patch
-  from SkyComponent import SkyComponent
-  from PointSource import PointSource
-  from KnownVisComponent import KnownVisComponent
-  from GaussianSource import GaussianSource
-  from SixpackComponent import SixpackComponent
-  from FITSImageComponent import FITSImageComponent
-  from Parm import Parm
-  
-  import Bookmarks
-  import MSUtils
-  import Utils
+  from .CorruptComponent import CorruptComponent
+  from .Position import Position
+  from .Direction import Direction
+  from .LMDirection import LMDirection
+  from .AzElDirection import AzElDirection
+  from .LMApproxDirection import LMApproxDirection
+  from .IfrArray import IfrArray
+  from .Observation import Observation
+  from .Parameterization import Parameterization
+  from .Patch import Patch
+  from .SkyComponent import SkyComponent
+  from .PointSource import PointSource
+  from .KnownVisComponent import KnownVisComponent
+  from .GaussianSource import GaussianSource
+  from .SixpackComponent import SixpackComponent
+  from .FITSImageComponent import FITSImageComponent
+  from .Parm import Parm
+  from . import StdTrees
+  from . import Bookmarks
+  from . import MSUtils
+  from . import Utils
+  from . import LSM, OptionTools, Context
+  from . import Bookmarks
+  from . import MSUtils
+  from . import Utils
 
   __all__ = [
               CorruptComponent,
@@ -73,6 +80,9 @@ else:
               LMDirection,
               LMApproxDirection,
               FITSImageComponent,
+              LSM,
+              OptionTools,
+              Context,
               GaussianSource,
               IfrArray,
               Observation,
@@ -80,5 +90,10 @@ else:
               Patch,
               PointSource,
               SixpackComponent,
-              SkyComponent
+              SkyComponent,
+              Bookmarks,
+              MSUtils,
+              Utils,
+              _meow_path,
+              StdTrees,
   ];

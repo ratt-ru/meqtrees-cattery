@@ -24,6 +24,10 @@
 #
 
  # standard preamble
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Timba.TDL import *
 from Timba.Meq import meq
 import math
@@ -251,7 +255,7 @@ import Purr.Pipe
 
 def _define_forest(ns,parent=None,**kw):
   if not mssel.msname:
-    raise RuntimeError,"MS not set";
+    raise RuntimeError("MS not set");
   if run_purr:
     Timba.TDL.GUI.purr(mssel.msname+".purrlog",[mssel.msname,'.']);
   # create Purr pipe
@@ -371,7 +375,7 @@ def _define_forest(ns,parent=None,**kw):
     # parse ifr specification
     solve_ifrs  = array.subset(calibrate_ifrs,strict=False).ifrs();
     if not solve_ifrs:
-      raise RuntimeError,"No interferometers selected for calibration. Check your ifr specification (under calibration options).";
+      raise RuntimeError("No interferometers selected for calibration. Check your ifr specification (under calibration options).");
     # inputs to the solver are based on calibration type
     if corrupt_uvdata:
       [ ns.diff(p,q) << spigots(p,q) - corrupt_uvdata(p,q) for p,q in solve_ifrs ];
@@ -399,7 +403,7 @@ def _define_forest(ns,parent=None,**kw):
       weights = rhs('ampl');
       modulo = 2*math.pi;
     else:
-      raise ValueError,"unknown cal_what setting: "+str(cal_what);
+      raise ValueError("unknown cal_what setting: "+str(cal_what));
     # make a solve tree
     solve_tree = StdTrees.SolveTree(ns,lhs,solve_ifrs=solve_ifrs,weights=weights,modulo=modulo);
     # the output of the sequencer is either the residuals or the spigots,

@@ -5,6 +5,9 @@ refraction, byt offseting each source's elevation by h*(el-el0), where el0 is el
 centre.</P>
 
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 __default_label__ = "R";
 __default_name__  = "position shifts";
@@ -64,7 +67,7 @@ def compute_jones (Jones,sources,stations=None,inspectors=[],meqmaker=None,label
   # now loop over sources
   for isrc,src in enumerate(sources):
     # work out dl,dm offset and dlmn node
-    print shift_type;
+    print(shift_type);
     if shift_lm_offset:
       dl = ns.dl(src) << dl_arcsec*ARCSEC;
       dm = ns.dm(src) << dm_arcsec*ARCSEC;

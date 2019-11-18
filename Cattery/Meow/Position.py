@@ -25,10 +25,13 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from Parameterization import *
+from .Parameterization import *
 
 
 class Position (Parameterization):
@@ -59,7 +62,7 @@ class Position (Parameterization):
   def xyz (self):
     """Returns the xyt 3-vector node for this position."""
     if self.dims[0]*self.dims[1]*self.dims[2]==0:
-      raise ValueError,'Position does not have enough dimensions' 
+      raise ValueError('Position does not have enough dimensions') 
     xyz = self.ns.xyz
     if not xyz.initialized():
       x = self._parm('xpos')
@@ -76,4 +79,4 @@ if __name__ == '__main__':
     ns = NodeScope()
     p1 = Position(ns,'p1', x=1, y=2, z=(ns << Meq.Parm(6.5)))
     xyz = p1.xyz()
-    print str(xyz)
+    print(str(xyz))

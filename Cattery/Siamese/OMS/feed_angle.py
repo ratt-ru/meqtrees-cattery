@@ -10,6 +10,10 @@
 
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 __default_label__ = "P";
 __default_name__  = "parallactic angle and feed orientation";
 
@@ -28,7 +32,7 @@ def _read_ms_feed (enabled):
   if enabled and Context.mssel and Context.mssel.msname and MSUtils.TABLE:
     try:
       # read angles and antenna IDs from table
-      feed = MSUtils.TABLE(os.path.join(Context.mssel.msname,"FEED"));
+      feed = MSUtils.TABLE(str(os.path.join(Context.mssel.msname,"FEED")));
       angle_col = feed.getcol('RECEPTOR_ANGLE');
       ant_col = list(feed.getcol('ANTENNA_ID'));
       feed = None;
@@ -52,7 +56,7 @@ def _read_ms_feed (enabled):
         angle_opt.set_value(" ".join(["%g"%(p/DEG) for p in angles]));
     except:
       traceback.print_exc();
-      print "Error reading %s/FEED subtable. Feed angles not filled."%Context.mssel.msname;
+      print("Error reading %s/FEED subtable. Feed angles not filled."%Context.mssel.msname);
 
 def _select_ms (msname):
   """This is called when a new MS is selected. Reads the FEED table if that option is enabled""";
@@ -87,7 +91,7 @@ re_whitespace = re.compile("\s+");
 
 def _validate_angle (ang):
   # this fill throw an exception if any of the angle components cannot be converted to a float
-  return map(float,re_whitespace.split(ang));
+  return list(map(float,re_whitespace.split(ang)));
 angle_opt.set_validator(_validate_angle);
 
 # helper function, convert string to float, return 0 on error
@@ -105,7 +109,7 @@ def compute_jones (Jones,stations=None,**kw):
     xyz = Context.array.xyz();
 
   # get the feed angles
-  angles = map(_str_to_float,re_whitespace.split(feed_angle));
+  angles = list(map(_str_to_float,re_whitespace.split(feed_angle)));
 
   for p in stations:
     # get feed angle for this antenna number. If list contains fewer angles than stations, the last angle is reused

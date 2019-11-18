@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Timba.TDL import *
 from Timba.Meq import meq
 from Lions.PiercePoints.PiercePoints import *
@@ -43,23 +47,23 @@ class MIM(PiercePoints):
         global vy
         global pixscale
         if use_lonlat:
-            print 'Using longlat'
+            print('Using longlat')
             R = height + 6365.0  # hardcoded Earth radius to same value as other MIM
             # convert velocity in [km/h] to angular velocity
-            vx = ((speedx / 3600) / R) + 7.272205E-05  # correct for PP velocity in longitude
-            vy = (speedy / 3600) / R
+            vx = ((speedx / 3600.0) / R) + 7.272205E-05  # correct for PP velocity in longitude
+            vy = (speedy / 3600.0) / R
             # convert size in [km] to angular size in radians
             pixscale = scale / R
         else:
-            print 'Using ECEF'
+            print('Using ECEF')
             # for ECEF coordinates the velocity is not yet properly implemented
             vx = speedx / 3.6  # [m/s]
             vy = speedy / 3.6
             pixscale = scale * 1000.0  # [m]
 
-        print 'V_x =', vx
-        print 'V_y =', vy
-        print 'Scale = ', pixscale
+        print('V_x =', vx)
+        print('V_y =', vy)
+        print('Scale = ', pixscale)
 
     def make_tec(self):
         # fit a virtual TEC value, this makes life easier (eg. include freq. and sec dependence)

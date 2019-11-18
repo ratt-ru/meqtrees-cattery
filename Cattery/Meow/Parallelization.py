@@ -24,6 +24,10 @@
 #
 
 # this contains parallelization-related options
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Timba.TDL import *
 
 mpi_enable = False;
@@ -94,7 +98,7 @@ def add_visibilities (nodes,vislist,ifrs):
   if mpi_enable and parallelize_by_source:
     # how many sources per processor?
     nsrc = len(vislist);
-    src_per_proc = [nsrc/mpi_nproc]*mpi_nproc;
+    src_per_proc = [nsrc//mpi_nproc]*mpi_nproc;
     # distriebute remainder over a few processors
     remainder = nsrc%mpi_nproc;
     if remainder != 0:

@@ -23,10 +23,13 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.array import array
-import Context
+from . import Context
 
 import re
 import math
@@ -57,7 +60,7 @@ uvw_refant_opt = TDLOption('uvw_refant',"Reference antenna",[UVW_REFANT_DEFAULT]
 _options = [ uvw_source_opt,uvw_refant_opt ];
 uvw_source_opt.when_changed(lambda x:uvw_refant_opt.show(x==_uvw_from_ms));
 
-from IfrSet import IfrSet
+from .IfrSet import IfrSet
 
 class IfrArray (object):
   def compile_options ():
@@ -105,7 +108,7 @@ class IfrArray (object):
       self.ifrset = station_list;
     else:
       if station_index:
-        station_list = zip(station_index,station_list);
+        station_list = list(zip(station_index,station_list));
       self.ifrset = IfrArray.IfrSet(station_list,positions=positions,observatory=observatory);
     # expose some methods of IfrSet directly via our object
     for method in ('stations','ifrs','station_index','ifr_index','subset',
@@ -136,7 +139,7 @@ class IfrArray (object):
     elif isinstance(stations,(list,tuple)):
       stations = [ (i,_wsrt_list[i]) for i in stations ];
     else:
-      raise TypeError,"WSRT 'stations' argument must be a list of stations, or a number";
+      raise TypeError("WSRT 'stations' argument must be a list of stations, or a number");
     return IfrArray(ns,stations,uvw_table=uvw_table,mirror_uvw=mirror_uvw,
                     observatory="WSRT");
 
@@ -152,7 +155,7 @@ class IfrArray (object):
     elif isinstance(stations,(list,tuple)):
       stations = [ (i,_vla_list[i]) for i in stations ];
     else:
-      raise TypeError,"VLA 'stations' argument must be a list of stations, or a number";
+      raise TypeError("VLA 'stations' argument must be a list of stations, or a number");
     return IfrArray(ns,stations,station_index=index,uvw_table=uvw_table,mirror_uvw=mirror_uvw,
                     observatory="VLA");
 
@@ -281,7 +284,7 @@ class IfrArray (object):
           try:
             num = self.stations().index(uvw_refant);
           except:
-            raise ValueError,"reference antenna '%s' not found"%uvw_refant;
+            raise ValueError("reference antenna '%s' not found"%uvw_refant);
           ip0,p0 = self.station_index()[num];
         # reference station gets (0,0,0), the rest is via subtraction
         if self._include_uvw_deriv:

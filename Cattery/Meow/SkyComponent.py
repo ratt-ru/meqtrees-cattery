@@ -23,12 +23,15 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from Parameterization import *
-from Direction import *
-import Context
+from .Parameterization import *
+from .Direction import *
+from . import Context
 
 class SkyComponent (Parameterization):
   """A SkyComponent represents an abstract sky model element.
@@ -40,7 +43,7 @@ class SkyComponent (Parameterization):
       self.direction = direction;
     else:
       if not isinstance(direction,(list,tuple)) or len(direction) != 2:
-        raise TypeError,"direction: Direction object or (ra,dec) tuple expected";
+        raise TypeError("direction: Direction object or (ra,dec) tuple expected");
       ra,dec = direction;
       self.direction = Direction(ns,name,ra,dec);
     # If the source uses station decomposition (i.e. if the sqrt_visibilities() method has been called),
@@ -105,7 +108,7 @@ class SkyComponent (Parameterization):
     a default must be used.
     Returns something that must be qualified with (p,q) to get a coherency node.
     """;
-    raise TypeError,type(self).__name__+".coherency() not defined";
+    raise TypeError(type(self).__name__+".coherency() not defined");
 
   def smear_factor (self,array=None,dir0=None):
     """Returns smearing factor associated with this source and direction.

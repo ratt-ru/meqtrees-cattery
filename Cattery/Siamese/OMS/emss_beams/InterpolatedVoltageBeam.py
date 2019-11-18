@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 import math
 import numpy
 from scipy.ndimage import interpolation
@@ -21,7 +23,7 @@ def expand_axis (x,axis,n):
   if x.shape[axis] == n:
     return x;
   elif x.shape[axis] != 1:
-    raise TypeError,"array must have length 1 along axis %d, it has %d"%(axis,x.shape[axis]);
+    raise TypeError("array must have length 1 along axis %d, it has %d"%(axis,x.shape[axis]));
   return numpy.concatenate([x]*n,axis);
 
 def unite_shapes (a,b):
@@ -47,7 +49,7 @@ def unite_shapes (a,b):
       elif nb == 1:
         b = expand_axis(b,axis,na);
       else:
-        raise TypeError,"error: trying to unite incompatible shapes %s and %s"%(sa,sb);
+        raise TypeError("error: trying to unite incompatible shapes %s and %s"%(sa,sb));
   return a,b;
 
 def unite_multiple_shapes (*arr0):
@@ -81,8 +83,8 @@ def unite_multiple_shapes (*arr0):
             if nx[i] == 1:
               arr[i] = expand_axis(arr[i],axis,nx0);
             else:
-              raise TypeError,"error: trying to unite incompatible shapes: %s"%" ".join(
-                [ "[%s]"%(",".join(map(str,x.shape))) if x is not None else "[]" for x in arr0 ]);
+              raise TypeError("error: trying to unite incompatible shapes: %s"%" ".join(
+                [ "[%s]"%(",".join(map(str,x.shape))) if x is not None else "[]" for x in arr0 ]));
   return arr;
 
 class InterpolatedVoltageBeam (object):
@@ -107,15 +109,15 @@ class InterpolatedVoltageBeam (object):
     Returns array of coordinates. Negative values such as indicate extrapolation. 
     For a value of -X, X<1 indicates extrapolation to lower freqs, X>1 to higher freqs
     """;
-    raise TypeError,"frequency interpolation not available with this beam gridder";
+    raise TypeError("frequency interpolation not available with this beam gridder");
     
   def lmToBeam (self,l,m,rotate=None):
     """Maps l/m coordinates (i.e. direction cosines) onto the "natural" coordinate system of the beam""";
-    raise TypeError,"l/m coordinate interpolation not available with this beam gridder";
+    raise TypeError("l/m coordinate interpolation not available with this beam gridder");
     
   def thetaPhiToBeam (self,theta,phi,rotate=None):
     """Maps spherical theta/phi coordinates onto the "natural" coordinate system of the beam""";
-    raise TypeError,"theta/phi coordinate interpolation not available with this beam gridder";
+    raise TypeError("theta/phi coordinate interpolation not available with this beam gridder");
     
   def setBeamCube (self,beam):
     """Initializes beam cube. Beam is a 2D (or 3D) cube.""";
@@ -211,7 +213,7 @@ class InterpolatedVoltageBeam (object):
       else:
         # first turn freq vector into an array of the proper shape
         if freqaxis is None:
-          raise ValueError,"frequency axis not specified, but beam has a frequency dependence";
+          raise ValueError("frequency axis not specified, but beam has a frequency dependence");
         freqaxis += extra_axes;
         freqshape = [1]*(freqaxis+1);
         freqshape[freqaxis] = len(freq);

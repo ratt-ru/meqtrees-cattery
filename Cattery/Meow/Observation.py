@@ -22,9 +22,12 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
-from Direction import *
+from .Direction import *
 
 
 class Observation (object):
@@ -42,7 +45,7 @@ class Observation (object):
     """
     self.ns = ns;
     if circular and linear:
-      raise ValueError,"either circular=True or linerar=True must be specified, not both";
+      raise ValueError("either circular=True or linerar=True must be specified, not both");
     self._circular = circular;
     self._quals = quals;
     self._kwquals = kwquals;
