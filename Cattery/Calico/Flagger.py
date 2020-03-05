@@ -1079,6 +1079,7 @@ class Flagger (Timba.dmi.verbosity):
         raise RuntimeError("glish not found, so cannot run autoflagger");
       # write commands to temporary file and run glish
       if cmdfile:
+        pass
       else:
         fh,cmdfile = tempfile.mkstemp(prefix="autoflag",suffix=".g");
         fobj = os.fdopen(fh,"wt");

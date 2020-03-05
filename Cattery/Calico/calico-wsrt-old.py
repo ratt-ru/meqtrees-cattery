@@ -388,15 +388,15 @@ def _define_forest(ns,parent=None,**kw):
     if cal_what == CAL.VIS:
       pass;
     elif cal_what == CAL.AMPL:
-      [ x('ampl',p,q) << Meq.Abs(x(p,q)) for p,q in ifrs for x in rhs,lhs ];
+      [ x('ampl',p,q) << Meq.Abs(x(p,q)) for p,q in ifrs for x in (rhs,lhs) ];
       lhs = lhs('ampl');
       rhs = rhs('ampl');
     elif cal_what == CAL.LOGAMPL:
-      [ x('logampl',p,q) << Meq.Log(Meq.Abs(x(p,q))) for p,q in ifrs for x in rhs,lhs ];
+      [ x('logampl',p,q) << Meq.Log(Meq.Abs(x(p,q))) for p,q in ifrs for x in (rhs, lhs) ];
       lhs = lhs('logampl');
       rhs = rhs('logampl');
     elif cal_what == CAL.PHASE:
-      [ x('phase',p,q) << Meq.Arg(x(p,q)) for p,q in ifrs for x in rhs,lhs ];
+      [ x('phase',p,q) << Meq.Arg(x(p,q)) for p,q in ifrs for x in (rhs, lhs) ];
       [ rhs('ampl',p,q) << Meq.Abs(rhs(p,q)) for p,q in ifrs  ];
       lhs = lhs('phase');
       rhs = rhs('phase');
