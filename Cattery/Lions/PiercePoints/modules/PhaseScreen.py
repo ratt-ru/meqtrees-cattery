@@ -1,4 +1,8 @@
 # just a trick to import the phasescreen
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import math
 import numpy
 from numpy.fft import *
@@ -10,8 +14,8 @@ phasescreen = []
 def init_phasescreen(N=10, beta=5., seed_nr=None):
     global phasescreen
     # X,Y are matrices containing the x and y coordinates
-    X = numpy.matrix(numpy.ones((2 * N, 1))) * numpy.matrix(range(-N, N)) * 1.0 / N
-    Y = numpy.matrix(range(-N, N)).T * numpy.matrix(numpy.ones((1, 2 * N))) * 1.0 / N
+    X = numpy.matrix(numpy.ones((2 * N, 1))) * numpy.matrix(list(range(-N, N))) * 1.0 / N
+    Y = numpy.matrix(list(range(-N, N))).T * numpy.matrix(numpy.ones((1, 2 * N))) * 1.0 / N
     # Q is the distance from the origin
     Q = numpy.sqrt(numpy.power(X, 2) + numpy.power(Y, 2))
 

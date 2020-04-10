@@ -23,6 +23,9 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
  # standard preamble
 from Meow.MeqMaker import *
@@ -185,7 +188,7 @@ class TensorMeqMaker (MeqMaker):
             overlap = part&subset;
             # the overlap and the remainder of this partition, whatever is not empty,
             # become new parititons
-            new_partitions += [ p1 for p1 in overlap,part-overlap if p1 ];
+            new_partitions += [ p1 for p1 in (overlap,part-overlap) if p1 ];
             # remove overlap from subset
             subset -= overlap;
           partitions = new_partitions;

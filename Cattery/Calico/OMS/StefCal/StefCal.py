@@ -1,4 +1,7 @@
 #from memory_profiler import profile
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba import pynode
 from Timba.Meq import meq
@@ -8,14 +11,15 @@ import math
 import operator
 import Kittens.utils
 import time
-import cPickle
+import pickle
 import os.path
 import traceback
 import gc
 import scipy.ndimage.measurements
 
-from MatrixOps import *
-import DataTiler
+from Cattery.Calico.OMS.StefCal.MatrixOps import *
+import Cattery.Calico.OMS.StefCal.DataTiler as DataTiler
+from functools import reduce
 
 _verbosity = Kittens.utils.verbosity(name="stefcal");
 dprint = _verbosity.dprint;
@@ -34,7 +38,7 @@ def print_variance (variance):
   """Given a dictionary of per-baseline variances, computes per-station and mean overall variance""";
   meanvar = [];
   meanvar_sta = {};
-  for pq in variance.keys():
+  for pq in list(variance.keys()):
     dprint(1,"variance on %s-%s is"%pq,[ v if numpy.isscalar(v) else v.flat[0] for v in variance[pq] ]);
     v1 = [ v if numpy.isscalar(v) else v.flat[0] for v in variance[pq] if v != 0 ];
     meanvar += v1;
@@ -42,15 +46,15 @@ def print_variance (variance):
     meanvar_sta[pq[1]] = meanvar_sta.get(pq[1],[]) + v1;
   # compute mean
   meanvar = math.sqrt((numpy.array(meanvar)**2).mean());
-  meanvar_sta = dict([ (p,math.sqrt((numpy.array(x)**2).mean())) for p,x in meanvar_sta.iteritems() ]);
-  for p,x in meanvar_sta.iteritems():
+  meanvar_sta = dict([ (p,math.sqrt((numpy.array(x)**2).mean())) for p,x in meanvar_sta.items() ]);
+  for p,x in meanvar_sta.items():
     dprint(1,"variance on %s is %f"%(p,x));
   dprint(1,"overall mean variance is",meanvar);
 
 
 def dump_data_model (data,model,ifrs,filename="dump.txt"):
-  ff = file(filename,"w");
-  print "dumping data/model to",filename;
+  ff = open(filename,"w");
+  print("dumping data/model to",filename);
   numpy.set_printoptions(threshold=1000000000);
   for pq in ifrs:
     for i,(d,m) in enumerate(zip(data[pq],model[pq])):
@@ -122,7 +126,7 @@ class StefCalVisualizer (pynode.PyNode):
     return res;
 
     
-from GainOpts import *
+from Cattery.Calico.OMS.StefCal.GainOpts import *
     
 # TERMINOLOGY
 # self._datashape:           original shape of input data, e.g. (NT,NF)
@@ -241,8 +245,10 @@ class StefCalNode (pynode.PyNode):
     # lis of all ifrs, as p,q pairs
     self._ifrs = [ tuple(x.split(':')) for x in self.ifrs ];
     # make list of ifrs sorted by baselines
-    self.ifr_by_baseline = zip(self._ifrs,self.baselines);
-    self.ifr_by_baseline.sort(lambda x,y:cmp(x[1],y[1]));
+    self.ifr_by_baseline = list(zip(self._ifrs,self.baselines));
+    from past.builtins import cmp
+    from functools import cmp_to_key
+    self.ifr_by_baseline.sort(key=cmp_to_key(lambda x,y:cmp(x[1],y[1])));
     # parse set of solvable ifrs
     self._solvable_ifrs = set([ tuple(x.split(":")) for x in (self.solve_ifrs or self.ifrs) ]);
     # other init
@@ -265,7 +271,7 @@ class StefCalNode (pynode.PyNode):
     # children 2 and on are models subject to dE terms
     num_diffgains = len(self.dgopts);
     if num_diffgains != len(children)-2:
-      raise TypeError,"StefCalNode: %d children (data,model,model1,...) must be provided"%(num_diffgains+2);
+      raise TypeError("StefCalNode: %d children (data,model,model1,...) must be provided"%(num_diffgains+2));
     
     # if new dataset ID, do setup for start of new dataset
     if dataset_id != self._dataset_id:
@@ -286,12 +292,12 @@ class StefCalNode (pynode.PyNode):
       self.ifr_gain = {};
       if self.apply_ifr_gains and not self.reset_ifr_gains and os.path.exists(self.ifr_gain_table):
         try:
-          self.ifr_gain = cPickle.load(file(self.ifr_gain_table));
+          self.ifr_gain = pickle.load(open(self.ifr_gain_table, "rb"));
           dprint(1,"loaded %d ifr gains from %s"%(len(self.ifr_gain),self.ifr_gain_table));
           # reset off-diagonals to 1
           if self.diag_ifr_gains:
             dprint(1,"resetting off-diagonal elements to 1");
-            for gg in self.ifr_gain.itervalues():
+            for gg in self.ifr_gain.values():
               gg[1] = gg[2] = 1;
         except:
           traceback.print_exc();
@@ -332,18 +338,18 @@ class StefCalNode (pynode.PyNode):
     datares = children[0]
     data_dims = getattr(datares,'dims',None);
     if data_dims is None:
-      raise TypeError,"No data dimensions. Have you specified a valid input column?";
+      raise TypeError("No data dimensions. Have you specified a valid input column?");
     modelres = children[1];
     if any( [ getattr(ch,'dims',None) != data_dims for ch in children[1:] ] ):
-      raise TypeError,"Dimensions of data and model(s) do not match. Have you specified a sky model?";
+      raise TypeError("Dimensions of data and model(s) do not match. Have you specified a sky model?");
     # expecting Nx2x2 matrices
     if len(datares.dims) == 3:
       if datares.dims[1] != 2 or datares.dims[2] != 2:
-        raise TypeError,"Data and model must be of rank Nx2x2";
+        raise TypeError("Data and model must be of rank Nx2x2");
       nifrs = datares.dims[0];
       # setup antenna names
       if nifrs != len(self.ifrs):
-        raise TypeError,"first dimension of data and model must match the number of interferometers in the ifrs field";
+        raise TypeError("first dimension of data and model must match the number of interferometers in the ifrs field");
       # setup list of data, values and parameter names
       nvells = -1;
       for pq in self._ifrs:
@@ -418,11 +424,11 @@ class StefCalNode (pynode.PyNode):
               vis_per_antenna = dict([(p,numpy.zeros(expanded_datashape,dtype=int)) for p in antennas ]);
             # now check inputs and add them to data and model dicts
             if d.shape != datashape:
-              raise TypeError,"data shape mismatch at %s:%s:%s:%s, %s vs %s" % (pq[0], pq[1],
-                self.corr_names[i], self.corr_names[j], d.shape, datashape )
+              raise TypeError("data shape mismatch at %s:%s:%s:%s, %s vs %s" % (pq[0], pq[1],
+                self.corr_names[i], self.corr_names[j], d.shape, datashape ))
             if not is_null(m) and m.shape != datashape:
-              raise TypeError,"model shape mismatch at %s:%s:%s:%s, %s vs %s" % (pq[0], pq[1],
-                self.corr_names[i], self.corr_names[j], m.shape, datashape )
+              raise TypeError("model shape mismatch at %s:%s:%s:%s, %s vs %s" % (pq[0], pq[1],
+                self.corr_names[i], self.corr_names[j], m.shape, datashape ))
             # add to data/model matrices, applying the padding function defined above
             m0 = model0.setdefault(pq,[0,0,0,0])[num] = pad_array(m);
             d0 = data.setdefault(pq,[0,0,0,0])[num] = pad_array(d);
@@ -476,7 +482,7 @@ class StefCalNode (pynode.PyNode):
             vis_per_antenna[pq[1]] += 1;
     else:
       # in principle could also handle [N], but let's not bother for now
-      raise TypeError,"data and model must be of rank Nx2x2";
+      raise TypeError("data and model must be of rank Nx2x2");
 
     # hang onto datares record since we'll be putting the results into it
     # release modelres and all the other child results (they're already held in model and dgmodel)
@@ -486,7 +492,7 @@ class StefCalNode (pynode.PyNode):
     gc.collect()
     dprint(1,"released memory");
     
-    valid_ifrs = data.keys();
+    valid_ifrs = list(data.keys());
     solvable_ifrs = set(self._solvable_ifrs)&set(valid_ifrs);
     if not solvable_ifrs:
       dprint(1,"no valid data found for solvable IFRs  -- nothing to stefcal!");
@@ -508,7 +514,7 @@ class StefCalNode (pynode.PyNode):
       for iaxis,ds in enumerate(downsample_subtiling):
         for opt in self.gainopts+self.dgopts:
           if opt.subtiling[iaxis]%ds != 0:
-            raise RuntimeError,"axis %d: %s solution interval must be a multiple of downsample interval"%(iaxis,opt.name);
+            raise RuntimeError("axis %d: %s solution interval must be a multiple of downsample interval"%(iaxis,opt.name));
       if max(downsample_subtiling) == 1:
         downsample_subtiling = None;
       else:
@@ -530,7 +536,7 @@ class StefCalNode (pynode.PyNode):
         # resample
         downsample_factor = reduce(operator.mul,downsample_subtiling);
         dprint(1,"resampling data by a factor of %d=%s"%(downsample_factor,"x".join(map(str,downsample_subtiling))));
-        for pq in data.keys():
+        for pq in list(data.keys()):
           flags = bitflags.get(pq);
           # resample flags, and compute number of valid slots per resampled interval, and a norm based on this
           if flags is not None and not numpy.isscalar(flags):
@@ -552,7 +558,7 @@ class StefCalNode (pynode.PyNode):
         self._expansion_mask = numpy.zeros(expanded_datashape);
         self._datashape = datashape = [ int(math.ceil(ds/float(st))) for ds,st in zip(datashape,downsample_subtiling) ];
         self._expansion_mask[tuple([ slice(0,nd) for nd in datashape ])] =True;
-        self._expanded_datashape = expanded_datashape = [ ds/st for ds,st in zip(expanded_datashape,downsample_subtiling) ];
+        self._expanded_datashape = expanded_datashape = [ ds//st for ds,st in zip(expanded_datashape,downsample_subtiling) ];
         self._datasize /= downsample_factor;
         self._expanded_size /= downsample_factor;
     
@@ -592,14 +598,14 @@ class StefCalNode (pynode.PyNode):
       # apply scales
       if scale:
         if self.rescale == "scalar":
-          dprint(2,"per-antenna data scaling factors are ",", ".join(["%s %.3g"%(p,s) for p,(s,f) in scale.iteritems() ]));
+          dprint(2,"per-antenna data scaling factors are ",", ".join(["%s %.3g"%(p,s) for p,(s,f) in scale.items() ]));
         else:
-          dprint(1,"min/max scaling factors are",min([s[f].min() for s,f in scale.itervalues()]),
-                                                max([s[f].max() for s,f in scale.itervalues()]));
-          dprint(2,"per-antenna data scaling factors are ",", ".join(["%s %.3g"%(p,s.max()) for p,(s,f) in scale.iteritems() ]));
+          dprint(1,"min/max scaling factors are",min([s[f].min() for s,f in scale.values()]),
+                                                max([s[f].max() for s,f in scale.values()]));
+          dprint(2,"per-antenna data scaling factors are ",", ".join(["%s %.3g"%(p,s.max()) for p,(s,f) in scale.items() ]));
       else:
         dprint(1,"rescaling not done, as none of the antennas appear to have any valid data");
-      for (p,q),dd in data.iteritems():
+      for (p,q),dd in data.items():
         s1,f = scale.get(p,(None,None));
         s2,f = scale.get(q,(None,None));
         if s1 is not None and s2 is not None:
@@ -629,7 +635,7 @@ class StefCalNode (pynode.PyNode):
     dprint(1,"%d baselines with non-zero weights (%d with null weight, %d have no valid data)"%(nw,nnw,nm));
     if nw < min_baselines_for_solution:
       dprint(0,"At least %d valid baselines required for a solution! Aborting."%min_baselines_for_solution);
-      raise RuntimeError,"not enough valid baselines";
+      raise RuntimeError("not enough valid baselines");
       
     skip_solve = False;
     
@@ -644,9 +650,9 @@ class StefCalNode (pynode.PyNode):
       ## sum([0 if is_null(d) else ((d!=0)|(m!=0)).astype(int) for d,m in zip(data[pq],model[pq])])
       # this gives us the number of valid visibilities (in the solvable IFR set) per each time/freq slot
       nel_pq = dict([(pq,sum([0 if is_null(d) else ((d!=0)|(m!=0)).astype(int)
-                      for d,m in zip(data[pq],model0[pq])])) for pq in data.iterkeys() ]);
+                      for d,m in zip(data[pq],model0[pq])])) for pq in data.keys() ]);
       # this is how many valid visibility matrices we have total per slot
-      num_valid_vis = sum([ int(n>1) if numpy.isscalar(n) else (n>1).astype(int) for pq,n in nel_pq.iteritems() ]);
+      num_valid_vis = sum([ int(n>1) if numpy.isscalar(n) else (n>1).astype(int) for pq,n in nel_pq.items() ]);
       # we need as many as there are parameters per antenna, times ~4, to constrain the problem fully
       dprintf(1,"Found %d solvable antennas\n"%len(solvable_antennas));
       invalid_slots = (num_valid_vis>0)&(num_valid_vis<min_baselines_for_solution);
@@ -655,10 +661,10 @@ class StefCalNode (pynode.PyNode):
       nfl = nflagged_due_to_insufficient = invalid_slots.sum();
       if nfl:
         dprintf(1,"   %d of %d slots flagged due to insufficient visibilities\n",nfl,self._expanded_size);
-        for pq in data.iterkeys():
+        for pq in data.keys():
           self.add_flags(bitflags,pq,invalid_slots*FINSUFF);
         for dataset in [data,model0] + dgmodel:
-          for dd in dataset.itervalues():
+          for dd in dataset.values():
             for d in dd:
               if not is_null(d):
                 d[invalid_slots] = 0;
@@ -692,7 +698,7 @@ class StefCalNode (pynode.PyNode):
     # where terms M1 etc. have dE's on them, if already initialized
     if len(self.dgopts):
       dprint(1,"adding dE-enabled terms into model");
-      for pq,mod0 in model0.iteritems():
+      for pq,mod0 in model0.items():
         mm = model[pq] = matrix_copy(mod0);
         for dg,dgm in zip(self.dgopts, dgmodel):
           if opt.has_init_value:
@@ -754,7 +760,7 @@ class StefCalNode (pynode.PyNode):
         # at beginning of major loop 1, reset flags raised in loop 0.
         # This means that loop-0 flags are treated as preliminary-only
         if nmajor == 1:
-          for bf in bitflags.itervalues():
+          for bf in bitflags.values():
             bf &= ~(FCHISQ|FNOCONV|FSOLOOB);
         
         ## make list of models that will be used at each stage of the direction-independent solve,
@@ -887,7 +893,7 @@ class StefCalNode (pynode.PyNode):
       for opt in self.gainopts:
         data = dict([ (pq,opt.solver.apply_inverse(data,pq,
                       regularize=self.regularization_factor))
-                      for pq in data.iterkeys() ]);
+                      for pq in data.keys() ]);
 
 #    dprint(0,"***DEBUG*** data",pq00,data[pq00][0][DEBUG_SLICE])
 #    dprint(0,"***DEBUG*** model",pq00,model[pq00][0][DEBUG_SLICE])
@@ -905,7 +911,7 @@ class StefCalNode (pynode.PyNode):
     dprint(1,"checking flagging");  
     # check for excessive flagging
     nfl = ndata = 0;
-    for pq in data.iterkeys():
+    for pq in data.keys():
       ndata += self._datasize;
       fmask = bitflags.get(pq);
       # count flagged but unpadded points
@@ -914,7 +920,7 @@ class StefCalNode (pynode.PyNode):
     flagpc = (nfl - nflagged_due_to_insufficient*len(data))*100./ndata;
     if flagpc > self.critical_flag_threshold:
       dprint(0,"***CRITICAL*** %.2f%% (%d/%d) data points were flagged in the stefcal process. Can not take. Stopping!"%(flagpc,nfl,ndata));
-      raise RuntimeError,"Too many data points (%.2f%%) flagged. Check your stefcal settings?"%flagpc;
+      raise RuntimeError("Too many data points (%.2f%%) flagged. Check your stefcal settings?"%flagpc);
     dprint(1,"%.2f%% (%d/%d) data points were flagged in the stefcal process. Can take."%(flagpc,nfl,ndata));
     
     # go back to full-resolution data, if we were downsampling
@@ -928,7 +934,7 @@ class StefCalNode (pynode.PyNode):
         dgmodel = orig_sampled_dgmodel;
         self._expansion_mask = orig_expansion_mask;
         self._datasize = reduce(operator.mul,datashape);
-        for pq,bf in bitflags.items():
+        for pq,bf in list(bitflags.items()):
           fl1 = bitflags[pq] = numpy.zeros(expanded_datashape,int);
           fl1[...] = downsampler.expand_subshape(fl);
           #if num_diffgains:
@@ -942,7 +948,7 @@ class StefCalNode (pynode.PyNode):
     # visualize gains
     for opt in self.gainopts+self.dgopts:
       if opt.visualize:
-        print "saving global gain",opt.label;
+        print("saving global gain",opt.label);
         global_gains[opt.label] = [ opt.solver.get_2x2_gains(expanded_datashape,expanded_dataslice,
                                     tiler=opt.vis_tiler) ];
                                     
@@ -1059,7 +1065,7 @@ class StefCalNode (pynode.PyNode):
               val[...] = x[expanded_dataslice] if expanded_dataslice \
                 and not is_null(x) else x;
             except:
-              print x,getattr(x,'shape',None);
+              print(x,getattr(x,'shape',None));
           if not is_null(flagmask) and self.output_flag_bit:
             newflags = (flagmask!=0);
             nnew = newflags.sum();
@@ -1105,7 +1111,7 @@ class StefCalNode (pynode.PyNode):
       # save
       if self.save_ifr_gains:
         try:
-          cPickle.dump(self.ifr_gain,file(self.ifr_gain_table,'w'),2);
+          pickle.dump(self.ifr_gain,open(self.ifr_gain_table,'wb'),2);
           dprint(1,"saved %d ifr gains to %s"%(len(self.ifr_gain),self.ifr_gain_table));
         except:
           traceback.print_exc();
@@ -1130,7 +1136,7 @@ class StefCalNode (pynode.PyNode):
     alltrue = numpy.ones(dfshape,bool);
     allfalse = numpy.zeros(dfshape,bool);
     # loop over data
-    for pq,dd in data.iteritems():
+    for pq,dd in data.items():
       flag = bitflags.get(pq);
       if not is_null(flag):
         flag = (flag!=0);
@@ -1182,7 +1188,9 @@ class StefCalNode (pynode.PyNode):
     
     if _verbosity.verbose>3:
       dprint(4,"noise estimates by baseline:");
-      npq = sorted([ (n,pq) for pq,n in noise.iteritems() ],cmp=lambda x,y:cmp(numpy.mean(x[0]),numpy.mean(y[0])));
+      from past.builtins import cmp
+      from functools import cmp_to_key
+      npq = sorted([ (n,pq) for pq,n in noise.items() ],key=cmp_to_key(lambda x,y:cmp(numpy.mean(x[0]),numpy.mean(y[0]))));
       for n,pq in npq:
         dprint(4,"  %s-%s"%pq," ".join(["%.2g"%float(x) for x in n.ravel()[:20]]));
         
@@ -1241,7 +1249,7 @@ class StefCalNode (pynode.PyNode):
     if _verbosity.verbose<4:
       return;
     # check for NANs in the data
-    for pq,dd in data.iteritems():
+    for pq,dd in data.items():
       fmask = bitflags.get(pq);
       fmask = fmask is not None and (fmask!=0);
       for i,d in enumerate(dd):
@@ -1297,7 +1305,7 @@ class StefCalNode (pynode.PyNode):
       if delta != 0 or gopt.max_diverge or converged or niter == gopt.max_iter-1:
         chisq,chisq_unnorm,chisq_arr,chisq_unnorm_arr = self.compute_chisq(model,data,gopt.solver,weight=weight,bitflags=bitflags);
       if delta != 0:
-        dchi = (chisq0-chisq)/chisq;
+        dchi = (chisq0-chisq)/chisq if chisq != 0 else numpy.inf; #fully flagged tile
         gain_dchi.append(dchi);
         dprint(3,"iter %d: ||%s||=%g max update is %g chisq is %.8g (%.8g) diff %.3g, %d/%d conv"%(
           niter+1,gopt.label,float(gopt.solver.gainnorm),float(gopt.solver.delta_max),
@@ -1305,6 +1313,7 @@ class StefCalNode (pynode.PyNode):
         if niter:
           # check chisq convergence
           dchi_arr = (chisq0_arr-chisq_arr)/chisq0_arr;
+          dchi_arr[chisq0_arr == 0] = -numpy.inf
           diverging_mask = (dchi_arr<0);       # mask of diverging chi-squares
           diverging_sig_mask = (dchi_arr<-1e-2*chisq0_arr);       # mask of significantly diverging chi-squares
           nd = diverging_mask.sum();
@@ -1312,7 +1321,7 @@ class StefCalNode (pynode.PyNode):
           converging_mask = ((dchi_arr<delta) & ~diverging_mask);
           # make list of (num_converged,thr) pairs
           conv_stats = [(converging_mask.sum(),delta)] + [ 
-              (((dchi_arr<d) & ~diverging_mask).sum(),d) for d in delta*10,delta*100,delta*1000,delta*10000 ];
+              (((dchi_arr<d) & ~diverging_mask).sum(),d) for d in (delta*10,delta*100,delta*1000,delta*10000) ];
           dprint(3,"iter %d: chisq converged %s; diverging %d; significantly %d"%(niter+1,
                   ", ".join(["%d to %g"%x for x in conv_stats ]),nd,nds));
         chisq0 = chisq;
@@ -1377,7 +1386,7 @@ class StefCalNode (pynode.PyNode):
       if nfl:
         dprint(2,"flagging %f%% of data (%d/%d slots) due to non-convergence"%(nfl*100./self._datasize,nfl,self._datasize));
         fmask = fnonconv*FNOCONV;
-        for pq in data.iterkeys():
+        for pq in data.keys():
           self.add_flags(bitflags,pq,fmask);
         flagged = True;
         chisq_arr[fnonconv] = 0;
@@ -1390,8 +1399,8 @@ class StefCalNode (pynode.PyNode):
       lower,upper = gopt.bounds or (None,None);
       gainflags = gopt.solver.get_gainflags(flagnull=flag_null_gains,lower=lower,upper=upper);
       if gainflags:
-        dprint(2,"flagged gains per antenna:",", ".join(["%s %.2f%%"%(p,gf.sum()*100./gopt.solver.real_slots) for p,gf in sorted(gainflags.iteritems())]));
-        for pq in data.iterkeys():
+        dprint(2,"flagged gains per antenna:",", ".join(["%s %.2f%%"%(p,gf.sum()*100./gopt.solver.real_slots) for p,gf in sorted(gainflags.items())]));
+        for pq in data.keys():
           fmask = gainflags.get(pq[0],False);
           fmask |= gainflags.get(pq[1],False);
           if not is_null(fmask):
@@ -1420,7 +1429,7 @@ class StefCalNode (pynode.PyNode):
         b1 = chisq_histbins[min(imaxbin+1,len(chisq_histbins)-1)]
         mm = chisq_arr[(chisq_arr>=b0)&(chisq_arr<=b1)].mean();
         dprint(3,"M (mean chisq value in bin range %g:%g) = %g"%(b0,b1,mm));
-        cPickle.dump((chisq_hist,chisq_histbins),file("stefcal.chisq.dump","w"),2);
+        pickle.dump((chisq_hist,chisq_histbins),open("stefcal.chisq.dump","wb"),2);
       else:
         chisq_masked = numpy.ma.masked_array(chisq_arr,chisq_arr==0,fill_value=0);
         mode = getattr(gopt,"flag_chisq_loop%d"%looptype);
@@ -1441,7 +1450,7 @@ class StefCalNode (pynode.PyNode):
       if chisq_flagmask.any():
         flagged = True;
         fmask = FCHISQ*chisq_flagmask;
-        for pq in data.iterkeys():
+        for pq in data.keys():
           self.add_flags(bitflags,pq,fmask);
       # dump chisq in output record
       if gopt.visualize:

@@ -27,6 +27,10 @@
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Timba.TDL import *
 from Cattery.LSM.LSM import LSM as LSMClass
 from Timba.utils import curry
@@ -189,13 +193,13 @@ class MeowLSM (object):
     # read LSM using the selected format reader
     reader = FORMAT_READERS.get(format,None);
     if reader is None:
-      raise TypeError,"Unknown LSM format '%s'"%format;
+      raise TypeError("Unknown LSM format '%s'"%format);
 
     try:
       reader(self.lsm,filename,ns);
     except:
       traceback.print_exc();
-      raise RuntimeError,"""There was an error reading the LSM file %s. Either the file format is set incorrectly, or the LSM file is corrupt."""%filename;
+      raise RuntimeError("""There was an error reading the LSM file %s. Either the file format is set incorrectly, or the LSM file is corrupt."""%filename);
 
     # save if needed
     if self.save_native and self.save_native_filename:
@@ -226,7 +230,7 @@ class MeowLSM (object):
       try:
         beam_func = eval("lambda r,fq:"+self.beam_expr);
       except:
-        raise RuntimeError,"invalid beam expression";
+        raise RuntimeError("invalid beam expression");
     else:
       beam_func = None;
     
@@ -250,7 +254,9 @@ class MeowLSM (object):
       # append to list
       srclist.append((pu.name,direction,pu,I,Iapp));
     # sort list by decreasing apparent flux
-    srclist.sort(lambda a,b:cmp(b[4],a[4]));
+    from past.builtins import cmp
+    from functools import cmp_to_key
+    srclist.sort(key=cmp_to_key(lambda a,b:cmp(b[4],a[4])));
     
     srclist_full = srclist;
     # extract active subset
@@ -316,7 +322,7 @@ class MeowLSM (object):
       else:
         solvable = False;
         kwdict = kw_nonsolve;
-      for key,value in src.iteritems():
+      for key,value in src.items():
         meowparm = kwdict.get(key);
         if isinstance(meowparm,Meow.Parm):
           src[key] = meowparm.new(value);

@@ -23,12 +23,15 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from Direction import Direction,lm_to_radec
-from Parameterization import Parameterization
-import Context
+from .Direction import Direction,lm_to_radec
+from .Parameterization import Parameterization
+from . import Context
 import math
 
 class LMDirection (Direction):

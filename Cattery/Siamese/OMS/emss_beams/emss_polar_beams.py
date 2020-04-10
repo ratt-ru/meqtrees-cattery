@@ -29,7 +29,9 @@ via a PyNode. This implementation allows for a lot of flexibility in how the bea
 interpolated.</P>
 
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.TDL import *
 from Timba import pynode
 from Timba.Meq import meq
@@ -52,9 +54,9 @@ dprintf = _verbosity.dprintf;
 
 DEG = math.pi/180;
 
-import EMSSVoltageBeam
-import InterpolatedVoltageBeam
-from InterpolatedVoltageBeam import unite_shapes,unite_multiple_shapes
+from . import EMSSVoltageBeam
+from . import InterpolatedVoltageBeam
+from .InterpolatedVoltageBeam import unite_shapes,unite_multiple_shapes
 
 SYM_SEPARATE = None;
 SYM_X = "X";
@@ -317,7 +319,7 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
       lm_list = [ (lm.vellsets[0].value,lm.vellsets[1].value) ];
       tensor = False;
     else:
-      raise TypeError,"expecting a 2/3-vector or an Nx2/3 matrix for child 0 (lm)";
+      raise TypeError("expecting a 2/3-vector or an Nx2/3 matrix for child 0 (lm)");
     nsrc = len(lm_list);
     dl = dm = masklist = rotate = None;
     # pointing offsets are optional
@@ -326,12 +328,12 @@ class EMSSPolarBeamInterpolatorNode (pynode.PyNode):
     # az/el is optional. If specified, then horizon masking is enabled
     if azel is not None and len(azel.vellsets) > 1:
       if len(azel.vellsets) != nsrc*2:
-        raise TypeError,"expecting a Nx2 matrix for child 2 (azel)";
+        raise TypeError("expecting a Nx2 matrix for child 2 (azel)");
       masklist = [ azel.vellsets[i].value<0 for i in range(1,nsrc*2,2) ];
     # PA is optional. If specified, then this is the rotation angle for interpolation
     if pa is not None:
       if len(pa.vellsets) != 1:
-        raise TypeError,"expecting a single value for child 3 (pa)";
+        raise TypeError("expecting a single value for child 3 (pa)");
       rotate = pa.vellsets[0].value;
     # setup grid dict that will be passed to VoltageBeam.interpolate
     grid = dict();
@@ -383,11 +385,11 @@ class EMSSPolarBeamRaDecInterpolatorNode (EMSSPolarBeamInterpolatorNode):
       radec_list = [ (radec.vellsets[0].value,radec.vellsets[1].value) ];
       tensor = False;
     else:
-      raise TypeError,"expecting a 2-vector or an Nx2 matrix for child 0 (radec)";
+      raise TypeError("expecting a 2-vector or an Nx2 matrix for child 0 (radec)");
     nsrc = len(radec_list);
     # radec0 is a 2-vector
     if len(radec0.vellsets) != 2:
-      raise TypeError,"expecting a 2-vector for child 1 (radec0)";
+      raise TypeError("expecting a 2-vector for child 1 (radec0)");
     ra0,dec0 = radec0.vellsets[0].value,radec0.vellsets[1].value;
     # get offsets and rotations
     masklist = rotate = None;
@@ -399,12 +401,12 @@ class EMSSPolarBeamRaDecInterpolatorNode (EMSSPolarBeamInterpolatorNode):
     # az/el is optional. If specified, then horizon masking is enabled
     if azel is not None and len(azel.vellsets) > 1:
       if len(azel.vellsets) != nsrc*2:
-        raise TypeError,"expecting a Nx2 matrix for child 3 (azel)";
+        raise TypeError("expecting a Nx2 matrix for child 3 (azel)");
       masklist = [ azel.vellsets[i].value<0 for i in range(1,nsrc*2,2) ];
     # PA is optional. If specified, then this is the rotation angle for interpolation
     if pa is not None:
       if len(pa.vellsets) != 1:
-        raise TypeError,"expecting a single value for child 4 (pa)";
+        raise TypeError("expecting a single value for child 4 (pa)");
       rotate = pa.vellsets[0].value;
     thetaphi_list = [];
     # precompute these -- may be functions of time if time-variable pointing is in effect
@@ -463,7 +465,7 @@ def make_beam_node (beam,pattern,lm,radec0=None,dlm=None,azel=None,pa=None):
       for freq in freqs:
         filename = make_beam_filename(pattern,xy,label,freq);
         if not os.path.exists(filename):
-          raise RuntimeError,"Can't find beam pattern file %s"%filename;
+          raise RuntimeError("Can't find beam pattern file %s"%filename);
         per_xy.append(filename);
       per_label.append(per_xy);
     filenames.append(per_label);
@@ -473,7 +475,7 @@ def make_beam_node (beam,pattern,lm,radec0=None,dlm=None,azel=None,pa=None):
   if pa is not None:
     children += [ pa ];
   # now make interpolator node
-  import InterpolatedBeams
+  from . import InterpolatedBeams
   beam << Meq.PyNode(class_name="EMSSPolarBeamInterpolatorNode" if radec0 is None else "EMSSPolarBeamRaDecInterpolatorNode",
                      module_name=__file__,
                      filename=filenames,

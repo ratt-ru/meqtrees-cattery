@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import math
 import numpy
 from Timba.Meq import meq
@@ -35,7 +39,7 @@ def matrix_multiply (A,B):
 
 def matrix_conj (A):
   """Conjugates a matrix given as a flat 4-list""";
-  return [ numpy.conj(A[i]) for i in 0,2,1,3 ];
+  return [ numpy.conj(A[i]) for i in (0,2,1,3) ];
 
 def matrix_transpose (A):
   """Transposes a matrix given as a flat 4-list""";

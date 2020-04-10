@@ -23,7 +23,9 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
@@ -45,7 +47,7 @@ class ListOptionParser (object):
     if self.maxval is None:
       maxval = max(maxval,index);
     if index < minval or index > maxval:
-      raise ValueError,"illegal %s '%d'"%(self.name,index);
+      raise ValueError("illegal %s '%d'"%(self.name,index));
     return index,minval,maxval;
     
   def apply (self,value,objlist=None,names=None):
@@ -64,7 +66,7 @@ class ListOptionParser (object):
       if names is True:
         names = [ str(obj) for obj in (objlist or [])];
       elif len(names) != len(objlist):
-        raise ValueError,"number of names must match number of objects";
+        raise ValueError("number of names must match number of objects");
       name_to_index = dict([(name,i) for i,name in enumerate(names)]);
     # init set of selected indices. If spec starts with an exclusion ("-smth"),
     # start with full set, else with empty set
@@ -84,7 +86,7 @@ class ListOptionParser (object):
         oper = subset.update;
       # standard terms
       if spec.upper() == "ALL":
-        oper(range((maxval or 0)+1));
+        oper(list(range((maxval or 0)+1)));
         continue;
       # single number
       match = re.match("^\d+$",spec);
@@ -98,14 +100,14 @@ class ListOptionParser (object):
         if names and spec in name_to_index: 
           oper([name_to_index[spec]]);
         elif names is not False:
-          raise ValueError,"illegal %s '%s'"%(self.name,spec);
+          raise ValueError("illegal %s '%s'"%(self.name,spec));
         continue;
       if match.group(1):
         index1 = int(match.group(1));
       elif self.minval is not None:
         index1 = self.minval;
       else:
-        raise ValueError,"illegal %s '%s'"%(self.name,spec);
+        raise ValueError("illegal %s '%s'"%(self.name,spec));
       if match.group(2):
         index2 = int(match.group(2));
       elif self.maxval is not None:
@@ -115,7 +117,7 @@ class ListOptionParser (object):
       index1,minval,maxval = self._validate_index(index1,minval,maxval);
       index2,minval,maxval = self._validate_index(index2,minval,maxval);
       # add to subset
-      oper(range(index1,index2+1));
+      oper(list(range(index1,index2+1)));
     # return subset
     subset = sorted(subset);
     if objlist:

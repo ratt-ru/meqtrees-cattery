@@ -23,6 +23,9 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
@@ -72,7 +75,7 @@ def resolve_parameter (name,node,value,tags=[],solvable=True,solvables=None):
       solvables.append(node);
     return node;
   else:
-    raise TypeError,"Parameter '"+name+"' can only be defined as a constant, a node, or a Meow.Parm";
+    raise TypeError("Parameter '"+name+"' can only be defined as a constant, a node, or a Meow.Parm");
   
 
 class Parameterization (object):
@@ -89,8 +92,8 @@ class Parameterization (object):
   
   def __init__(self,ns,name,quals=[],kwquals={}):
     if not isinstance(ns,NodeScope):
-      raise TypeError,"expected NodeScope, got "+ \
-	getattr(ns,'__class__',type(ns)).__name__;
+      raise TypeError("expected NodeScope, got "+ \
+	getattr(ns,'__class__',type(ns)).__name__);
     self.ns0    = ns;
     self.name   = name;
     self._parmnodes = {};
@@ -125,14 +128,14 @@ class Parameterization (object):
     """;
     if not isinstance(value,(int,float,complex,Meow.Parm)) and \
        not is_node(value):
-      raise TypeError,"argument must be a constant, a node, or a Meow.Parm";
+      raise TypeError("argument must be a constant, a node, or a Meow.Parm");
     self._parmdefs[name] = (value,tags,solvable);
     
   def get_value (self,name,default=None):
     """Gets default value for named parm, or None if it is a node or a funklet.""";
     if name not in self._parmdefs:
       if default is None:
-        raise KeyError,"unknown Meow parm '"+name+"'";
+        raise KeyError("unknown Meow parm '"+name+"'");
       else:
         return default;
     value,tags,solvable = self._parmdefs[name];
@@ -154,13 +157,13 @@ class Parameterization (object):
     """;
     if name in self._parmnodes:
       if value is not None:
-        raise TypeError,"duplicate values for Meow parm '"+name+"'";
+        raise TypeError("duplicate values for Meow parm '"+name+"'");
       return self._parmnodes[name];
     # else has to be defined first (possibly)
     if value is None:
       value,tags,solvable = self._parmdefs.get(name,(None,None,None));
       if value is None:
-        raise TypeError,"Meow parm '"+name+"' not previously defined";
+        raise TypeError("Meow parm '"+name+"' not previously defined");
     else:
       self._add_parm(name,value,tags,solvable=solvable);
     # now define the node
@@ -177,7 +180,7 @@ class Parameterization (object):
     """Returns constant corresponding to given parm, or None if parm is non-constant""";
     value,tags,solvable = self._parmdefs.get(name,(None,None,None));
     if value is None:
-      raise TypeError,"Meow parm '"+name+"' not previously defined";
+      raise TypeError("Meow parm '"+name+"' not previously defined");
     if isinstance(value,(int,float,complex)):
       return value;
     return None;

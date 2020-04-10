@@ -31,17 +31,20 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 import sys,time
 import math,struct
 import pickle # for serialization and file io
 # from Dummy import *
 
-from common_utils import *
-from LSM_inner import *
+from .common_utils import *
+from .LSM_inner import *
 from Timba.Meq import meq
 from Timba.TDL import *
-import LSM_Sixpack
+from . import LSM_Sixpack
 from Timba.Meq import meq
 
 from Timba.Apps import app_nogui
@@ -72,7 +75,7 @@ class PUnit:
  def __init__(self,name,lsm):
   # p-Unit name has to be a string
   if type(name) != type(""):
-    raise TypeError,"Name must be a string, not %s"  % type(name).__name__
+    raise TypeError("Name must be a string, not %s"  % type(name).__name__)
   self.name=name
   self.lsm=lsm
   self.type=POINT_TYPE
@@ -339,11 +342,11 @@ class LSM:
      WARNING: this method will be phased out from public to private
   """ 
   # Source names have to be unique
-  if self.s_table.has_key(s.name):
+  if s.name in self.s_table:
    # Print error
    #raise NameError, 'Source '+s.name+' is already present'
    # dont stop, just issue a warning
-   print "WARNING: Source "+s.name+' is already present'
+   print("WARNING: Source "+s.name+' is already present')
    return
   self.s_table[s.name]=s
   """ After inserting the source to source table,
@@ -364,13 +367,13 @@ class LSM:
   p.addSource(s.name)
   
   # all other p-Unit parameters are given be key-word argument list
-  if kw.has_key('brightness'):
+  if 'brightness' in kw:
    p.setBrightness(kw['brightness'])
   else:
    p.setBrightness(0)
 
   # set the sixpack object
-  if kw.has_key('sixpack'):
+  if 'sixpack' in kw:
    p.setSP(kw['sixpack'])
    # set the root
    my_sixpack=p.getSP()
@@ -379,9 +382,9 @@ class LSM:
    self.addToTree(my_sixpack.sixpack())
 
 #  # FIXME for the moment use static RA,Dec
-  if kw.has_key('ra'):
+  if 'ra' in kw:
    p.sp.set_staticRA(kw['ra'])
-  if kw.has_key('dec'):
+  if 'dec' in kw:
    p.sp.set_staticDec(kw['dec'])
   
    p._lm = kw.get('lm',None);
@@ -396,9 +399,9 @@ class LSM:
  # inserts a p-unit into the p-Unit table, and 
  # orders according to the brightness
  def insertPUnit(self,p):
-  if self.p_table.has_key(p.name):
+  if p.name in self.p_table:
    #raise NameError, 'PUnit '+p.name+' is already present'
-   print "WARNING: PUnit '"+p.name+"' is already present. Ignoring insertion"
+   print("WARNING: PUnit '"+p.name+"' is already present. Ignoring insertion")
   else:
    self.p_table[p.name]=p
   # now do the sorting of the brightness array
@@ -427,21 +430,21 @@ class LSM:
 
  # method for printing to screen
  def dump(self):
-  print "---------------------------------"
-  print "Source Table:"
-  for s in self.s_table.keys():
-   print self.s_table[s]
-  print "\n\n"
-  print "P-Unit Table:\n"
-  for p in self.p_table.keys():
-   print self.p_table[p]
-  print "\n\n"
+  print("---------------------------------")
+  print("Source Table:")
+  for s in list(self.s_table.keys()):
+   print(self.s_table[s])
+  print("\n\n")
+  print("P-Unit Table:\n")
+  for p in list(self.p_table.keys()):
+   print(self.p_table[p])
+  print("\n\n")
 
-  print "P-Units sorted in Brightness:\n"
+  print("P-Units sorted in Brightness:\n")
   for p in self.__barr:
-   print p, self.p_table[p].getBrightness()
+   print(p, self.p_table[p].getBrightness())
 
-  print "---------------------------------"
+  print("---------------------------------")
 
  # set the MeqServer Proxy
  def setMQS(self,mqs):
@@ -471,7 +474,7 @@ class LSM:
  def display(self, **kw ):
   d=Dummy(self,sys.argv)
   count=0
-  if kw.has_key('count'):
+  if 'count' in kw:
     count=kw['count']
   if count<0:
    self.display_punits=-1 # all
@@ -479,7 +482,7 @@ class LSM:
    self.display_punits=count
  
 
-  if kw.has_key('app') and (kw['app']=='create'):
+  if 'app' in kw and (kw['app']=='create'):
     d.display(app='create')
   else:
     d.display()
@@ -498,7 +501,7 @@ class LSM:
   return 3
  # return the named p-Unit from the p-Unit table 
  def getPUnit(self,pname):
-  if self.p_table.has_key(pname):
+  if pname in self.p_table:
    return self.p_table[pname]
   # else
   return None 
@@ -507,7 +510,7 @@ class LSM:
  def getPUnits(self):
   # do not count points that belong to a PUnit
   count=0
-  for pname in self.p_table.keys():
+  for pname in list(self.p_table.keys()):
    pu=self.p_table[pname]
    if ((pu.getType()==POINT_TYPE or pu.getType()==GAUSS_TYPE) and pu._patch_name==None) or\
      pu.getType()==PATCH_TYPE:
@@ -533,7 +536,7 @@ class LSM:
   max_Dec=-100
   min_Dec=100
 
-  for p in self.p_table.keys():
+  for p in list(self.p_table.keys()):
    punit=self.p_table[p]
    if punit.getType()==POINT_TYPE :
     tmpval=punit.sp.getRA()
@@ -577,7 +580,7 @@ class LSM:
   else:
    # select the max value
    tmp_max=-1e6
-   for pname in self.p_table.keys():
+   for pname in list(self.p_table.keys()):
     mytype=self.p_table[pname].getType()
     if mytype==POINT_TYPE or mytype==GAUSS_TYPE :
      tmp_val=self.p_table[pname].sp.getValue(type,f,t)
@@ -602,7 +605,7 @@ class LSM:
    # are removed from the __barr. Hence we need to do a 
    # scan of all punits
    tmp_min=1e6 # FIXME: a very large value
-   for pname in self.p_table.keys():
+   for pname in list(self.p_table.keys()):
     mytype=self.p_table[pname].getType()
     if mytype==POINT_TYPE or mytype==GAUSS_TYPE:
      tmp_val=self.p_table[pname].getBrightness()
@@ -612,7 +615,7 @@ class LSM:
   else:
    # select the min value
    tmp_min=1e6
-   for pname in self.p_table.keys():
+   for pname in list(self.p_table.keys()):
     mytype=self.p_table[pname].getType()
     if mytype==POINT_TYPE or mytype==GAUSS_TYPE :
      tmp_val=self.p_table[pname].sp.getValue(type,f,t)
@@ -630,7 +633,7 @@ class LSM:
    tmp_min=1e6 # FIXME: a very large value
    tmp_max=-1e6
    tmp_abs_min=1e6
-   for pname in self.p_table.keys():
+   for pname in list(self.p_table.keys()):
     mytype=self.p_table[pname].getType()
     if mytype==POINT_TYPE or mytype==GAUSS_TYPE:
      tmp_val=self.p_table[pname].getBrightness()
@@ -650,11 +653,11 @@ class LSM:
    return [0,0]
   if (self.cells.segments.freq.start_index > freq_index) or\
     (self.cells.segments.freq.end_index < freq_index):
-    print "get Curr Index error, Frequency %d" %freq_index
+    print("get Curr Index error, Frequency %d" %freq_index)
     freq_index=self.cells.segments.freq.start_index
   if (self.cells.segments.time.start_index > time_index) or\
     (self.cells.segments.time.end_index < time_index):
-    print "get Curr Index error, Time %d" %time_index
+    print("get Curr Index error, Time %d" %time_index)
     time_index=self.cells.segments.time.start_index
 
   f=self.cells.grid.freq[freq_index]
@@ -664,7 +667,7 @@ class LSM:
 
  # update vellset values for the current cells
  def updateCells(self):
-  for sname in self.p_table.keys(): 
+  for sname in list(self.p_table.keys()): 
    punit=self.p_table[sname]
    #if punit.getType()==POINT_TYPE:
    punit.sp.updateValues(sname)
@@ -677,7 +680,7 @@ class LSM:
   # a 'protected.lsm' term
   ii=string.find(filename,'protected.lsm')
   if ii!=-1:
-   print "WARNING: the filename %s is protected. save failed!!!"%filename
+   print("WARNING: the filename %s is protected. save failed!!!"%filename)
    return
   try:
    f=open(filename,'wb') 
@@ -714,7 +717,7 @@ class LSM:
    g.p_table={}
 
    extra_node_list=[]
-   for sname in self.p_table.keys(): 
+   for sname in list(self.p_table.keys()): 
     punit=self.p_table[sname]
     # this is just for testing, add a dummy node thats not in the LSM
     g.p_table[sname]=punit.clone(self.__ns._name)
@@ -730,7 +733,7 @@ class LSM:
    self.__file=filename
 
   except IOError:
-   print "file %s cannot be opened, save failed" % filename 
+   print("file %s cannot be opened, save failed" % filename) 
   
   # next step: save the MeqTrees
   if self.mqs != None:
@@ -771,7 +774,7 @@ class LSM:
       # create a unique name
       new_root_name=ns.MakeUniqueName(self.__root_name)
       oldroot=my_dict.pop(self.__root_name)
-      print "WARNING: changing name from %s to %s"%(self.__root_name,new_root_name)
+      print("WARNING: changing name from %s to %s"%(self.__root_name,new_root_name))
       self.__root_name=new_root_name
       my_dict[self.__root_name]=oldroot
 
@@ -779,24 +782,24 @@ class LSM:
     #self.__root=my_dict[self.__root_name]
    else:
      self.__root=None
-     print "WARNING: cannot find a root node in the LSM. load will fail!"
+     print("WARNING: cannot find a root node in the LSM. load will fail!")
 
    # recreate the extra node list, if any
    if hasattr(tmpl,"_extra_node_list") and len(tmpl._extra_node_list)>0:
-     print "Found extra nodes"
+     print("Found extra nodes")
      extra_root_name=ns.MakeUniqueName(self.__root_name+"_extra")
      ns[extra_root_name]<<Meq.Composer(children=tmpl._extra_node_list)
 
    
    self.p_table=tmpl.p_table
    # reconstruct PUnits and Sixpacks if possible
-   for sname in self.p_table.keys(): 
+   for sname in list(self.p_table.keys()): 
     punit=self.p_table[sname]
     punit.setLSM(self)
     # now create the sixpack
     tmp_dict=punit.getSP()
     #print tmp_dict
-    if tmp_dict.has_key('patchroot'):
+    if 'patchroot' in tmp_dict:
      my_sp=LSM_Sixpack.Sixpack(label=tmp_dict['label'],\
       ns=self.__ns, root=self.__ns[tmp_dict['patchroot']])
     else: 
@@ -819,7 +822,7 @@ class LSM:
    self.setFileName(filename)
 
   except IOError:
-   print "file %s cannot be opened, load failed" % filename 
+   print("file %s cannot be opened, load failed" % filename) 
   # next step: Load the MeqTrees if possible 
   if self.mqs != None:
    pass
@@ -839,31 +842,31 @@ class LSM:
  def queryLSM(self,**kw):
   
   outlist=[]
-  if kw.has_key('all') and kw['all']==1:
-   for pname in self.p_table.keys():
+  if 'all' in kw and kw['all']==1:
+   for pname in list(self.p_table.keys()):
      pu=self.p_table[pname]
      if (((pu.getType()==POINT_TYPE or pu.getType()==GAUSS_TYPE ) and pu._patch_name==None) or\
        pu.getType()==PATCH_TYPE):
        outlist.append(pu)
    return outlist
  
-  if kw.has_key('name'):
+  if 'name' in kw:
    outlist.append(self.p_table[kw['name']])
    return outlist
   
-  if kw.has_key('names'):
+  if 'names' in kw:
    for pname in kw['names']:
-     if self.p_table.has_key(pname):
+     if pname in self.p_table:
       outlist.append(self.p_table[pname])
    return outlist
  
-  if kw.has_key('count'):
+  if 'count' in kw:
    for i in range(min(kw['count'],len(self.__barr))): 
     outlist.append(self.p_table[self.__barr[i]])
    return outlist
 
-  if kw.has_key('cat'):
-    for pname in self.p_table.keys():
+  if 'cat' in kw:
+    for pname in list(self.p_table.keys()):
      pu=self.p_table[pname]
      if pu.getCat()==kw['cat'] and\
       (((pu.getType()==POINT_TYPE or pu.getType()==GAUSS_TYPE ) and pu._patch_name==None) or\
@@ -894,7 +897,7 @@ class LSM:
   sum_y_phi=0
   for sname in slist:
     # select only sources without a patch 
-    if (self.p_table.has_key(sname) and\
+    if (sname in self.p_table and\
        self.p_table[sname]._patch_name ==None):
       correct_slist.append(sname)
       # remove this source from sorted patch list
@@ -980,7 +983,7 @@ class LSM:
       sync_kernel==True:
      self.__ns.Resolve()
      self.mqs.meq('Clear.Forest')
-     self.mqs.meq('Create.Node.Batch',record(batch=map(lambda nr:nr.initrec(),self.__ns.AllNodes().itervalues())));
+     self.mqs.meq('Create.Node.Batch',record(batch=[nr.initrec() for nr in iter(self.__ns.AllNodes().values())]));
      #self.mqs.meq('Resolve.Batch',record(name=list(self.__ns.RootNodes().iterkeys())))
      # is a forest state defined?
      fst = getattr(Timba.TDL.Settings,'forest_state',record());
@@ -1072,7 +1075,7 @@ class LSM:
   #print ybins
 
 
-  for sname in self.p_table.keys(): 
+  for sname in list(self.p_table.keys()): 
     punit=self.p_table[sname]
     pb=punit.getBrightness('A')
     if  punit.getType()==POINT_TYPE and\
@@ -1116,9 +1119,9 @@ class LSM:
     patch_name="Patch#"+str(ii+1)+":"+str(jj+1)
     patch_bins[patch_name]=[]
  
-  for sname in p_id_x.keys():
+  for sname in list(p_id_x.keys()):
     ii=p_id_x[sname]
-    if p_id_y.has_key(sname):
+    if sname in p_id_y:
      jj=p_id_y[sname]
      patch_name="Patch#"+str(ii)+":"+str(jj)
      patch_bins[patch_name].append(sname)
@@ -1137,7 +1140,7 @@ class LSM:
   # remember return values from single patch creation
   retval_arr=[]
   new_punit_names=[]
-  for pname in patch_bins.keys():
+  for pname in list(patch_bins.keys()):
    # note: we do not send anything to the kernel
    # when we recreate the forest, that will be done later
    # note: create patches with at least two sources in it
@@ -1167,14 +1170,14 @@ class LSM:
      #print "Sending request to kernel"
      self.__ns.Resolve()
      self.mqs.meq('Clear.Forest')
-     self.mqs.meq('Create.Node.Batch',record(batch=map(lambda nr:nr.initrec(),self.__ns.AllNodes().itervalues())));
-     self.mqs.meq('Resolve.Batch',record(name=list(self.__ns.RootNodes().iterkeys())))
+     self.mqs.meq('Create.Node.Batch',record(batch=[nr.initrec() for nr in iter(self.__ns.AllNodes().values())]));
+     self.mqs.meq('Resolve.Batch',record(name=list(self.__ns.RootNodes().keys())))
      # is a forest state defined?
      fst = getattr(Timba.TDL.Settings,'forest_state',record());
      self.mqs.meq('Set.Forest.State',record(state=fst));
      # update vellset values for all newly created PUnits
      for pname in new_punit_names:
-      print "Updating Punit ",pname
+      print("Updating Punit ",pname)
       punit=self.getPUnit(pname)
       #punit.sp.updateValues(pname)
 
@@ -1234,9 +1237,9 @@ class LSM:
  # sixpack  =sixpack_object
  # ns       =nodescope, if not given the default one in LSM used
  def add_sixpack(self,**kw):
-  if kw.has_key('sixpack'):
+  if 'sixpack' in kw:
    my_sp=kw['sixpack']
-   if kw.has_key('ns'):
+   if 'ns' in kw:
     ns=kw['ns']
     if self.__ns==None:
      self.__ns=ns # update the LSM
@@ -1258,7 +1261,7 @@ class LSM:
    #self.addToTree(my_sp.sixpack())
    #print self.__root
   else:
-   print "WARNING: add_sixpack() called without giving a sixpack. Ignored!"
+   print("WARNING: add_sixpack() called without giving a sixpack. Ignored!")
    pass
 
  #****************************************************************************************
@@ -1448,7 +1451,7 @@ class LSM:
    punit=self.getPUnit(pname)
    ns=self.getNodeScope()
    if ns==None:
-    print "WARNING: need nodescope to move item", pname
+    print("WARNING: need nodescope to move item", pname)
    if punit.getType()==POINT_TYPE and ns!=None:
     # remember original location for undo()
     old_ra=punit.sp.getRA()
@@ -1466,7 +1469,7 @@ class LSM:
  def linear_transform(self,A,b):
    ns=self.getNodeScope()
    if ns==None:
-    print "WARNING: need nodescope to perform transform:",A,b
+    print("WARNING: need nodescope to perform transform:",A,b)
     return
    self.__undo=None # cannot undo this
    # try to create a progress window if under GUI mode
@@ -1477,7 +1480,7 @@ class LSM:
     lpb.show()
     i=0
 
-   for pname in self.p_table.keys():
+   for pname in list(self.p_table.keys()):
     pu=self.p_table[pname]
     old_ra=pu.sp.getRA()
     old_dec=pu.sp.getDec()
@@ -1517,14 +1520,14 @@ class LSM:
      tmpl.__root=self.__root
    
    # reconstruct PUnits and Sixpacks if possible
-   for sname in tmpl.p_table.keys(): 
-    if not self.p_table.has_key(sname):
+   for sname in list(tmpl.p_table.keys()): 
+    if sname not in self.p_table:
        punit=tmpl.p_table[sname]
        punit.setLSM(self)
        # now create the sixpack
        tmp_dict=punit.getSixpack()
        #print tmp_dict
-       if tmp_dict.has_key('patchroot'):
+       if 'patchroot' in tmp_dict:
            my_sp=LSM_Sixpack.Sixpack(label=tmp_dict['label'],\
             ns=self.__ns, root=self.__ns[tmp_dict['patchroot']])
        else: 
@@ -1543,17 +1546,17 @@ class LSM:
        # add the new PUnit to self
        self.insertPUnit(punit)
     else:
-     print "WARNING: PUnit %s already found. Ignoring"%sname
+     print("WARNING: PUnit %s already found. Ignoring"%sname)
 
    # reconstruct source table too...
-   for sname in tmpl.s_table.keys():
-    if not self.s_table.has_key(sname):
+   for sname in list(tmpl.s_table.keys()):
+    if sname not in self.s_table:
      # add source to source table
      self.s_table[sname]=Source(sname)
    f.close()
 
   except IOError:
-   print "file %s cannot be opened, load failed" % filename 
+   print("file %s cannot be opened, load failed" % filename) 
   # next step: Load the MeqTrees if possible 
   if self.mqs != None:
    pass
@@ -1733,7 +1736,7 @@ class LSM:
             # NEWSTAR MDL lists might have same source twice if they are 
             # clean components, so make a unique name for them
             bname='NEWS'+str(id);
-            if unamedict.has_key(bname):
+            if bname in unamedict:
               uniqname=bname+'_'+str(unamedict[bname])
               unamedict[bname]=unamedict[bname]+1
             else:
@@ -1769,7 +1772,7 @@ class LSM:
             # NEWSTAR MDL lists might have same source twice if they are 
             # clean components, so make a unique name for them
             bname='NEWS'+str(id);
-            if unamedict.has_key(bname):
+            if bname in unamedict:
               uniqname=bname+'_'+str(unamedict[bname])
               unamedict[bname]=unamedict[bname]+1
             else:
@@ -1801,7 +1804,7 @@ class LSM:
           # NEWSTAR MDL lists might have same source twice if they are 
           # clean components, so make a unique name for them
           bname = ('NEWS' if bit2 else 'NEWS')+str(id);
-          if unamedict.has_key(bname):
+          if bname in unamedict:
             uniqname=bname+'_'+str(unamedict[bname])
             unamedict[bname]=unamedict[bname]+1
           else:
@@ -1833,7 +1836,7 @@ class LSM:
     self.setFileName(infile_name+'.lsm')
     
     if verbose==1:
-      print "Read %d sources from NewStar file %s created %s:%s"%(nsources,infile_name,crdate,crtime)
+      print("Read %d sources from NewStar file %s created %s:%s"%(nsources,infile_name,crdate,crtime))
 
 
  ## build from a text file of clean components
@@ -1907,7 +1910,7 @@ class LSM:
    if len(ff) >= 11:
     name = ff[0];
     try:
-      cols = map(float,ff[1:11]);
+      cols = list(map(float,ff[1:11]));
     except:
       continue;	
     
@@ -1941,7 +1944,7 @@ class LSM:
  ## NAME RA(hours, min, sec) DEC(degrees, min, sec) sI sQ sU sV SI RM eX eY eP f0(optional)
  def build_from_extlist_orig(self,infile_name,ns,ignore_pol=False,f0=None):
 #def build_from_extlist(self,infile_name,ns,ignore_pol=False,f0=None):
-  print 'should be reading ',infile_name
+  print('should be reading ',infile_name)
   infile=open(infile_name,'r')
   all=infile.readlines()
   infile.close()
@@ -1986,9 +1989,9 @@ class LSM:
 
   kk=0
   for eachline in all:
-   print 'eachline is ', eachline
+   print('eachline is ', eachline)
    v=pp.search(eachline)
-   print '** v is ', v
+   print('** v is ', v)
    if v!=None:
     #### if we have negative RA, we have to subtract min,sec!!
     source_RA=float(v.group('col2'))
@@ -2004,7 +2007,7 @@ class LSM:
     else:
       source_Dec=float(v.group('col5'))+(float(v.group('col7'))/60.0+float(v.group('col6')))/60.0
     source_Dec*=math.pi/180.0
-    print 'source pos ', source_RA, source_Dec
+    print('source pos ', source_RA, source_Dec)
 
     sI=float(v.group('col8'))
     #convert to percentages
@@ -2028,10 +2031,10 @@ class LSM:
 
     kk=kk+1
 
-    print 'extlist parms ', sI,sQ,sU,sV,SI,RM;
+    print('extlist parms ', sI,sQ,sU,sV,SI,RM);
     freq0 = v.group('col17');
     freq0 = (freq0 and eval(freq0)) or f0 or 1e6; 
-    print 'sI, sQ, sU, sV, RM, ref freq', sI, sQ, sU, sV, RM, freq0
+    print('sI, sQ, sU, sV, RM, ref freq', sI, sQ, sU, sV, RM, freq0)
     if (ignore_pol==True or (sQ==0 and sU==0 and sV==0 and RM==0)):
      my_sixpack=LSM_Sixpack.newstar_source(ns,punit=s.name,I0=sI, SI=SI, f0=freq0, RA=source_RA, Dec=source_Dec,trace=0)
     elif (SI==0 and RM==0):
@@ -2056,7 +2059,7 @@ class LSM:
   
 
   from string import split, strip
-  print 'should be reading ',infile_name
+  print('should be reading ',infile_name)
   infile=open(infile_name,'r')
   all=infile.readlines()
   infile.close()
@@ -2065,7 +2068,7 @@ class LSM:
   for eachline in all:
    if True:
     info = split(strip(eachline))
-    print 'info is ', info
+    print('info is ', info)
     #### if we have negative RA, we have to subtract min,sec!!
     source_RA=float(info[1])
     if source_RA<0:
@@ -2080,7 +2083,7 @@ class LSM:
     else:
       source_Dec=float(info[4])+(float(info[6])/60.0+float(info[5]))/60.0
     source_Dec*=math.pi/180.0
-    print 'source pos ', source_RA, source_Dec
+    print('source pos ', source_RA, source_Dec)
 
     sI=float(info[7])
     #convert to percentages
@@ -2104,10 +2107,10 @@ class LSM:
 
     kk=kk+1
 
-    print 'extlist parms ', sI,sQ,sU,sV,SI,RM;
+    print('extlist parms ', sI,sQ,sU,sV,SI,RM);
     freq0 = info[16];
     freq0 = (freq0 and eval(freq0)) or f0 or 1e6; 
-    print 'sI, sQ, sU, sV, RM, ref freq', sI, sQ, sU, sV, RM, freq0
+    print('sI, sQ, sU, sV, RM, ref freq', sI, sQ, sU, sV, RM, freq0)
     if (ignore_pol==True or (sQ==0 and sU==0 and sV==0 and RM==0)):
      my_sixpack=LSM_Sixpack.newstar_source(ns,punit=s.name,I0=sI, SI=SI, f0=freq0, RA=source_RA, Dec=source_Dec,trace=0)
     elif (SI==0 and RM==0):
@@ -2219,7 +2222,9 @@ class LSM:
   f.write("## name h m s d m s I Q U V spectral_index RM extent_X(rad) extent_Y(rad) pos_angle(rad) freq0\n");
   # sort list by I fluxes
   plist = [ (pu,pu.getEssentialParms(ns)[2]) for pu in plist ];
-  plist.sort(lambda a,b:cmp(b[1],a[1]));
+  from past.builtins import cmp
+  from functools import cmp_to_key
+  plist.sort(key=cmp_to_key(lambda a,b:cmp(b[1],a[1])));
   for pu,iflux in plist:
      (ra,dec,sI,sQ,sU,sV,SIn,f0,RM)=pu.getEssentialParms(ns)
      (eX,eY,eP)=pu.getExtParms()

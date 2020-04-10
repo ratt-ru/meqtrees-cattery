@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Timba.TDL import *
 
 
@@ -8,7 +12,7 @@ def namify (arg):
   elif is_node(arg):
     return arg.name;
   else:
-    raise TypeError,"node name or node object expected, got '%s'"%str(type(arg));
+    raise TypeError("node name or node object expected, got '%s'"%str(type(arg)));
 
 
 
@@ -52,7 +56,7 @@ class SolverControl (object):
     # add a solvable command
     # either 'solvables' is specified by name, or a cmdlist record/list of records is given
     if solvables:
-      solvables = map(namify,solvables);
+      solvables = list(map(namify,solvables));
       solver_defaults.solvable         = record(command_by_list=(record(name=solvables,
                                                 state=record(solvable=True)),
                                                 record(state=record(solvable=False))))

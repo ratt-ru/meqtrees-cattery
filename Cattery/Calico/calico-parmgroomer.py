@@ -23,6 +23,9 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
@@ -95,7 +98,7 @@ aggregators = [
 
 def _define_forest (ns,**kw):
   if parmtab is None:
-    raise RuntimeError,"please select a valid parmtable in compile-time options";
+    raise RuntimeError("please select a valid parmtable in compile-time options");
   # make one MeqParm per each funklet
   parmdef = Meq.Parm(table_name=parmtable_name);
   parmnodes = dict([(name,(ns[name] << parmdef)) for name in parmtab.funklet_names()]);
@@ -106,7 +109,7 @@ def _define_forest (ns,**kw):
   while reprocess:
     reprocess = False;
     # see if we have recipe for making compound objects based on last funklet name qualifier
-    nqlist = [ name.rsplit(':',1) for name in parmnodes.iterkeys() if ':' in name ];
+    nqlist = [ name.rsplit(':',1) for name in parmnodes.keys() if ':' in name ];
     # set of basenames and set of all qualifiers
     basenames = set([nq[0] for nq in nqlist]);
     quals = set([nq[1] for nq in nqlist]);
@@ -128,8 +131,9 @@ def _define_forest (ns,**kw):
             reprocess = True;
 
   # sort nodes by qualified name
-  nodes = list(parmnodes.iteritems());
-  nodes.sort(lambda a,b:ParmTables.cmp_qualified_names(a[0],b[0]));
+  nodes = list(parmnodes.items());
+  from functools import cmp_to_key
+  nodes.sort(key=cmp_to_key(lambda a,b:ParmTables.cmp_qualified_names(a[0],b[0])));
   nodes = [ namenode[1] for namenode in nodes ];
   
   # make intermediate math node

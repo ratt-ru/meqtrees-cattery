@@ -23,7 +23,9 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.TDL import *
 import random
 import math
@@ -54,7 +56,7 @@ class ErrorGenerator (object):
     return label;
     
   def make_node (self,node):
-    raise TypeError,"make_node() must be implemented in subclass";
+    raise TypeError("make_node() must be implemented in subclass");
 
 
 class NoError (ErrorGenerator):
@@ -74,7 +76,7 @@ class ListOfValues (ErrorGenerator):
   def __init__ (self,name,nominal_value=0,typical_error=0,**kw):
     ErrorGenerator.__init__(self,name,nominal_value,typical_error=[0],**kw);
     self.opts.append(TDLOption('values_str',self.make_label("%s values"),
-                     map(str,typical_error) if isinstance(typical_error,(list,tuple)) else [str(typical_error)],
+                     list(map(str,typical_error)) if isinstance(typical_error,(list,tuple)) else [str(typical_error)],
                      more=str,
                      doc="Enter list of values, separated by spaces. Last value will be reused.",
                      namespace=self));
@@ -84,7 +86,7 @@ class ListOfValues (ErrorGenerator):
   
   def make_node (self,node,**kw):
     if self.values is None:
-      self.values = map(float,self.values_str.strip().split());
+      self.values = list(map(float,self.values_str.strip().split()));
     if self.ngen >= len(self.values):
       node << self.values[-1]*self.factor;
     else:
@@ -154,7 +156,7 @@ class RandomPolc (ErrorGenerator):
     Meow.Context.mssel.when_changed(self.set_ms);
 
   def set_ms (self,msname):
-    times = Meow.MSUtils.TABLE(msname).getcol("TIME");
+    times = Meow.MSUtils.TABLE(str(msname)).getcol("TIME");
     t0,t1 = min(times),max(times);
     self._offset_opt.set_custom_value(t0/(24*3600));
     self._scale_opt.set_custom_value((t1-t0)/3600);
@@ -172,7 +174,7 @@ class RandomPolc (ErrorGenerator):
     ns.offset << Meq.Parm(polc);
     node << ns.offset*self.factor;
     if self.dump:
-      file(self.dump,'a').write("%s %f %f %s\n"%(station,offset,scale,
+      open(self.dump,'a').write("%s %f %f %s\n"%(station,offset,scale,
           " ".join(["%f"%c for c in coeff])));
     return node;
 
@@ -222,7 +224,7 @@ class Selector (object):
   def _show_gen_options (self,model):
     genobj0 = None;
     # hide all "other" options
-    for genclass,genobj in self._generators.iteritems():
+    for genclass,genobj in self._generators.items():
       if genclass == model:
         genobj0 = genobj;
       else:

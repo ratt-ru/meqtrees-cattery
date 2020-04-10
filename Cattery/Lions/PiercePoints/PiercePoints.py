@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Timba.TDL import *
 from Timba.Meq import meq
 from Lions.MIM_model import *
@@ -166,7 +170,7 @@ class PiercePoints(MIM_model):
                 nm = 'l.' + str(pd['l'][0]) + '.m.' + str(pd['m'][0])
             else:
                 nm = 'ra.' + str(pd['ra'][0]) + '.dec.' + str(pd['dec'][0])
-            print "creating file for", nm
+            print("creating file for", nm)
             for station in self.stations:
                 filename = "phases_" + nm + "_" + str(station) + ".dat"
                 log = ns['station_log'](src, station)
@@ -181,7 +185,7 @@ class PiercePoints(MIM_model):
             # ip=self.ns.inspector<<Meow.StdTrees.define_inspector(self.create_log_nodes(),self.src,self.stations);
             ip = self.ns['inspector']('lognodes') << Meow.StdTrees.define_inspector(self.create_station_log_nodes(), self.src, self.stations)
             inspectors.append(ip)
-        print "INSPECTORS:::::", inspectors
+        print("INSPECTORS:::::", inspectors)
         return inspectors
 
 
@@ -201,7 +205,7 @@ def create_inproduct(ns, a, b, length=0):
         length = a.num_children()
         length_b = b.num_children()
         if length != length_b:
-            print "Vectors must be of same length!!!, using smallest"
+            print("Vectors must be of same length!!!, using smallest")
             length = min(length, length_b)
     sumdot = 0
 #    print "creating dot product of length",length;

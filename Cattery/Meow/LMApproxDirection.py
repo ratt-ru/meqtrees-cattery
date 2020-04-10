@@ -24,10 +24,13 @@
 # or write to the Free Software Foundation, Inc., 
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from LMDirection import LMDirection
+from .LMDirection import LMDirection
 import math
 
 
@@ -74,8 +77,8 @@ class LMApproxDirection (LMDirection):
     """Make a new object for its mirror direction (w.r.t. l=0, m=0).
     The argument axes can be 'lm', 'l' and 'm'. NB: Move to LMDirection..."""
     if not axes in ['l','m','lm']:
-      print 'axes =',axes,', should be in:',['l','m','lm']
-      raise ValueError,'mirror axes not recognised: '+str(axes)
+      print('axes =',axes,', should be in:',['l','m','lm'])
+      raise ValueError('mirror axes not recognised: '+str(axes))
     l,m = self._lm()
     if axes in ['l','lm']:
       l = self.ns.mirror_l << Meq.Negate(l)
@@ -91,15 +94,15 @@ class LMApproxDirection (LMDirection):
 
 if __name__ == '__main__':
 
-  from IfrArray import IfrArray
-  from  Observation import Observation
-  import Context
-  from Direction import Direction
+  from .IfrArray import IfrArray
+  from  .Observation import Observation
+  from . import Context
+  from .Direction import Direction
   
   ns = NodeScope();
 
   num_stations = 3
-  ANTENNAS = range(1,num_stations+1)
+  ANTENNAS = list(range(1,num_stations+1))
   array = IfrArray(ns,ANTENNAS)
   observation = Observation(ns)
   Context.set(array, observation)
@@ -114,9 +117,9 @@ if __name__ == '__main__':
     # ref = LMDirection(ns, 'ref', l=2*dl, m=2*dm, quals=quals)
     # ref = Direction(ns, 'ref', ra=0.0, dec=1.0, quals=quals)
     lmn = lma.lmn(dir0=ref)
-    print 'lmn:',str(lmn)
+    print('lmn:',str(lmn))
 
 
   if 1:
     mir = lma.mirror()
-    print str(mir)
+    print(str(mir))

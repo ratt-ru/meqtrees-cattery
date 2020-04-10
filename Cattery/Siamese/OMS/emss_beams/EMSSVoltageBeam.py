@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 import os.path
 import re
 
 from scipy import interpolate
 
-import InterpolatedVoltageBeam
-from InterpolatedVoltageBeam import *
-from InterpolatedVoltageBeam import _verbosity,dprint,dprintf
+from . import InterpolatedVoltageBeam
+from .InterpolatedVoltageBeam import *
+from .InterpolatedVoltageBeam import _verbosity,dprint,dprintf
 
 def _loadPattern (filename,grid=True,rotate_xy=True,proj_theta=False):
     """Load EMSS pattern from the specified file.
@@ -18,7 +21,7 @@ def _loadPattern (filename,grid=True,rotate_xy=True,proj_theta=False):
     freq is the frequency at which the beam is defined, and gainOffset is the normalized offset at center.
     """
     # Read file
-    lines = file(filename).readlines()
+    lines = open(filename).readlines()
     # Setup regexp to parse one line of pat file
     floatNum = r'([0-9.+\-E]+)'
     complexNum = r'\(\s*' + floatNum + r',\s*' + floatNum + r'\)'
@@ -53,12 +56,12 @@ def _loadPattern (filename,grid=True,rotate_xy=True,proj_theta=False):
       # and phi slower
       # check that phi is sorted
       if (phi[1:]-phi[:-1]).min() < 0:
-        raise TypeError,"%s: phi axis not monotonically increasing"%filename;
+        raise TypeError("%s: phi axis not monotonically increasing"%filename);
       nphi = len(numpy.unique(phi));
       ntheta = ndata//nphi;
 #      print filename,nphi,ntheta,nphi*ntheta,ndata;
       if nphi*ntheta != ndata:
-        raise TypeError,"%s: uneven number of samples"%filename;
+        raise TypeError("%s: uneven number of samples"%filename);
       # reshape arrays into nphi x ntheta array
       shape = (nphi,ntheta);
       dprint(2,"data shape is",shape);
@@ -69,9 +72,9 @@ def _loadPattern (filename,grid=True,rotate_xy=True,proj_theta=False):
       # check that results are sensible: phi had better be constant along the second axis,
       # and theta along the first
       if not (phi.min(1)==phi.max(1)).all():
-        raise TypeError,"%s: phi axis malformed"%filename;
+        raise TypeError("%s: phi axis malformed"%filename);
       if not (theta.min(0)==theta.max(0)).all():
-        raise TypeError,"%s: phi axis malformed"%filename;
+        raise TypeError("%s: phi axis malformed"%filename);
       phi = phi[:,0];
       theta = theta[0,:];
       dprint(2,"phi grid is (deg)",phi);
@@ -152,9 +155,9 @@ def loadPatternSet (filenames,y=False,rotate_xy=True,proj_theta=False):
       beamcube = numpy.zeros((len(phi),len(theta),len(filenames)),complex);
     else:
       if baseshape != beam.shape:
-        raise TypeError,"file %s has different dimensions"%filename;
+        raise TypeError("file %s has different dimensions"%filename);
       if not((phi==phi0).all() and (theta==theta0).all()):
-        raise TypeError,"file %s has different grid"%filename;
+        raise TypeError("file %s has different grid"%filename);
     beamcube[:,:,ifreq] = beam[:,:];
   dprint(2,"beam array has shape",beamcube.shape);
   dprint(2,"frequencies are",freqs);
@@ -187,14 +190,14 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
       beamcube /= normalization_factor;
     self.setFreqGrid(freqs);
     if len(freqs) > 1:
-      self._freqmap = interpolate.interp1d(freqs,range(len(freqs)),'linear',bounds_error=False,fill_value=numpy.nan);
+      self._freqmap = interpolate.interp1d(freqs,list(range(len(freqs))),'linear',bounds_error=False,fill_value=numpy.nan);
     else:
       self._freqmap = None;
     self._phi0 = phi0;
     self._theta0 = theta0;
     # note that coordinates out of the given phi/theta range will be converted to NANs
-    self._phimap = interpolate.interp1d(phi0,range(len(phi0)),'linear',bounds_error=False,fill_value=numpy.nan);
-    self._thetamap = interpolate.interp1d(theta0,range(len(theta0)),'linear',bounds_error=False,fill_value=numpy.nan);
+    self._phimap = interpolate.interp1d(phi0,list(range(len(phi0))),'linear',bounds_error=False,fill_value=numpy.nan);
+    self._thetamap = interpolate.interp1d(theta0,list(range(len(theta0))),'linear',bounds_error=False,fill_value=numpy.nan);
     self.setBeamCube(beamcube);
   
   def hasFrequencyAxis (self):
@@ -202,7 +205,7 @@ class EMSSVoltageBeamPS (InterpolatedVoltageBeam):
   
   def freqToBeam (self,freq):
     if self._freqmap is None:
-      raise RuntimeError,"attempting to interpolate in frequency, but frequency axis is not set. This is a bug!";
+      raise RuntimeError("attempting to interpolate in frequency, but frequency axis is not set. This is a bug!");
     # interpolate from grid back to linear 0...n-1 range
     freqcoord = self._freqmap(freq);
     # out-of-bounds values filled by NANs -- get a mask of these, issue warning, and reset to 0 and N-1
@@ -318,7 +321,7 @@ class EMSSVoltageBeamGridder (object):
     dprint(3,"interpolating frequencies");
     l1,m1 = numpy.meshgrid(numpy.arange(len(l)),numpy.arange(len(m)));
     if len(self.freq) > 1:
-      f1 = interpolate.interp1d(self.freq,range(len(self.freq)),'linear')(freqgrid);
+      f1 = interpolate.interp1d(self.freq,list(range(len(self.freq))),'linear')(freqgrid);
     else:
       f1 = numpy.array(0.);
     l1,f1 = unite_shapes(l1,f1);
@@ -345,9 +348,9 @@ if __name__ == "__main__":
   b = vb.interpolate(l,l.T,freq=[1.456e+9,1.457e+9,1.458e+9],freqaxis=2);
   c = vb.interpolate(l,l.T,freq=[1.455e+9,1.457e+9,1.458e+9,1.46e+9],freqaxis=2);
 
-  print "C",c.shape,c;
-  print "B",b.shape,b;
-  print "A",a.shape,a;
+  print("C",c.shape,c);
+  print("B",b.shape,b);
+  print("A",a.shape,a);
   
   freq0 = 1e+9;
   dfreq = 0.1e+9;

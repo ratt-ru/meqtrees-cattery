@@ -23,12 +23,15 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Timba.Meq import meq
-from SkyComponent import *
-from Direction import Direction
-import Context
+from .SkyComponent import *
+from .Direction import Direction
+from . import Context
 
 class SixpackComponent (SkyComponent):
   """SixpackComponent is an abstract component type that deals with
@@ -63,7 +66,7 @@ class SixpackComponent (SkyComponent):
     self._interpol_debug = True;
 
   def sixpack (self):
-    raise TypeError,type(self).__name__+".sixpack() not defined";
+    raise TypeError(type(self).__name__+".sixpack() not defined");
 
   def set_options (self,fft_pad_factor=None,interpol_method=None,interpol_debug=None):
     """Sets various options for the fft/interpolation:

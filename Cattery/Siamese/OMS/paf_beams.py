@@ -29,6 +29,9 @@ from FITS files and interpolated via a PyNode. Multiple beam patterns are read
 in, and put together using a weights vector.</P>
 
 <P align="right">Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;</P>""";
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 import Meow
@@ -40,7 +43,7 @@ import os
 import os.path
 import random
 import math
-import cPickle
+import pickle
 DEG = math.pi/180;
 
 TDLCompileOption("filename_pattern","Filename pattern",["beam_$(elem)_$(xy)_$(reim).fits"],more=str,doc="""<P>
@@ -124,7 +127,7 @@ def make_beam_node (beam,pattern,l_offset,m_offset,*children):
       filename_imag.append(make_beam_filename(pattern,elem,corr,'im'));
   # if we end up with only one unique filename, make a scalar-mode interpolator
   # now make interpolator node
-  import CompoundInterpolatedBeams
+  from . import CompoundInterpolatedBeams
   beam << Meq.PyNode(class_name="FITSCompoundBeamInterpolatorNode",module_name=CompoundInterpolatedBeams.__file__,
                      filename_real=filename_real,filename_imag=filename_imag,
                      l_0=l_offset,m_0=m_offset,
@@ -150,9 +153,9 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
 
   # read offsets file
   if read_offsets_file:
-    offsets = map(float,open(offsets_file).read().split());
+    offsets = list(map(float,open(offsets_file).read().split()));
     if len(offsets) < (beam_number+1)*2:
-      raise ValueError,"beam number %d not found in offsets file"%beam_number;
+      raise ValueError("beam number %d not found in offsets file"%beam_number);
     l_offset,m_offset = offsets[beam_number*2:(beam_number+1)*2];
     if invert_l:
       l_offset = -l_offset;
@@ -181,13 +184,13 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
 
 
   # now load weights
-  wx = cPickle.load(open(weight_filename_x));
-  wy = cPickle.load(open(weight_filename_y));
+  wx = pickle.load(open(weight_filename_x, "rb"));
+  wy = pickle.load(open(weight_filename_y, "rb"));
   if wx.shape[1] != num_elements or wy.shape[1] != num_elements:
-    raise ValueError,"""weights files contain weights for %d (X) and %d (Y) complex
-                      elements, %d expected"""%(wx.shape[1],wy.shape[1],num_elements);
+    raise ValueError("""weights files contain weights for %d (X) and %d (Y) complex
+                      elements, %d expected"""%(wx.shape[1],wy.shape[1],num_elements));
   if beam_number > wx.shape[0] or beam_number > wy.shape[0]:
-    raise ValueError,"beam number %d not found in weights files"%beam_number;
+    raise ValueError("beam number %d not found in weights files"%beam_number);
 
   # w0:x and w0:y are the nominal weight vectors
   ns.w0('x') << Meq.Constant(value=wx[beam_number,:]);
@@ -232,11 +235,11 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
     # norm towards source is average per-station norm
     if per_station:
       for src in sources:
-        Jones(src,"norm") << Meq.Add(*[Jones(src,p,"norm") for p in stations])/len(stations);
+        Jones(src,"norm") << Meq.Add(*[Jones(src,p,"norm") for p in stations])/len(stations); #average must be float
   elif do_correct:
     if per_station:
       for src in sources:
-        Jones(sources[0],"norm") << Meq.Add(*[Jones(sources[0],p,"norm") for p in stations])/len(stations);
+        Jones(sources[0],"norm") << Meq.Add(*[Jones(sources[0],p,"norm") for p in stations])/len(stations); #average must be float
     for src in sources[1:]:
       Jones(src,"norm") << Meq.Identity(Jones(sources[0],"norm"));
   else:

@@ -28,6 +28,9 @@
 Siamese.OMS.analytic_beams and Calico.OMS.wsrt_beams.</P> 
 
 <P>Author: O. Smirnov.</P>""";
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from Timba.TDL import *
 from Meow import Context
@@ -35,7 +38,7 @@ from Meow import Context
 import random
 import math
 
-import ErrorGens
+from . import ErrorGens
 
 
 DEG = math.pi/180.;

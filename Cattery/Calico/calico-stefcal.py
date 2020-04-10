@@ -25,6 +25,10 @@
 #
 
  # standard preamble
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Timba.TDL import *
 from Timba.Meq import meq
 import math
@@ -192,7 +196,7 @@ import Purr.Pipe
 
 def _define_forest(ns,parent=None,**kw):
   if not mssel.msname:
-    raise RuntimeError,"MS not set";
+    raise RuntimeError("MS not set");
   if run_purr:
     Timba.TDL.GUI.purr(mssel.msname+".purrlog",[mssel.msname,'.']);
   # create Purr pipe
@@ -232,7 +236,9 @@ def _define_forest(ns,parent=None,**kw):
     dg_groups += [ (src.name,[src]) for src in dg_sources if not src.get_attr(diffgain_group,None) ];
     # now sort by brightness
     flux_dgg = [ (sum([src.get_attr('Iapp',0) or src.get_attr('I') for src in dgg[1]]),dgg) for dgg in dg_groups ];
-    flux_dgg.sort(lambda a,b:cmp(b[0],a[0]));
+    from past.builtins import cmp
+    from functools import cmp_to_key
+    flux_dgg.sort(key=cmp_to_key(lambda a,b:cmp(b[0],a[0])));
     diffgain_labels = [ dgg[0] for flux,dgg in flux_dgg ];
     groups += [ dgg[1] for flux,dgg in flux_dgg ];
     num_diffgains = len(flux_dgg);
@@ -246,7 +252,7 @@ def _define_forest(ns,parent=None,**kw):
       if not i and read_ms_model:
         MT = ns.MT << Meq.Add(MT,mtuv)
       models.append(MT);
-    print "Number of diffgain predict groups:",len(groups);
+    print("Number of diffgain predict groups:",len(groups));
   else:
     diffgain_labels = [];
     num_diffgains = 0;
@@ -295,7 +301,7 @@ def _define_forest(ns,parent=None,**kw):
   # make output bookmarks
   nv = 0;
   for p,q in array.ifrs():
-    sel = ns.output_sel(p,q) << Meq.Selector(ns.stefcal,index=range(nv,nv+4),multi=True);
+    sel = ns.output_sel(p,q) << Meq.Selector(ns.stefcal,index=list(range(nv,nv+4)),multi=True);
     ns.output(p,q) << Meq.Composer(sel,dims=[2,2]);
     nv += 4;
   meqmaker.make_per_ifr_bookmarks(ns.output,"Output visibilities");
@@ -369,13 +375,13 @@ def _run_stefcal (mqs,parent,wait=False):
   # remove tables
   for fname in to_remove:
     if os.path.exists(fname):
-      print "Removing %s as requested"%fname;
+      print("Removing %s as requested"%fname);
       try:
         os.unlink(fname);
       except:
         traceback.print_exc();
-        print "Error removing %s"%fname;
+        print("Error removing %s"%fname);
     else:
-      print "%s does not exist, so not trying to remove"%fname;
+      print("%s does not exist, so not trying to remove"%fname);
   mqs.clearcache('VisDataMux');
   mqs.execute('VisDataMux',mssel.create_io_request(),wait=wait);

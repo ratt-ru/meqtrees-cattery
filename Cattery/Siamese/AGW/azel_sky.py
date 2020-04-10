@@ -27,14 +27,16 @@
 a fixed position on the sky). This is typical of RFI sources.</P> 
 
 <P>Author: T. WIllis</P>""";
-
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 from Timba.TDL import *
 import Meow
 import math
 
 DEG = math.pi/180.;
-ARCMIN = DEG/60;
-ARCSEC = ARCMIN/60;
+ARCMIN = DEG/60.;
+ARCSEC = ARCMIN/60.;
 
 def make_source (ns,name,az,el,I=1):
   """Makes a source with a fixed azimuth/elevation direction """
@@ -67,7 +69,7 @@ def source_list (ns,basename="S",l0=None,m0=None):
   """Creates and returns selected model""";
   global az_pos, el_pos
   sources = [make_source(ns,"S",az_pos*DEG, el_pos*DEG, source_flux)]
-  return filter(lambda x:x,sources);
+  return [x for x in sources if x];
 
 TDLCompileOption("source_flux","Default source I flux, Jy",
       [1e-6,1e-3,1],more=float);

@@ -32,6 +32,9 @@ dipoles that is flat on the ground. The matrix looks like
 </TABLE>
 
 Author: O. Smirnov &lt;<tt>smirnov@astron.nl</tt>&gt;""";
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 __default_label__ = "L";
 __default_name__  = "dipole projection matrix";

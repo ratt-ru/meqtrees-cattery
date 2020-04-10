@@ -22,6 +22,11 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 """This is a Pointing module implementing solvable pointing errors.
 """;
 
@@ -32,8 +37,8 @@ from Meow import ParmGroup
 import math
 
 DEG = math.pi/180.;
-ARCMIN = DEG/60;
-ARCSEC = DEG/3600;
+ARCMIN = DEG/60.;
+ARCSEC = DEG/3600.;
 
 def compute_pointings (nodes,stations=None,label="pnt",return_parms=None,**kw):
   """Computes pointing errors for a list of stations.""";

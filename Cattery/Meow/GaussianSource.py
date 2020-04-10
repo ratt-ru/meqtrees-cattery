@@ -23,12 +23,15 @@
 # or write to the Free Software Foundation, Inc.,
 # 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 import math
 from Timba.TDL import *
 from Timba.Meq import meq
-from PointSource import *
-import Context
+from .PointSource import *
+from . import Context
 
 STOKES = ("I","Q","U","V");
 
@@ -49,13 +52,13 @@ class GaussianSource(PointSource):
                         spi,freq0,RM);
     # check for old interface, convert to new-style arguments
     if size is not None:
-      print "WARNING: using deprecated interface to Meow.GaussianSource.";
+      print("WARNING: using deprecated interface to Meow.GaussianSource.");
       if isinstance(size,(list,tuple)) and len(size) == 2:
         try:
-          smaj,smin = map(float,size);
+          smaj,smin = list(map(float,size));
           pa = -float(phi);
         except:
-          raise TypeError,"when using deprecated interface to Meow.Gaussian, extents must be scalar"
+          raise TypeError("when using deprecated interface to Meow.Gaussian, extents must be scalar")
         ratio = smin/smaj;
         fwhm_lproj = math.sin(pa)*smaj;
         fwhm_mproj = math.cos(pa)*smaj;
@@ -63,7 +66,7 @@ class GaussianSource(PointSource):
         try:
           smaj = float(size);
         except:
-          raise TypeError,"when using deprecated interface to Meow.Gaussian, extents must be scalar"
+          raise TypeError("when using deprecated interface to Meow.Gaussian, extents must be scalar")
         fwhm_lproj,fwhm_mproj,ratio = 0,smaj,1;
       # convert to normal parameters
     # create polc(s) for size
@@ -74,14 +77,14 @@ class GaussianSource(PointSource):
   def shape_static (self):
     """If shape is defined statically, returns tuple of lproj,mproj,ratio.
     Else returns None.""";
-    parms = [ self._get_constant(x) for x in 'lproj','mproj','ratio' ];
+    parms = [ self._get_constant(x) for x in ('lproj','mproj','ratio') ];
     if all([ p is not None for p in parms ]):
       return parms;
     return None;
 
   def shape (self):
     """Returns tuple of lproj,mproj,ratio.""";
-    return [ self._parm(x) for x in 'lproj','mproj','ratio' ];
+    return [ self._parm(x) for x in ('lproj','mproj','ratio') ];
 
   def coherency (self,array=None,observation=None,nodes=None,**kw):
     """Returns the Gaussian coherency (at l=m=0). We'll use PSVTensor to generate this here.

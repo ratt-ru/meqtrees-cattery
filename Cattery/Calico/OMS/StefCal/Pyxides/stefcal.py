@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from Pyxis.ModSupport import *
 
 import std,ms,lsm,mqt,im
@@ -244,12 +248,13 @@ document_globals(stefcal,"MS LSM mqt.TDLCONFIG STEFCAL_* ms.DDID ms.CHANRANGE ms
 
 def _cmp_antenna (sa,sb):
   """Helper function to sort antenna names. Try numeric compare first, fall back to text compare if failed""";
+  from past.builtins import cmp
   try:
     return cmp(int(sa),int(sb));
   except:
     return cmp(sa,sb);
 
-import cPickle
+import pickle
 
 define("FEED_TYPE","rl","feed type for plot labels: rl or xy")
 
@@ -272,11 +277,12 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
     dir = ".";
 
   info("loading diffgain solutions from $filename");
-  DG0 = cPickle.load(file(filename))
+  DG0 = pickle.load(open(filename, "rb"))
 
   DG = DG0['gains']
+  from functools import cmp_to_key
   srcnames = sorted(DG.keys())
-  antennas = sorted(DG[srcnames[0]]['solutions'].keys(),_cmp_antenna);
+  antennas = sorted(list(DG[srcnames[0]]['solutions'].keys()),key=cmp_to_key(_cmp_antenna));
   
   ylim = ylim or DIFFGAIN_PLOT_AMPL_YLIM;
   
@@ -318,9 +324,9 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
         if ylim:
           pylab.ylim(*ylim);
         if nfreq>1:
-          x = range(ntime);
+          x = list(range(ntime));
           pylab.fill_between(x,abs(sols[j][:,0]),abs(sols[j][:,-1]),color='grey')
-          pylab.plot(abs(sols[j][:,nfreq/2]))
+          pylab.plot(abs(sols[j][:,nfreq//2]))
         else:
           pylab.plot(abs(sols[j][:,0]))
         pylab.subplot(8,ncols,(j*2+1)*ncols+i+1)
@@ -328,7 +334,7 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
         if nfreq>1:
           pylab.plot(ph[:,0],'.',ms=0.5,mec='0.2')
           pylab.plot(ph[:,-1],'.',ms=0.5,mec='0.2')
-          pylab.plot(ph[:,nfreq/2],'.b',ms=0.5)
+          pylab.plot(ph[:,nfreq//2],'.b',ms=0.5)
         else:
           pylab.plot(ph[:,0],'.',ms=0.5)
         pylab.title("%s:%s:%s:phase (deg)"%(src,ant,xx));
@@ -351,9 +357,9 @@ def make_diffgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="dE",dir="$DIF
         continue;
       ntime,nfreq = sols.shape;
       if nfreq>1:
-        x = range(ntime);
+        x = list(range(ntime));
         pylab.fill_between(x,abs(sols[:,0]),abs(sols[:,-1]),color='grey')
-        pylab.plot(abs(sols[:,nfreq/2]))
+        pylab.plot(abs(sols[:,nfreq//2]))
       else:
         pylab.plot(abs(sols[:,0]))
       pylab.xticks([]);
@@ -427,7 +433,7 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
   # feed labels
   feeds = ("RR","LL","RL","LR") if FEED_TYPE.upper() == "RL" else ("XX","YY","XY","YX");  
 
-  ig = cPickle.load(file(filename))         
+  ig = pickle.load(open(filename, "rb"))         
 
   def plot_xy (content,title):
     """Plots x vs y""";
@@ -519,18 +525,18 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
           pylab.plot(i,value,'w.')
           pylab.text(i,value,label,horizontalalignment='center',verticalalignment='center',size=8,color=color)
     pylab.xlim(-1,len(content));
-    pylab.xticks(range(len(content)),[p for p,gainlist in content ]);
+    pylab.xticks(list(range(len(content))),[p for p,gainlist in content ]);
     pylab.title(title)
 
   
-  antennas = set([ p for p,q in ig.keys() ])
+  antennas = set([ p for p,q in list(ig.keys()) ])
   # plot RR vs LL offsets
   crl_diag = [ ("%s-%s"%(p,q),_normifrgain(rr),_normifrgain(ll)) 
-    for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rr,ll) ];
+    for (p,q),(rr,rl,lr,ll) in list(ig.items()) if not _is_unity(rr,ll) ];
   have_diag = bool(crl_diag);
   # plot RL vs LR offsets, if present
   crl_offdiag = [ ("%s-%s"%(p,q),_normifrgain(rl),_normifrgain(lr)) 
-    for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rl,lr) ];
+    for (p,q),(rr,rl,lr,ll) in list(ig.items()) if not _is_unity(rl,lr) ];
   have_offdiag = bool(crl_offdiag);
 
   # plot size and layout
@@ -545,13 +551,13 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     pylab.subplot(NR,NC,4);
     plot_hist(crl_diag,"IFR gain histogram for %s and %s"%feeds[:2]);
     crl = [ ("%s-%s:%s"%(p,q,feeds[0].upper()),"%s-%s:%s"%(p,q,feeds[1].upper()),_complexifrgain(rr),_complexifrgain(ll)) 
-      for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rr,ll) ];
+      for (p,q),(rr,rl,lr,ll) in list(ig.items()) if not _is_unity(rr,ll) ];
     pylab.subplot(NR,NC,1);
     plot_complex(crl,"IFR complex %s %s gains"%feeds[:2]);
     igpa = {}
     igpa0 = {}
     igpa0_means = [];
-    for (p,q),(rr,rl,lr,ll) in ig.iteritems():
+    for (p,q),(rr,rl,lr,ll) in list(ig.items()):
       rr0 = abs(numpy.array(rr)-1);
       ll0 = abs(numpy.array(ll)-1);
       rr0 = numpy.ma.masked_array(rr0,rr0==0);
@@ -567,7 +573,8 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[0]),'blue',rr));
       igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[1]),'red',ll));
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[1]),'red',ll));
-    content = [ (p,igpa[p]) for p in sorted(igpa.keys(),cmp=_cmp_antenna) ];
+      from functools import cmp_to_key
+    content = [ (p,igpa[p]) for p in sorted(list(igpa.keys()),key=cmp_to_key(_cmp_antenna)) ];
     pylab.subplot(NR,NC,2);
     plot_ants(content,"IFR %s %s gain amplitudes per antenna"%feeds[:2]);
     if baseline:
@@ -577,7 +584,8 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     pylab.savefig(II("$IFRGAIN_PLOT"),dpi=75)
     info("generated plot $IFRGAIN_PLOT")
     # make per-antenna figure
-    antennas = sorted(igpa0.keys(),_cmp_antenna);
+    from functools import cmp_to_key
+    antennas = sorted(list(igpa0.keys()),key=cmp_to_key(_cmp_antenna));
     NC = 4;
     NR = int(math.ceil(len(antennas)/float(NC)));
     offset = numpy.median(igpa0_means);
@@ -585,7 +593,7 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     for iant,pant in enumerate(antennas):
       pylab.subplot(NR,NC,iant+1);
       ig = igpa0[pant];
-      ants1 = sorted(ig.keys(),_cmp_antenna);
+      ants1 = sorted(list(ig.keys()),key=cmp_to_key(_cmp_antenna));
       rr,ll = ig[ants1[0]];
       for i,qant in enumerate(ants1):
         rr,ll = ig[qant];
@@ -612,17 +620,18 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     pylab.subplot(NR,NC,4);
     plot_hist(crl_diag,"IFR offset histogram for %s and %s"%feeds[2:]);
     crl = [ ("%s-%s:%s"%(p,q,feeds[0].upper()),"%s-%s:%s"%(p,q,feeds[1].upper()),_complexifrgain(rl),_complexifrgain(lr)) 
-      for (p,q),(rr,rl,lr,ll) in ig.iteritems() if not _is_unity(rl,lr) ];
+      for (p,q),(rr,rl,lr,ll) in list(ig.items()) if not _is_unity(rl,lr) ];
     pylab.subplot(NR,NC,1);
     plot_complex(crl_diag,"IFR complex %s %s offsets"%feeds[2:]);
     igpa = {}
-    for (p,q),(rr,rl,lr,ll) in ig.iteritems():
+    for (p,q),(rr,rl,lr,ll) in list(ig.items()):
       rr,ll = _normifrgain(rl),_normifrgain(lr);
       igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[2]),'blue',rr));
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[2]),'blue',rr));
       igpa.setdefault(p,[]).append(("%s:%s"%(q,feeds[3]),'red',ll));
       igpa.setdefault(q,[]).append(("%s:%s"%(p,feeds[3]),'red',ll));
-    content = [ (p,igpa[p]) for p in sorted(igpa.keys(),cmp=_cmp_antenna) ];
+    from functools import cmp_to_key
+    content = [ (p,igpa[p]) for p in sorted(list(igpa.keys()),key=cmp_to_key(_cmp_antenna)) ];
     pylab.subplot(NR,NC,2);
     plot_ants(content,"IFR %s %s offset amplitudes per antenna"%feeds[2:]);
     if baseline:
@@ -656,16 +665,17 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ylim_off
   _GAIN_PREFIX = prefix;
 
   info("loading gain solutions from $filename");
-  G0 = cPickle.load(file(filename))
+  G0 = pickle.load(open(filename, "rb"))
 
   G = G0['gains'][prefix]['solutions'];
-  solkeys = G.keys()
+  solkeys = list(G.keys())
   # solutions are stored either as [antenna,{0,1}] for diagonal Jones, or [antenna][{0,1,2,3}] for 2x2 Jones
   diagonal = all([ type(k) is tuple and len(k)==2 and k[1] in (0,1) for k in solkeys ])
+  from functools import cmp_to_key
   if diagonal:
-      antennas = antennas0 = sorted(set([k[0] for k in solkeys]),_cmp_antenna)
+      antennas = antennas0 = sorted(set([k[0] for k in solkeys]),key=cmp_to_key(_cmp_antenna))
   else:
-      antennas = antennas0 = sorted(solkeys,_cmp_antenna)
+      antennas = antennas0 = sorted(solkeys,key=cmp_to_key(_cmp_antenna))
   
   info("loaded solutions for %d antennas, diagonal=$diagonal"%len(antennas));
    
@@ -691,7 +701,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ylim_off
   ppminmax = 1e+99,-1e+99
   xhminmax = 1e+99,-1e+99
   for ant in antennas: 
-    for j in ( (0,1) if diagonal else range(4) ):
+    for j in ( (0,1) if diagonal else list(range(4)) ):
       if diagonal:
         gg = G[ant,j]
         xhand = False
@@ -734,7 +744,7 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ylim_off
         pylab.title("%s:%s:ampl - %s"%(ant,feed,label));
         tickstep = 10**int(math.log10(nx)-1);
         labstep = 10**int(math.log10(nx));
-        if nx/labstep < 5:
+        if nx//labstep < 5:
           labstep /= 2.;
         ax.xaxis.set_major_locator(MultipleLocator(labstep));
         ax.xaxis.set_minor_locator(MultipleLocator(tickstep));
@@ -753,8 +763,8 @@ def make_gain_plots (filename="$STEFCAL_GAIN_SAVE",prefix="G",ylim=None,ylim_off
         ax = pylab.subplot(nrows,ncols,row*ncols+icol*2+2)
         ph0 = numpy.angle(gg)*180/math.pi;
         pylab.plot(x[valid],ph0[valid],'.',ms=0.5,mec='grey',mfc='grey')
-        ph = ph0[:,ny/2];
-        xvalid = valid[:,ny/2];
+        ph = ph0[:,ny//2];
+        xvalid = valid[:,ny//2];
         if xvalid.any():
           pylab.plot(x[xvalid,0],ph[xvalid],'-',ms=0.5,mec='blue',mfc='blue',color='blue')
         pylab.title("%s:%s:phase (deg) - %s"%(ant,feed,label));
