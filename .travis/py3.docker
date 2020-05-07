@@ -11,10 +11,10 @@ RUN docker-apt-install libblitz0-dev python3-dev libblas-dev liblapack-dev libqd
 #####################################################################
 RUN mkdir /src
 WORKDIR /src
-RUN wget https://github.com/casacore/casacore/archive/v3.1.1.tar.gz
-RUN tar xvf v3.1.1.tar.gz
-RUN mkdir casacore-3.1.1/build
-WORKDIR /src/casacore-3.1.1/build
+RUN wget https://github.com/casacore/casacore/archive/v3.3.0.tar.gz
+RUN tar xvf v3.3.0.tar.gz
+RUN mkdir casacore-3.3.0/build
+WORKDIR /src/casacore-3.3.0/build
 RUN echo hello
 RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DBUILD_DEPRECATED=ON -DBUILD_PYTHON3=ON -DBUILD_PYTHON=OFF ../
 RUN make -j 4
@@ -22,9 +22,9 @@ RUN make install
 RUN ldconfig
 #RUN pip install -U --user --force-reinstall --install-option="--prefix=/usr"  pip setuptools wheel
 WORKDIR /src
-RUN wget https://github.com/casacore/python-casacore/archive/v3.1.1.tar.gz
-RUN tar xvf v3.1.1.tar.gz.1
-WORKDIR /src/python-casacore-3.1.1
+RUN wget https://github.com/casacore/python-casacore/archive/v3.3.0.tar.gz
+RUN tar xvf v3.3.0.tar.gz.1
+WORKDIR /src/python-casacore-3.3.0
 RUN pip3 install .
 WORKDIR /
 RUN python3 -c "from pyrap.tables import table as tbl"
@@ -61,14 +61,11 @@ RUN makems WSRT_makems.cfg
 #####################################################################
 WORKDIR /src
 RUN docker-apt-install git
-RUN git clone https://github.com/casacore/casarest.git
-#RUN wget https://github.com/casacore/casarest/archive/1.5.0.tar.gz
-#RUN tar xvf 1.5.0.tar.gz
-#WORKDIR /src/casarest-1.5.0
-WORKDIR /src/casarest
+RUN wget https://github.com/casacore/casarest/archive/v1.7.0.tar.gz
+RUN tar xvf v1.7.0.tar.gz
+WORKDIR /src/casarest-1.7.0
 RUN mkdir -p build
-#WORKDIR /src/casarest-1.5.0/build
-WORKDIR /src/casarest/build
+WORKDIR /src/casarest-1.7.0/build
 RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release ../
 RUN make -j 4
 RUN make install
