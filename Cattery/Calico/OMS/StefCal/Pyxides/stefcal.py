@@ -502,8 +502,8 @@ def make_ifrgain_plots (filename="$STEFCAL_DIFFGAIN_SAVE",prefix="IG",feed="$IFR
     #   for l1,l2,(x,xe),(y,ye) in content ]);
     minre, maxre, minim, maxim = 2, -2, 2, -2
     for l1,l2,(x,xe),(y,ye) in content:
-        offs = numpy.array([ getattr(v,attr)+sign*e/4 for v,e in (x,xe),(y,ye) 
-                  for attr in 'real','imag' for sign in 1,-1 ])
+        offs = numpy.array([ getattr(v,attr)+sign*e/4 for v,e in ((x,xe),(y,ye))
+                  for attr in ('real','imag') for sign in (1,-1) ])
         minre, maxre = min(x.real-xe/4, y.real-ye/4, minre), max(x.real+xe/4, y.real+ye/4, maxre)
         minim, maxim = min(x.imag-xe/4, y.imag-ye/4, minim), max(x.imag+xe/4, y.imag+ye/4, maxim)
     # plot labels
