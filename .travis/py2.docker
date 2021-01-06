@@ -31,14 +31,14 @@ WORKDIR /code
 RUN pip install .
 
 # get the test from pyxis
-RUN wget https://github.com/ska-sa/pyxis/archive/v1.7.0.tar.gz
-RUN tar -xvf v1.7.0.tar.gz
-WORKDIR /code/pyxis-1.7.0
+RUN wget https://github.com/ska-sa/pyxis/archive/v1.7.1.tar.gz
+RUN tar -xvf v1.7.1.tar.gz
+WORKDIR /code/pyxis-1.7.1
 RUN pip install .
 
 # run test when built
 RUN pip install nose
-WORKDIR /usr/local/lib/python2.7/dist-packages/Pyxis/recipies/meqtrees-batch-test
+WORKDIR /usr/local/lib/python2.7/dist-packages/Pyxis/recipes/meqtrees-batch-test
 RUN python2.7 -m "nose"
 
 ENTRYPOINT ["meqtree-pipeliner.py"]

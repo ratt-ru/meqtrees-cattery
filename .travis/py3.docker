@@ -82,13 +82,13 @@ RUN git clone -b v1.5.0 https://github.com/ska-sa/purr.git
 RUN git clone -b v1.6.0 https://github.com/ska-sa/owlcat.git
 RUN git clone -b v1.4.3 https://github.com/ska-sa/kittens.git
 RUN git clone -b v1.6.0 https://github.com/ska-sa/tigger-lsm.git
-RUN git clone -b v1.7.0 https://github.com/ska-sa/pyxis.git
+RUN git clone -b v1.7.1 https://github.com/ska-sa/pyxis.git
 
 RUN pip3 install ./purr ./owlcat ./kittens ./tigger-lsm
 RUN pip3 install -e ./pyxis
 
 WORKDIR /src
-RUN git clone -b v1.7.0 https://github.com/ska-sa/meqtrees-timba.git
+RUN git clone -b v1.8.0 https://github.com/ska-sa/meqtrees-timba.git
 RUN mkdir /src/meqtrees-timba/build
 WORKDIR /src/meqtrees-timba/build
 RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DENABLE_PYTHON_3=ON ..
@@ -104,8 +104,8 @@ RUN pyxis --help
 
 # run test when built
 RUN pip3 install nose
-WORKDIR /src/pyxis/Pyxis/recipies/meqtrees-batch-test
-RUN python3 -m "nose"
+WORKDIR /src/pyxis/Pyxis/recipes/meqtrees-batch-test
+#RUN python3 -m "nose"
 
 ENTRYPOINT ["meqtree-pipeliner.py"]
 CMD ["--help"]
