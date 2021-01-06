@@ -105,7 +105,7 @@ RUN pyxis --help
 # run test when built
 RUN pip3 install nose
 WORKDIR /src/pyxis/Pyxis/recipes/meqtrees-batch-test
-#RUN python3 -m "nose"
+RUN python3 -m "nose"
 
 ENTRYPOINT ["meqtree-pipeliner.py"]
 CMD ["--help"]

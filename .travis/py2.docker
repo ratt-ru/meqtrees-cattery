@@ -38,7 +38,7 @@ RUN pip install .
 
 # run test when built
 RUN pip install nose
-WORKDIR /usr/local/lib/python2.7/dist-packages/Pyxis/recipes/meqtrees-batch-test
+WORKDIR /code/pyxis-1.7.1/Pyxis/recipes/meqtrees-batch-test
 RUN python2.7 -m "nose"
 
 ENTRYPOINT ["meqtree-pipeliner.py"]
