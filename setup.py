@@ -62,7 +62,7 @@ install_requires = [
 
 
 setup(name='meqtrees_cattery',
-      version='1.7.0',
+      version='1.7.1',
       description='MeqTrees-based frameworks for simulation and calibration of radio interferometers ',
       author='Oleg Smirnov',
       author_email='osmirnov@gmail.com',
