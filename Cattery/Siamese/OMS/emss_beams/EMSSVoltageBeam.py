@@ -364,7 +364,7 @@ if __name__ == "__main__":
   c = vb.interpolate(l,l.T,freq=freq,freqaxis=2);
   
   # create FITS file
-  import pyfits;
+  import astropy.io.fits as pyfits;
   x = abs(c.transpose());
   hdu = pyfits.PrimaryHDU(x);
   hdr = hdu.header;

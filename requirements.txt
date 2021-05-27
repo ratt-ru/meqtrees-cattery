@@ -1,6 +1,6 @@
+astropy
 numpy
 Purr
-pyfits
 pyrap
 scipy
 Timba

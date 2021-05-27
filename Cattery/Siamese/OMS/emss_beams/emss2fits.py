@@ -139,7 +139,7 @@ separate the per-component groups with '+'.""");
   # if template FITS file is provided, get l/m/frequency grid from there
   l0 = m0 = freq = None;
   
-  import pyfits
+  import astropy.io.fits as pyfits
   if options.template:
     ff = pyfits.open(options.template);
     hdr = ff[0].header;

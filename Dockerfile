@@ -4,7 +4,7 @@ RUN docker-apt-install \
     casacore-tools \
     casarest \
     python-pip \
-    python-pyfits \
+    python-astropy \
     python-numpy \
     python-scipy \
     python-astlib \

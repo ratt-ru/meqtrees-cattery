@@ -407,7 +407,7 @@ end
 src='${SSCCM}'
 # helper function to take center quadrant
 qq=lambda x:x[0,0,x.shape[2]/4:-x.shape[2]/4,x.shape[3]/4:-x.shape[3]/4]
-import pyfits
+import astropy.io.fits as pyfits
 cc = qq(pyfits.open('$model.fits')[0].data); 
 di = qq(pyfits.open('%s-dirty.fits'%src)[0].data);
 ri = qq(pyfits.open('$residual.fits')[0].data);
