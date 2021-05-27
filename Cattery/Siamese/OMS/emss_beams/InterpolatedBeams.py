@@ -5,7 +5,7 @@ from __future__ import division
 import os.path
 import math
 import numpy
-import pyfits
+import astropy.io.fits as pyfits
 from scipy.ndimage import interpolation
 from scipy import interpolate
 
