@@ -19,6 +19,8 @@ RUN docker-apt-install \
 RUN docker-apt-install \
     wget
 
+RUN pip3 install -U pip setuptools wheel
+
 ################################
 # install latest masters
 ################################

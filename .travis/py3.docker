@@ -4,6 +4,8 @@ RUN docker-apt-install libblitz0-dev python3-dev libblas-dev liblapack-dev libqd
  libfftw3-dev python3-numpy libcfitsio-dev libboost-all-dev libboost-system-dev cmake g++ wget gfortran \
  libncurses5-dev libsofa1-dev bison libbison-dev flex libreadline6-dev python3-pip
 
+RUN pip3 install -U pip setuptools wheel
+
 # casacore wheels no longer work and we need python 3 support, so build from source
 
 #####################################################################
