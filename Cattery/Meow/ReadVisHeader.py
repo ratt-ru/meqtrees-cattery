@@ -1,4 +1,4 @@
-#!/usr/bin/env python33
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Updates various nodes in the tree based on the visibility
