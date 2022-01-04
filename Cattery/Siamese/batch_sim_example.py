@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python33
 # -*- coding: utf-8 -*-
 #
 # This shows how to run a TDL script in a pipeline (aka batch-mode, aka headless mode)

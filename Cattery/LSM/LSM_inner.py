@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python33
 #
 # The Local Sky Model (LSM)
 #
