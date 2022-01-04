@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 #############################################
 # A simple class to implement coordinate transformations such as
 # projections
