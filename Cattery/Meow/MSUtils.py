@@ -1305,7 +1305,7 @@ class ImagingSelector (object):
       imgmode = "channel";
     # form up initial argument list to run imaging script
     if self.imager_type == "lwimager":
-      _IMAGER = "python";
+      _IMAGER = "python3";
       script_name = os.path.join(Meow._meow_path,'make_dirty_image.py');
       args = [ 'python3',script_name,'data='+col ];
       offset = 0;
