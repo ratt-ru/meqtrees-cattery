@@ -1307,7 +1307,7 @@ class ImagingSelector (object):
     if self.imager_type == "lwimager":
       _IMAGER = "python";
       script_name = os.path.join(Meow._meow_path,'make_dirty_image.py');
-      args = [ 'python',script_name,'data='+col ];
+      args = [ 'python3',script_name,'data='+col ];
       offset = 0;
     else:
       _IMAGER = "glish";
