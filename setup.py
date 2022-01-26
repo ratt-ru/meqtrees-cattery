@@ -3,7 +3,6 @@
 import os
 from distutils.core import setup
 from distutils.command.install import INSTALL_SCHEMES
-import six
 
 def fullsplit(path, result=None):
     """
@@ -49,20 +48,11 @@ install_requires = [
     'astro_pyxis',
     'six'
     # 'Timba' is not on pypi
-] if six.PY3 else [
-    'numpy<=1.16', # last python 2.7 version
-    'purr',
-    'astropy<=2.0.11', # last python 2.7 version
-    'python_casacore',
-    'scipy',
-    'astro_kittens',
-    'astro_pyxis',
-    'six'
 ]
 
 
 setup(name='meqtrees_cattery',
-        version='1.7.3',
+      version='1.7.5',
       python_requires='>=3.0.0',
       description='MeqTrees-based frameworks for simulation and calibration of radio interferometers ',
       author='Oleg Smirnov',
