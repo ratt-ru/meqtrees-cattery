@@ -516,8 +516,8 @@ if not standalone:
           _voltage_beams = {};
         # get VoltageBeam object from global dict, or init new one if not already defined
         for vb_key in self._vb_keys:
-          vbs, beam_max, freq_distance, filenames = \
-            _voltage_beams.get(vb_key, (None, None, None, None))
+          vbs, beam_max, freq_distance = \
+            _voltage_beams.get(vb_key, (None, None, None))
           if vbs:
             dprint(0, "beam files", filename_real, filename_imag, "already in memory, reusing")
           else:
