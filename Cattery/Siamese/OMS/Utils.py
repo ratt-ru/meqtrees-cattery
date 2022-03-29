@@ -16,7 +16,8 @@ class json_beamconfig_reader():
   def __init__(self, beamsets, station_names, verbosity=0):
     self.__verbose = verbosity
     _verbosity.set_verbose(self.__verbose)
-    self.__beamsets = beamsets
+    self.__beamsets = beamsets if isinstance(self.__beamsets, list) else \
+                      [beamsets]
     self.__station_names = station_names
     self.__station_types = {
       "patterns": {},
