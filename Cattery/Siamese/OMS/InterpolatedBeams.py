@@ -561,8 +561,7 @@ if not standalone:
             freq_distance = max(vbs[0]._freqgrid[0] - obsfreq0, 0) + \
                             max(obsfreq1 - vbs[0]._freqgrid[-1], 0)
 
-            this_vb_key = (filename_real, filename_imag)
-            _voltage_beams.setdefault(this_vb_key, (vbs, beam_max, freq_distance))
+            _voltage_beams.setdefault(vb_key, (vbs, beam_max, freq_distance))
         
         # now select the closest from the loaded vb set from self._vb_keys
         sel_key = sorted(filter(lambda x: x in self._vb_keys, _voltage_beams),
