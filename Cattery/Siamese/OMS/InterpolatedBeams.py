@@ -489,13 +489,16 @@ if not standalone:
         # Check filename arguments, and init _vb_key for init_voltage_beams() below
         # We may be created with a single filename pair (scalar Jones term), or 4 filenames (full 2x2 matrix)
         self._vb_keys = []
-        if isinstance(self.filename_real,str) and isinstance(self.filename_imag,str):
-          self._vb_keys.append(((self.filename_real,self.filename_imag),))
-        elif len(self.filename_real) == 4 and len(self.filename_imag) == 4:          
-          self._vb_keys.append(tuple(zip(self.filename_real,self.filename_imag)))
-        else:
-          raise ValueError("filename_real/filename_imag: either a single filename, "
-                           "or lists of 4 re and 4 im filenames expected per pattern")
+        self.filename_real = [self.filename_real] if not isinstance(self.filename_real, list) else self.filename_real
+        self.filename_imag = [self.filename_imag] if not isinstance(self.filename_imag, list) else self.filename_imag
+        for (ifilename_real, ifilename_imag) in zip(self.filename_real, self.filename_imag):
+          if isinstance(ifilename_real,str) and isinstance(ifilename_imag,str):
+            self._vb_keys.append(((ifilename_real, ifilename_imag),))
+          elif len(ifilename_real) == 4 and len(ifilename_imag) == 4:          
+            self._vb_keys.append(tuple(zip(ifilename_real, ifilename_imag)))
+          else:
+            raise ValueError("filename_real/filename_imag: either a single filename, "
+                            "or lists of 4 re and 4 im filenames expected per pattern")
         # other init
         mequtils.add_axis('l');
         mequtils.add_axis('m');

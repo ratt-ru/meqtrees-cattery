@@ -111,7 +111,6 @@ def make_beam_node (beam,pattern,sttype,*children):
   # the most appropriate to use given the observation frequency
   all_filename_real = []
   all_filename_imag = []
-  all_children = []
 
   for ipattern in pattern:
     filename_real = []
@@ -135,21 +134,22 @@ def make_beam_node (beam,pattern,sttype,*children):
     if len(set(filename_real)) == 1 and len(set(filename_imag)) == 1:
       filename_real = filename_real[0]
       filename_imag = filename_imag[0]
-    # now make interpolator node
-    from . import InterpolatedBeams
-    if children[-1] is None:
-      children = children[:-1]
+    
     all_filename_real.append(filename_real)
     all_filename_imag.append(filename_imag)
-    all_children.append(children)
+
+  from . import InterpolatedBeams
+  if children[-1] is None:
+    children = children[:-1]
   
+  # now make interpolator node
   beam << Meq.PyNode(class_name="FITSBeamInterpolatorNode",module_name=InterpolatedBeams.__file__,
                      filename_real=all_filename_real,filename_imag=all_filename_imag,normalize=normalize_gains,
                      missing_is_null=missing_is_null,spline_order=spline_order,verbose=verbose_level or 0,
                      l_beam_offset=l_beam_offset*DEG,m_beam_offset=m_beam_offset*DEG, 
                      l_axis=l_axis,m_axis=m_axis,
                      ampl_interpolation=ampl_interpolation,
-                     children=all_children)
+                     children=children)
 
 def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=[],label='E',**kw):
   stations = stations or Context.array.stations
