@@ -103,7 +103,7 @@ def make_beam_filename (filename_pattern,corr,reim,stationtype=""):
 
 def make_beam_node (beam,pattern,sttype,*children):
   """Makes beam interpolator node for the given filename pattern.""";
-  if not isinstance(pattern, list):
+  if not (isinstance(pattern, list) or isinstance(pattern, tuple)):
     pattern = [pattern]
   
   # going to evaluate the beams over all beamsets 
@@ -175,14 +175,14 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
           lm = ns.lmrot(src,p) <<  Meq.MatrixMultiply(pa_rot,src.direction.lm())
         # apply offset in the node (so pointing offsets are interpreted in the azel frame, if rotating)
         make_beam_node(Jones(src,p),
-                       beamconfig.get_beamsets(p),
-                       beamconfig.get_stationtype(p),
+                       beamconfig.get_beamsets(Context.mssel.get_full_antenna_name(p)),
+                       beamconfig.get_stationtype(Context.mssel.get_full_antenna_name(p)),
                        lm,
                        pointing_offsets and pointing_offsets(p))
     else:
       make_beam_node(Jones(src),
-                     beamconfig.get_beamsets(stations[0]),
-                     beamconfig.get_stationtype(stations[0]),
+                     beamconfig.get_beamsets(Context.mssel.get_full_antenna_name(stations[0])),
+                     beamconfig.get_stationtype(Context.mssel.get_full_antenna_name(stations[0])),
                      src.direction.lm())
       for p in stations:
         Jones(src,p) << Meq.Identity(Jones(src))
@@ -235,14 +235,14 @@ def compute_jones_tensor (Jones,sources,stations,lmn=None,pointing_offsets=None,
       # apply offset in the node (so pointing offsets are interpreted in the azel frame, if rotating)
       if pointing_offsets:
         make_beam_node(Jones(p),
-                       beamconfig.get_beamsets(p),
-                       beamconfig.get_stationtype(p),
+                       beamconfig.get_beamsets(Context.mssel.get_full_antenna_name(p)),
+                       beamconfig.get_stationtype(Context.mssel.get_full_antenna_name(p)),
                        lm,
                        pointing_offsets(p))
       else:
         make_beam_node(Jones(p),
-                       beamconfig.get_beamsets(stations[0]),
-                       beamconfig.get_stationtype(stations[0]),
+                       beamconfig.get_beamsets(Context.mssel.get_full_antenna_name(p)),
+                       beamconfig.get_stationtype(Context.mssel.get_full_antenna_name(p)),
                        lm)
     
     # add inspector
@@ -251,7 +251,7 @@ def compute_jones_tensor (Jones,sources,stations,lmn=None,pointing_offsets=None,
     return Jones;
   else:
     make_beam_node(Jones,
-                   beamconfig.get_beamsets(p),
-                   beamconfig.get_stationtype(p),
+                   beamconfig.get_beamsets(Context.mssel.get_full_antenna_name(stations[0])),
+                   beamconfig.get_stationtype(Context.mssel.get_full_antenna_name(stations[0])),
                    lmn)
     return lambda p,J=Jones:J

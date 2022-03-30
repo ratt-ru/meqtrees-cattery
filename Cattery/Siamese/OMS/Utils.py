@@ -8,7 +8,7 @@ import os
 import re
 
 import Kittens.utils
-_verbosity = Kittens.utils.verbosity(name="vb");
+_verbosity = Kittens.utils.verbosity(name="siamese.oms.utils");
 dprint = _verbosity.dprint;
 dprintf = _verbosity.dprintf;
 
@@ -16,8 +16,13 @@ class json_beamconfig_reader():
   def __init__(self, beamsets, station_names, verbosity=0):
     self.__verbose = verbosity
     _verbosity.set_verbose(self.__verbose)
-    self.__beamsets = beamsets if isinstance(self.__beamsets, list) else \
-                      [beamsets]
+    if isinstance(beamsets, list) or isinstance(beamsets, tuple):
+      self.__beamsets = beamsets
+    elif isinstance(beamsets, str):
+      self.__beamsets = list(map(lambda x: x.strip(), beamsets.split(",")))      
+    else:
+      raise RuntimeError("Expected beamset patterns to be comma-separated string list or list")
+
     self.__station_names = station_names
     self.__station_types = {
       "patterns": {},
@@ -79,15 +84,15 @@ class json_beamconfig_reader():
     return example_use
 
   def get_stationtype(self, station):
-        return self.station_types["define-stationtypes"].get(
+        return self.__station_types["define-stationtypes"].get(
                     station, 
-                    self.station_types["define-stationtypes"]["cmd::default"]
+                    self.__station_types["define-stationtypes"]["cmd::default"]
         )
 
   def get_beamsets(self, station):
-      return self.station_types["patterns"].get(
-          self.__get_stationtype(station),
-          self.station_types["patterns"]["cmd::default"]
+      return self.__station_types["patterns"].get(
+          self.get_stationtype(station),
+          self.__station_types["patterns"]["cmd::default"]
       )
 
   def __load_patterns(self):
