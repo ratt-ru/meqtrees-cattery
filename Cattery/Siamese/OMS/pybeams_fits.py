@@ -153,7 +153,8 @@ def make_beam_node (beam,pattern,sttype,*children):
 
 def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=[],label='E',**kw):
   stations = stations or Context.array.stations
-  beamconfig = Utils.json_beamconfig_reader(filename_pattern, stations, verbose_level or 0)
+  stationnames = list(map(lambda p: Context.mssel.get_full_antenna_name(p), stations))
+  beamconfig = Utils.json_beamconfig_reader(filename_pattern, stationnames, verbose_level or 0)
 
   ns = Jones.Subscope()
 
@@ -200,7 +201,8 @@ def compute_jones (Jones,sources,stations=None,pointing_offsets=None,inspectors=
 
 def compute_jones_tensor (Jones,sources,stations,lmn=None,pointing_offsets=None,inspectors=[],label='E',**kw):
   stations = stations or Context.array.stations
-  beamconfig = Utils.json_beamconfig_reader(filename_pattern, stations, verbose_level or 0)
+  stationnames = list(map(lambda p: Context.mssel.get_full_antenna_name(p), stations))
+  beamconfig = Utils.json_beamconfig_reader(filename_pattern, stationnames, verbose_level or 0)
   ns = Jones.Subscope()
   
   # if sky rotation is in effect, ignore the lmn tensor

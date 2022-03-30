@@ -126,7 +126,7 @@ class json_beamconfig_reader():
                   for wildcard in map(lambda x: x[1:], 
                                       filter(lambda key: key.find("~") == 0,
                                           vels[key].get("define-stationtypes", {}).keys())):
-                      fcmatches = list(filter(lambda st: re.match(wildcard, st), self.ms.StationNames))
+                      fcmatches = list(filter(lambda st: re.match(wildcard, st), self.__station_names))
                       if len(fcmatches) == 0:
                           raise ValueError(f"No station name matches regex '{wildcard}' while parsing '{bs}'. "
                                             f"Check your station types config!")
