@@ -55,7 +55,34 @@ TDLCompileOption("filename_pattern","Filename pattern",["beam_$(xy)_$(reim).fits
   (XX/XY/YX/YY or RR/RL/LR/LL)</LI>
   <LI><B>$reim</B> or <B>$ReIm</B> or <B>$REIM</B>: "re", "Re" or "RE" for real, "im", "Im" or "IM" for imaginary</LI>
   <LI><B>$realimag</B> or <B>$RealImag</B> or <B>$REALIMAG</B>: "real", "Real" or "REAL" for real, "imag", "Imag" or "IMAG" for imaginary</LI>
-  <UL>""");
+  </UL>
+  <P>It is possible to load heterogeneous beams into this module by specifying the types via json file such as\n
+     {'lband': {\n
+        'patterns': {\n
+          'cmd::default': ['$(stype)_$(corr)_$(reim).fits',...],\n
+        },\n
+        'define-stationtypes': {\n
+          'cmd::default': 'meerkat',\n
+          'ska000': 'ska'\n
+        },\n
+        ...\n
+      }\n
+  This will substitute 'meerkat' for all antennas but ska000, with 'meerkat_$(corr)_$(reim).fits'
+  whereas beams for ska000 will be loaded from 'ska_$(corr)_$(reim).fits' in this example.\n
+  The station name may be specified as regex by adding a '~' infront of the pattern to match, e.g
+  '~ska[0-9]{3}': 'ska' will assign all the 'ska' type to all matching names such as ska000, ska001, ..., skaNNN.\n
+  Each station type in the pattern section may specify a list of patterns for different frequency ranges.\n
+  Multiple keyed dictionaries such as this may be specified within one file. They will be treated as chained
+  configurations, adding more patterns and station-types to the first such block.\n
+  Warning: Once a station is type-specialized the type applies to **ALL** chained blocks!\n
+  Blocks from more than one config file can be loaded by comma separation, e.g.
+  'conf1.json,conf2.json,...', however no block may define multiple types for any station.\n
+  If patterns for a particular station type already exists more patterns are just appended to the existing list.\n
+  Warning: where multiple patterns specify the same frequency range the first such pattern closest to the MS
+  SPW frequency coverage will be loaded.\n
+  'stype' above may be one of 'stype' or 'STYPE' to cast the station/antenna type, as defined in the json config file
+  to lower or UPPER case respectively. This is optional depending on whether station types are being used.
+  </P>""");
 TDLCompileOption("beam_type","Jones matrix type",["2x2","diagonal","scalar"],doc="""<P>
   Type of Jones matrix: full 2x2, diagonal, or scalar only. In the scalar case, the filename pattern 
   should not contain a correlation index.
