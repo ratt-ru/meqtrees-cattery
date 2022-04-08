@@ -57,7 +57,8 @@ class IfrSet (object):
   """
   ifr_spec_syntax = ifr_spec_syntax;
   def __init__ (self,station_list=None,ifr_index=None,
-                positions=None,observatory=None,label_sep=None,parent=None):
+                positions=None,observatory=None,label_sep=None,parent=None,
+                full_station_names=None):
     """Creates a set of interferometers from either
       * 'station_list': a list of station IDs
       * 'station_list': a list of (ip,p): station numbers and ID tuples.
@@ -72,6 +73,7 @@ class IfrSet (object):
           is to use "-", or "" if all station names are single-character.
       'parent' is a parent IfrSet object. If set, then information such as the above
       (position, observatory, etc.) is copied over.
+      'full_station_names: Full station names in 1:1 mapping to station_list
     """
     # init these from args or from parent IfrSet
     self.positions = positions = positions if not parent else parent.positions;
@@ -115,6 +117,14 @@ class IfrSet (object):
     # make a few more useful lists
     # _stations is just a list of all station anmes
     self._stations = [ p for ip,p in self._station_index ];
+    if parent is not None:
+      self._stationsfullnames = parent._stationsfullnames
+    elif station_list is not None and full_station_names is not None:
+      if len(station_list) != len(full_station_names):
+        raise RuntimeError("full_station_names should be as long as station_list")
+      self._stationsfullnames = dict(zip(station_list, full_station_names))
+    else:
+      self._stationsfullnames = self._stations
     # _ifrs is a list of all IFR names, as (p,q) pairs
     self._ifrs = [ (px[1],qx[1]) for px,qx in self._ifr_index ];
     # _ifr_labels is a dict of ip,iq -> IFR labels
@@ -163,6 +173,10 @@ class IfrSet (object):
   def stations (self):
     """Returns list of station names.""";
     return self._stations;
+
+  def stationfullname (self, shortname):
+    """Returns list of full station names (without longest prefix removed)"""
+    return self._stationsfullnames[shortname]
 
   def station_numbers (self):
     """Returns list of ordinal station numbers. These are not necessarily consecutive,
@@ -355,6 +369,7 @@ def from_ms (ms):
   observatory = anttab.getcol("STATION")[0];
   anttab.close();
 
+  fullnames = stations.copy()
   # trim away longest antenna name prefix
   while stations[0]:
     if len([st for st in stations[1:] if st[0] == stations[0][0]]) != len(stations)-1:
@@ -362,5 +377,8 @@ def from_ms (ms):
     stations = [ st[1:] for st in stations ];
 
   # make IfrSet object
-  return IfrSet(stations,positions=antpos,observatory=observatory);
+  return IfrSet(stations,
+                positions=antpos,
+                observatory=observatory,
+                full_station_names=fullnames)
 

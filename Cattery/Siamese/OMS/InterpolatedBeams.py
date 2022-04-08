@@ -8,6 +8,9 @@ import numpy
 from scipy.ndimage import interpolation
 from scipy import interpolate
 
+import Meow
+from Meow import Context
+
 import Kittens.utils
 _verbosity = Kittens.utils.verbosity(name="vb");
 #_verbosity.set_verbose(5)
@@ -469,6 +472,7 @@ if not standalone:
       # even after the tree has been rebuilt.)
       global _voltage_beams;
       _voltage_beams = {};
+      self._vb_key = None # leave until we select the closest beam in frequency
 
     def update_state (self,mystate):
         """Standard function to update our state""";
@@ -484,65 +488,109 @@ if not standalone:
         mystate('m_beam_offset',0.0);
         mystate('missing_is_null',False);
         # Check filename arguments, and init _vb_key for init_voltage_beams() below
-        # We may be created with a single filename pair (scalar Jones term), or 4 filenames (full 2x2 matrix)
-        if isinstance(self.filename_real,str) and isinstance(self.filename_imag,str):
-          self._vb_key = ((self.filename_real,self.filename_imag),);
-        elif  len(self.filename_real) == 4 and len(self.filename_imag) == 4:
-          self._vb_key = tuple(zip(self.filename_real,self.filename_imag));
-        else:
-          raise ValueError("filename_real/filename_imag: either a single filename, or a list of 4 filenames expected");
+        self._vb_keys = []
+        def __check_make_list(inpset):
+          if isinstance(inpset, str):
+            return [inpset]
+          elif (isinstance(inpset, tuple) or isinstance(inpset, list)):
+            if all(map(lambda x: isinstance(x, str), inpset)): # singular beamset
+              return [inpset]
+            else:
+              return inpset # treat as multiple beamsets
+        # keep the interface the same as before -- may pass in a singular beamset
+        # or a list of beamsets with different frequency coverages
+        # Each beamset may be a single filename pair (scalar Jones term), or 4 filenames (full 2x2 matrix)
+        self.filename_real = __check_make_list(self.filename_real)
+        self.filename_imag = __check_make_list(self.filename_imag)
+        for (ifilename_real, ifilename_imag) in zip(self.filename_real, self.filename_imag):
+          if isinstance(ifilename_real,str) and isinstance(ifilename_imag,str):
+            self._vb_keys.append(((ifilename_real, ifilename_imag),))
+          elif len(ifilename_real) == 4 and len(ifilename_imag) == 4:          
+            self._vb_keys.append(tuple(zip(ifilename_real, ifilename_imag)))
+          else:
+            raise ValueError("filename_real/filename_imag: either a single filename, "
+                            "or lists of 4 re and 4 im filenames expected per pattern")
         # other init
-        mequtils.add_axis('l');
-        mequtils.add_axis('m');
-        self._freqaxis = mequtils.get_axis_number("freq");
+        mequtils.add_axis('l')
+        mequtils.add_axis('m')
+        self._freqaxis = mequtils.get_axis_number("freq")
         _verbosity.set_verbose(self.verbose);
 
-    def init_voltage_beams (self):
+    def init_voltage_beams (self, grid):
         """initializes VoltageBeams for the given set of FITS files (per each _vb_key, that is).
         Returns list of 1 or 4 VoltageBeam objects."""
+        obsfreq0 = grid['freq'].min()
+        obsfreq1 = grid['freq'].max()
         # maintain a global dict of VoltageBeam objects per each filename set, so that we reuse them
         global _voltage_beams;
         if not '_voltage_beams' in globals():
           _voltage_beams = {};
         # get VoltageBeam object from global dict, or init new one if not already defined
-        vbs,beam_max = _voltage_beams.get(self._vb_key,(None,None));
-        if not vbs:
-          vbs = [];
-          for filename_real,filename_imag in self._vb_key:
-            # if files do not exist, replace with blanks
-            dprint(0,"loading beam files",filename_real,filename_imag)
-            if filename_real and not os.path.exists(filename_real) and self.missing_is_null:
-              dprint(0,"beam pattern",filename_real,"not found, using null instead")
-              filename_real = None;
-            if filename_imag and not os.path.exists(filename_imag) and self.missing_is_null:
-              dprint(0,"beam pattern",filename_imag,"not found, using null instead")
-              filename_real = None;
-            # now, create VoltageBeam if at least the real part still exists
-            if filename_real:
-              vb = LMVoltageBeam(
-                    l0=self.l_beam_offset,m0=self.m_beam_offset,
-                    l_axis=self.l_axis,m_axis=self.m_axis,
-                    ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,
-                    verbose=self.verbose);
-              vb.read(filename_real,filename_imag);
-            else:
-              vb = None;
+        for vb_key in self._vb_keys:
+          vbs, beam_max, freq_distance = \
+            _voltage_beams.get(vb_key, (None, None, None))
+          if vbs:
+            for filename_real, filename_imag in vb_key:
+              dprint(1, "beam files", filename_real, filename_imag, "already in memory, reusing")
+          else:
+            vbs = []
+            # for each correlation if multi-correlation beams
+            for filename_real, filename_imag in vb_key:
+              # if files do not exist, replace with blanks
+              dprint(1, "loading beam files", filename_real, filename_imag)
+              if filename_real and not os.path.exists(filename_real) and self.missing_is_null:
+                dprint(1,"beam pattern",filename_real, "not found, using null instead")
+                filename_real = None
+              if filename_imag and not os.path.exists(filename_imag) and self.missing_is_null:
+                dprint(1,"beam pattern",filename_imag, "not found, using null instead")
+                filename_real = None
+              # now, create VoltageBeam if at least the real part still exists
+              if filename_real:
+                vb = LMVoltageBeam(
+                      l0=self.l_beam_offset,m0=self.m_beam_offset,
+                      l_axis=self.l_axis,m_axis=self.m_axis,
+                      ampl_interpolation=self.ampl_interpolation,spline_order=self.spline_order,
+                      verbose=self.verbose)
+                vb.read(filename_real, filename_imag)
+              else:
+                vb = None
+              vbs.append(vb)
+
             # work out norm of beam
-            vbs.append(vb);
-          if not any(vbs):
-            raise RuntimeError("no beam patterns have been loaded. Please check your filename pattern")
-          if len(vbs) == 1:
-            beam_max = abs(vbs[0].beam()).max();
-          elif len(vbs) == 4:
-            xx,xy,yx,yy = [ vb.beam() if vb else 0 for vb in vbs ];
-            beam_max = math.sqrt((abs(xx)**2+abs(xy)**2+abs(yx)**2+abs(yy)**2).max()/2);
-          dprint(1,"beam max is",beam_max);
-          _voltage_beams[self._vb_key] = vbs,beam_max;
-        return vbs,beam_max;
+            if not any(vbs):
+              raise RuntimeError("no beam patterns have been loaded. Please check your filename pattern")
+            if len(vbs) == 1:
+              beam_max = abs(vbs[0].beam()).max()
+            elif len(vbs) == 4:
+              xx,xy,yx,yy = [ vb.beam() if vb else 0 for vb in vbs ]
+              beam_max = math.sqrt((abs(xx)**2+abs(xy)**2+abs(yx)**2+abs(yy)**2).max()/2)
+            else:
+              raise RuntimeError("Either 1 (scalar correlation) or 4 beams (one per correlation) should be loaded")
+            dprint(1,"beam max is",beam_max)
+            
+            # work out the distance from the Observation frequency range
+            # assume these will have matching frequency ranges
+            freq_distance = max(vbs[0]._freqgrid[0] - obsfreq0, 0) + \
+                            max(obsfreq1 - vbs[0]._freqgrid[-1], 0)
+
+            _voltage_beams.setdefault(vb_key, (vbs, beam_max, freq_distance))
+        
+        # now select the closest from the loaded vb set from self._vb_keys
+        sel_key = sorted(filter(lambda x: x in self._vb_keys, _voltage_beams),
+                         key=lambda vb_key: _voltage_beams[vb_key][2])[0]
+        sel_vbs, sel_beam_max, sel_freq_distance = _voltage_beams[sel_key]
+        if len(self._vb_keys) > 1:
+          printfn = "{%s}" % ",".join(["('%s', '%s')" % corrset for corrset in sel_key])
+          if sel_freq_distance == 0:
+              dprint(1, "beam patterns %s overlap the frequency coverage" % printfn)
+          else:
+              dprint(1, "beam patterns %s are closest to the frequency coverage (%.1f MHz max separation)" % (
+                              printfn, sel_freq_distance*1e-6))
+          dprint(1,"MS coverage is %.1f to %.1f GHz, beams are %.1f to %.1f MHz"%(
+              obsfreq0*1e-6, obsfreq1*1e-6, sel_vbs[0]._freqgrid[0]*1e-6, sel_vbs[0]._freqgrid[-1]*1e-6))
+        return sel_vbs, sel_beam_max
 
     def get_result (self,request,*children):
-      # get list of VoltageBeams
-      vbs,beam_max = self.init_voltage_beams();
       # now, figure out the lm and time/freq grid
       # lm may be a 2/3-vector or an Nx2/3 tensor
       lm = children[0];
@@ -573,6 +621,8 @@ if not standalone:
         if values is not None:
           grid[axis] = values;
       vellsets = [];
+      # init voltagebeam(s) from beamset(s)
+      vbs,beam_max = self.init_voltage_beams(grid)
       # now loop over sources and interpolte
       for isrc in range(nsrc):
         # put l,m into grid

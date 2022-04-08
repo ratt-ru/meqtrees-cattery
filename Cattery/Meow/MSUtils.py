@@ -758,6 +758,13 @@ class MSSelector (object):
       return [];
     return subset.stations();
 
+  def get_full_antenna_name (self, ifrname):
+    """ Returns the full station name for the provided ifrname"""
+    subset = self.get_ifr_subset()
+    if not subset:
+      return []
+    return subset.stationfullname(ifrname)
+
   def get_phase_dir (self):
     """Returns the phase direction of the currently selected pointing, or None if none
     is available."""
@@ -883,14 +890,17 @@ class MSSelector (object):
       if not antnames:
         Meow.dprint("Warning! This MS does not define ANTENNA names. Using antenna indices instead.")
         self.ms_antenna_names = list(map(str,list(range(anttable.nrows()))));
+        self.full_antenna_names = self.ms_antenna_names
       # else use name, but trim off longest common prefix (so that RT0,RT1,..RTD become 0,1,...,D
       else:
         prefix = len(longest_prefix(*antnames));
         self.ms_antenna_names = [ name[prefix:] for name in antnames ];
+        self.full_antenna_names = antnames
         # some broken MSs do not have unique antenna names -- replace them with indices if so
         if len(set(self.ms_antenna_names)) < len(self.ms_antenna_names):
           Meow.dprint("Warning! This MS does not define unique ANTENNA names. Using antenna indices instead.")
           self.ms_antenna_names = [ str(i) for i in range(len(self.ms_antenna_names)) ];
+          self.full_antenna_names = self.ms_antenna_names
       self.ms_antenna_positions = anttable.getcol('POSITION');
       # observatory is from observation subtable
       try:
@@ -900,7 +910,7 @@ class MSSelector (object):
         self.ms_observatory = "Unknown";
       # make IfrSet object for the full antenna set
       self.ms_ifrset = Meow.IfrArray.IfrSet(self.ms_antenna_names,observatory=self.ms_observatory,
-                                            positions=self.ms_antenna_positions);
+                                            positions=self.ms_antenna_positions,full_station_names=self.full_antenna_names);
       # show selector
       if self.ifrsel_option:
         stdsets = STD_IFR_SUBSETS.get(self.ms_observatory);

@@ -75,7 +75,7 @@ class IfrArray (object):
                observatory=None,
                ms_uvw=None,mirror_uvw=None,include_uvw_deriv=False,
                prefer_baseline_uvw=None,
-               resamplers=False,positions=None):
+               resamplers=False,positions=None,full_station_names=None):
     """Creates an IfrArray object, representing an interferometer array.
     'station_list' is a list of station IDs, not necessarily numeric.
         It can also be a list of (index,ID) tuples, when a subset of antennas
@@ -95,6 +95,7 @@ class IfrArray (object):
       This is useful when the tree is being executed under a ModRes.
     'positions' is a [nant,3] array of antenna positions, if known.
     'observatory': observatory identifier, if known
+    'full_station_names': list of full station names in 1:1 mapping to station_list
     """;
     self.ns = ns;
     self.observatory = observatory;
@@ -109,11 +110,14 @@ class IfrArray (object):
     else:
       if station_index:
         station_list = list(zip(station_index,station_list));
-      self.ifrset = IfrArray.IfrSet(station_list,positions=positions,observatory=observatory);
+      self.ifrset = IfrArray.IfrSet(station_list,
+                                    positions=positions,
+                                    observatory=observatory,
+                                    full_station_names=full_station_names)
     # expose some methods of IfrSet directly via our object
     for method in ('stations','ifrs','station_index','ifr_index','subset',
                    'baseline','baseline_vector',
-                   'station_position','number_of_station'):
+                   'station_position','number_of_station','stationfullname'):
       setattr(self,method,getattr(self.ifrset,method));
     # other init
     self._uvw_table = uvw_table;
