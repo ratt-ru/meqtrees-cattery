@@ -8,9 +8,6 @@ import numpy
 from scipy.ndimage import interpolation
 from scipy import interpolate
 
-from Cattery import Meow
-from Cattery.Meow import Context
-
 import Kittens.utils
 _verbosity = Kittens.utils.verbosity(name="vb");
 #_verbosity.set_verbose(5)

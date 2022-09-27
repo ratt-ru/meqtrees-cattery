@@ -1,0 +1,35 @@
+# Test case for testing headless install (without Timba) 
+
+FROM kernsuite/base:7
+
+RUN docker-apt-install python3-all python3-virtualenv python3-pip git
+
+# other fixed Python-only dependencies
+WORKDIR /src
+RUN git clone -b v1.5.0 https://github.com/ska-sa/purr.git
+RUN git clone -b v1.6.0 https://github.com/ska-sa/owlcat.git
+RUN git clone -b v1.4.3 https://github.com/ska-sa/kittens.git
+RUN git clone -b v1.6.0 https://github.com/ska-sa/tigger-lsm.git
+RUN git clone -b v1.7.1 https://github.com/ska-sa/pyxis.git
+
+RUN pip3 install ./purr ./owlcat ./kittens ./tigger-lsm
+RUN pip3 install -e ./pyxis
+
+# headless mode install without Timba
+WORKDIR /code
+ADD . /code/meqtrees-cattery
+RUN pip3 install ./meqtrees-cattery
+
+# check that the headless imports actually work (used by DDF and the likes)
+RUN python3 -c "import Cattery"
+RUN python3 -c "import Cattery.Siamese.OMS.Utils as Utils"
+RUN python3 -c "import Cattery.Siamese as Siamese"
+RUN python3 -c "import Cattery.Siamese.OMS.InterpolatedBeams as InterpolatedBeams"
+
+# basic unit tests
+RUN mkdir /test && \
+    pip3 install git+https://github.com/ratt-ru/eidos.git@a47fa43 nose && \
+    # check eidos install && \
+    python3 -c "import eidos" && \
+    python3 -m nose -v -s /code/meqtrees-cattery/unittests/ && \
+    rm -rf /test
