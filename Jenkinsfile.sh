@@ -21,4 +21,5 @@ cd $PROJECTS_DIR/meqtrees-cattery
 IMAGENAME="mtcatterypr"
 
 # build and test
+docker build -f .travis/headless.docker -t "${IMAGENAME}36_headless:$BUILD_NUMBER" --no-cache=true .
 docker build -f .travis/py3.docker -t "${IMAGENAME}36:$BUILD_NUMBER" --no-cache=true .
