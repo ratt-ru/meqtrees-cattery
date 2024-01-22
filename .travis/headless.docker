@@ -28,7 +28,7 @@ RUN python3 -c "import Cattery.Siamese.OMS.InterpolatedBeams as InterpolatedBeam
 
 # basic unit tests
 RUN mkdir /test && \
-    pip3 install git+https://github.com/ratt-ru/eidos.git@a47fa43 nose && \
+    pip3 install eidos nose && \
     # check eidos install && \
     python3 -c "import eidos" && \
     python3 -m nose -v -s /code/meqtrees-cattery/unittests/ && \
