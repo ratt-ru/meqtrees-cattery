@@ -83,7 +83,7 @@ WORKDIR /src
 RUN git clone -b v1.5.0 https://github.com/ska-sa/purr.git
 RUN git clone -b v1.6.0 https://github.com/ska-sa/owlcat.git
 RUN git clone -b v1.4.3 https://github.com/ska-sa/kittens.git
-RUN git clone -b v1.6.0 https://github.com/ska-sa/tigger-lsm.git
+RUN git clone -b v1.7.3 https://github.com/ska-sa/tigger-lsm.git
 RUN git clone -b v1.7.1 https://github.com/ska-sa/pyxis.git
 
 RUN pip3 install ./purr ./owlcat ./kittens ./tigger-lsm
