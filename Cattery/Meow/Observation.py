@@ -50,7 +50,7 @@ class Observation (object):
     self._quals = quals;
     self._kwquals = kwquals;
     self.phase_centre = self.phase_center = \
-        Direction(ns,None,static=bool(phase_centre),quals=quals,kwquals=kwquals,*(phase_centre or (0,0)));
+        Direction(ns,None,static=np.any(phase_centre),quals=quals,kwquals=kwquals,*(phase_centre or (0,0)));
 
   def circular (self):
     return self._circular;
