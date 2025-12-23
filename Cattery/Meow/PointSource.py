@@ -151,7 +151,7 @@ class PointSource(SkyComponent):
         nsp << Meq.Pow(fr,self._parm('spi'));
       else:
         # multi-term spectral index
-        logfr = self.ns.logfreqratio << Meq.Log(fr);
+        logfr = self.ns.logfreqratio << Meq.Log(fr)/math.log(10);
         nsp << Meq.Pow(fr,Meq.Add(self._parm('spi'),self._parm('spi_2')*logfr,
           *[ self._parm('spi_%d'%(i+1))*Meq.Pow(logfr,i) for i in range(2,self._nspi)] ));
     return nsp;
