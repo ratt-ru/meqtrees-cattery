@@ -70,8 +70,9 @@ class WSRT_cos3_beam (object):
         this incorrect beam."""),
       TDLOption('dish_sizes',"Dish size(s), m.",[25],more=str,namespace=self)
     ];
-    self._prepared = False;
-    
+    self._prepared = False
+    self.pointing_init = False
+
   def option_list (self):
     return self._options;
   
@@ -103,8 +104,11 @@ class WSRT_cos3_beam (object):
     size = self.bf*1e-9*self._sizes[min(p,len(self._sizes)-1)]/25.;
     ns = E.Subscope();
     # pointing
-    if pointing is None:
-      pointing = self.ns.dlm_0 << Meq.Constant([0,0]);
+    if pointing is None and not self.pointing_init:
+      pointing = self.ns.dlm_0 << Meq.Constant([0,0])
+      self.pointing_init = True
+    else:
+      pointing = self.ns.dlm_0
     # different invocations for elliptical and non-elliptical beams
     if self._ellnode is not None:
       E << Meq.WSRTCos3Beam(size,lm,pointing,self._ellnode,clip=clip);
