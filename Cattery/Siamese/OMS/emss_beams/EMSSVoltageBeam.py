@@ -364,25 +364,25 @@ if __name__ == "__main__":
   c = vb.interpolate(l,l.T,freq=freq,freqaxis=2);
   
   # create FITS file
-  import pyfits;
+  from astropy.io import fits as pyfits;
   x = abs(c.transpose());
   hdu = pyfits.PrimaryHDU(x);
   hdr = hdu.header;
-  hdr.update('CTYPE1','L',"");
-  hdr.update('CRPIX1',radius+1,"");
-  hdr.update('CRVAL1',0,"");
-  hdr.update('CDELT1',dp,"");
-  hdr.update('CUNIT1','DEG',"");
-  hdr.update('CTYPE2','M',"");
-  hdr.update('CRPIX2',radius+1,"");
-  hdr.update('CRVAL2',0,"");
-  hdr.update('CDELT2',dp,"");
-  hdr.update('CUNIT2','DEG',"");
-  hdr.update('CTYPE3','FREQ',"");
-  hdr.update('CRPIX3',1,"");
-  hdr.update('CRVAL3',freq0,"");
-  hdr.update('CDELT3',dfreq,"");
-  hdr.update('CUNIT3','HZ',"");
+  hdr['CTYPE1'] = 'L'
+  hdr['CRPIX1'] = radius+1
+  hdr['CRVAL1'] = 0
+  hdr['CDELT1'] = dp
+  hdr['CUNIT1'] = 'DEG'
+  hdr['CTYPE2'] = 'M'
+  hdr['CRPIX2'] = radius+1
+  hdr['CRVAL2'] = 0
+  hdr['CDELT2'] = dp
+  hdr['CUNIT2'] = 'DEG'
+  hdr['CTYPE3'] = 'FREQ'
+  hdr['CRPIX3'] = 1
+  hdr['CRVAL3'] = freq0
+  hdr['CDELT3'] = dfreq
+  hdr['CUNIT3'] = 'HZ'
   
   hdu.writeto('tmp.fits',clobber=True);
   
