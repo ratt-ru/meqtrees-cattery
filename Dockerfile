@@ -75,6 +75,3 @@ WORKDIR $BUILD/venv/lib/python3.10/site-packages/Pyxis/recipes/meqtrees-batch-te
 RUN . $BUILD/venv/bin/activate && pip install pynose
 WORKDIR $BUILD/venv/lib/python3.10/site-packages/Pyxis/recipes/meqtrees-batch-test
 RUN . $BUILD/venv/bin/activate && pynose
-
-# ENTRYPOINT ["meqtree-pipeliner.py"]
-# CMD ["--help"]
