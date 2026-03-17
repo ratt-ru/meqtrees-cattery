@@ -44,15 +44,13 @@ install_requires = [
     'astropy>=3.0.0',
     'python_casacore',
     'scipy',
-    'astro_kittens',
-    'astro_pyxis',
-    'six'
+    'astro_kittens'
     # 'Timba' is not on pypi
 ]
 
 
 setup(name='meqtrees_cattery',
-      version='1.8.0rc3',
+      version='1.8.0',
       python_requires='>=3.0.0',
       description='MeqTrees-based frameworks for simulation and calibration of radio interferometers ',
       author='Oleg Smirnov',

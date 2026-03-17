@@ -19,3 +19,5 @@ MANIFEST
 dist/
 .venv*/
 *.egg-info/
+
+Dockerfile

@@ -9,7 +9,6 @@ import Kittens.utils
 pyfits = Kittens.utils.import_pyfits
 
 import warnings
-print(pyfits.formatwarning,warnings.formatwarning)
 
 from scipy import interpolate
 
